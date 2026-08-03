@@ -31,6 +31,30 @@
   --border: oklch(0.92 0 0);
   --input: oklch(0.94 0 0);
   --ring: oklch(0 0 0);
+
+  /*
+   * SOURCE OF TRUTH KEYWORDS: brand, brand-foreground, brand-hover, brand-soft,
+   *   brand-soft-foreground, brand-border, LinkedIn blue, channel accent,
+   *   --color-brand, bg-brand, text-brand-soft-foreground
+   * WHAT:  The publishing channel's accent ramp — LinkedIn blue (#0A66C2),
+   *        expressed as a fill, a hover, a tinted surface, readable tinted text,
+   *        and a tinted border.
+   * WHY:   The base theme is deliberately monochrome, so the channel a post
+   *        ships to has no visual identity. These are semantic ("brand") rather
+   *        than literal ("linkedin") so a second channel is a value swap here,
+   *        not a find-and-replace across components. Kept as tokens because
+   *        hardcoding hex in components breaks theming.
+   * WHERE: Consumed via bg-brand / text-brand-soft-foreground / border-brand-border
+   *        by the Button `brand` variant, the LinkedIn global components, and the
+   *        post-generation composer.
+   */
+  --brand: oklch(0.546 0.151 252);
+  --brand-foreground: oklch(1 0 0);
+  --brand-hover: oklch(0.48 0.14 252);
+  --brand-soft: oklch(0.96 0.022 252);
+  --brand-soft-foreground: oklch(0.45 0.13 252);
+  --brand-border: oklch(0.88 0.045 252);
+
   --chart-1: oklch(0.81 0.17 75.35);
   --chart-2: oklch(0.55 0.22 264.53);
   --chart-3: oklch(0.72 0 0);
@@ -91,6 +115,18 @@
   --border: oklch(0.26 0 0);
   --input: oklch(0.32 0 0);
   --ring: oklch(0.72 0 0);
+
+  /* Dark is the shipped theme (forcedTheme), so this ramp is the one users see.
+   * The fill keeps LinkedIn's chroma; the soft pair drops it hard — a saturated
+   * blue on a near-black card vibrates and tires the eye, a desaturated one
+   * reads as calm. */
+  --brand: oklch(0.58 0.155 252);
+  --brand-foreground: oklch(1 0 0);
+  --brand-hover: oklch(0.65 0.15 252);
+  --brand-soft: oklch(0.24 0.045 252);
+  --brand-soft-foreground: oklch(0.8 0.09 252);
+  --brand-border: oklch(0.34 0.06 252);
+
   --chart-1: oklch(0.81 0.17 75.35);
   --chart-2: oklch(0.58 0.21 260.84);
   --chart-3: oklch(0.56 0 0);
@@ -149,6 +185,12 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-foreground: var(--brand-soft-foreground);
+  --color-brand-border: var(--brand-border);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

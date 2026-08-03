@@ -9,6 +9,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        /* Channel CTA (connect / generate / publish). Reads from the brand ramp
+         * in globals.css so the accent is a token swap, not a per-button class. */
+        brand:
+          "bg-brand text-brand-foreground hover:bg-brand-hover focus-visible:border-brand focus-visible:ring-brand/40",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

@@ -121,11 +121,24 @@ export function GenerateForm({
     <div className="flex flex-col gap-6">
       <Tabs defaultValue="topic">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="topic">
+          {/* Active tab carries the accent so the source you're generating from
+              is legible at a glance against the muted track. */}
+          {/* Both variants: the base trigger ships a `dark:data-active:` rule
+              that sorts after an unprefixed one and would otherwise win. The
+              icon inherits currentColor, so it needs no separate rule. */}
+          <TabsTrigger
+            value="topic"
+            className="data-active:text-brand-soft-foreground dark:data-active:text-brand-soft-foreground"
+          >
             <SparklesIcon className="size-4" />
             Topic
           </TabsTrigger>
-          <TabsTrigger value="blog">Blog URL</TabsTrigger>
+          <TabsTrigger
+            value="blog"
+            className="data-active:text-brand-soft-foreground dark:data-active:text-brand-soft-foreground"
+          >
+            Blog URL
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="topic" className="mt-4">
@@ -154,7 +167,7 @@ export function GenerateForm({
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={busy} className="w-full">
+              <Button type="submit" variant="brand" disabled={busy} className="w-full">
                 {isGenerating ? (
                   <Loader2Icon className="size-4 animate-spin" />
                 ) : (
@@ -191,7 +204,7 @@ export function GenerateForm({
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={busy} className="w-full">
+              <Button type="submit" variant="brand" disabled={busy} className="w-full">
                 {isGenerating ? (
                   <Loader2Icon className="size-4 animate-spin" />
                 ) : (

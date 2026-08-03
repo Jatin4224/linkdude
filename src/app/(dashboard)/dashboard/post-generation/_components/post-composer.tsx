@@ -25,7 +25,7 @@
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ImageIcon, Loader2Icon, SendIcon, XIcon } from 'lucide-react'
+import { ImageIcon, LinkIcon, Loader2Icon, SendIcon, SparklesIcon, XIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { trpc } from '@/trpc/react-provider'
@@ -199,7 +199,12 @@ export function PostComposer() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle className="text-base">What should we write about?</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <span className="flex size-7 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground">
+                <SparklesIcon className="size-4" />
+              </span>
+              What should we write about?
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <GenerateForm
@@ -276,7 +281,11 @@ export function PostComposer() {
             >
               {commentary.length} / {LINKEDIN_MAX_COMMENTARY} characters
             </p>
-            <Button onClick={handlePublish} disabled={!canPublish || publish.isPending}>
+            <Button
+              variant="brand"
+              onClick={handlePublish}
+              disabled={!canPublish || publish.isPending}
+            >
               {publish.isPending ? (
                 <Loader2Icon className="size-4 animate-spin" />
               ) : (
@@ -287,10 +296,15 @@ export function PostComposer() {
           </div>
 
           {!isConnected ? (
-            <p className="text-sm text-muted-foreground">
-              Connect your LinkedIn account to publish. You can still generate and edit copy
-              without one.
-            </p>
+            /* Tinted rather than destructive: nothing is broken, publishing is
+               just the one thing still gated. */
+            <div className="flex items-start gap-2 rounded-lg border border-brand-border bg-brand-soft p-3">
+              <LinkIcon className="mt-0.5 size-4 shrink-0 text-brand-soft-foreground" />
+              <p className="text-sm text-brand-soft-foreground">
+                Connect your LinkedIn account to publish. You can still generate and edit copy
+                without one.
+              </p>
+            </div>
           ) : null}
 
           {recentPosts.data && recentPosts.data.length > 0 ? (

@@ -74,12 +74,16 @@ export function LinkedInPostPreview({
   className,
 }: LinkedInPostPreviewProps) {
   return (
-    <Card className={cn('overflow-hidden', className)}>
+    /* The accent hairline is what makes the card read as "this is the LinkedIn
+       post", without tinting the surface the copy sits on. */
+    <Card className={cn('overflow-hidden border-t-2 border-t-brand', className)}>
       <CardContent className="flex flex-col gap-4 p-4">
         <div className="flex items-center gap-3">
-          <Avatar className="size-12">
+          <Avatar className="size-12 ring-2 ring-brand/25">
             {authorAvatarUrl ? <AvatarImage src={authorAvatarUrl} alt={authorName} /> : null}
-            <AvatarFallback>{initialsOf(authorName)}</AvatarFallback>
+            <AvatarFallback className="bg-brand-soft font-medium text-brand-soft-foreground">
+              {initialsOf(authorName)}
+            </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <p className="truncate font-semibold leading-tight">{authorName}</p>
@@ -114,7 +118,10 @@ export function LinkedInPostPreview({
 
         <div className="flex items-center justify-between text-muted-foreground">
           {REACTIONS.map(({ label, icon: Icon }) => (
-            <span key={label} className="flex items-center gap-2 text-xs font-medium">
+            <span
+              key={label}
+              className="flex items-center gap-2 rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-brand-soft hover:text-brand-soft-foreground"
+            >
               <Icon className="size-4" />
               {label}
             </span>

@@ -73,6 +73,7 @@ export function LinkedInConnectButton() {
     return (
       <Button
         size="sm"
+        variant="brand"
         /* A full-page navigation, not a fetch: the connect route sets an
          * httpOnly state cookie and 302s the browser to LinkedIn's consent
          * screen, neither of which survives a client-side transition. */
@@ -88,11 +89,19 @@ export function LinkedInConnectButton() {
 
   return (
     <div className="flex items-center gap-2">
-      <Avatar className="size-7">
-        {status.avatarUrl ? <AvatarImage src={status.avatarUrl} alt={status.name ?? ''} /> : null}
-        <AvatarFallback>{status.name?.[0]?.toUpperCase() ?? '?'}</AvatarFallback>
-      </Avatar>
-      <span className="max-w-32 truncate text-sm text-muted-foreground">{status.name}</span>
+      {/* Tinted pill: the accent is what tells you the channel is live, so the
+          connected identity carries it rather than a separate status label. */}
+      <div className="flex items-center gap-2 rounded-full border border-brand-border bg-brand-soft py-1 pr-3 pl-1">
+        <Avatar className="size-6">
+          {status.avatarUrl ? <AvatarImage src={status.avatarUrl} alt={status.name ?? ''} /> : null}
+          <AvatarFallback className="bg-brand text-xs text-brand-foreground">
+            {status.name?.[0]?.toUpperCase() ?? '?'}
+          </AvatarFallback>
+        </Avatar>
+        <span className="max-w-32 truncate text-sm font-medium text-brand-soft-foreground">
+          {status.name}
+        </span>
+      </div>
       <Button
         variant="ghost"
         size="sm"
