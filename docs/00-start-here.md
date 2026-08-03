@@ -1,10 +1,3 @@
-<!--
-  Copyright (c) 2026 Web Prodigies LLC
-
-  This source code is licensed under the MIT license found in the
-  LICENSE file in the root directory of this source tree.
--->
-
 # Start here
 
 These docs explain how this boilerplate is shaped and why. The README tells you what to do. These docs tell you how things fit together.
@@ -19,6 +12,7 @@ These docs explain how this boilerplate is shaped and why. The README tells you 
 6. `06-audit-and-rate-limit.md` — automatic audit logs and abuse protection
 7. `07-adding-a-feature.md` — a full end-to-end walkthrough
 8. `08-types-and-grep.md` — type rules and how to navigate the code
+9. `09-linkedin-post-generation.md` — a real feature built start to finish (AI + OAuth + publishing)
 
 ## If you only have five minutes
 

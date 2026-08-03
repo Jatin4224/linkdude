@@ -17,18 +17,18 @@
  *        proxy.ts bounces /sign-up here when registration is closed.
  */
 
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
 
-import { AuthForm, AuthShell } from '@/components/global/auth'
+import { AuthForm, AuthShell } from "@/components/global/auth";
 
 export const metadata: Metadata = {
-  title: 'Sign in',
-}
+  title: "Sign in",
+};
 
 export default function SignInPage() {
   return (
     <AuthShell>
       <AuthForm mode="sign-in" />
     </AuthShell>
-  )
+  );
 }

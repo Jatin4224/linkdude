@@ -77,6 +77,8 @@ model User {
   invitations      Invitation[]
   activityLogs     ActivityLog[]
   cardFingerprints CardFingerprint[]
+  linkedinAccounts LinkedInAccount[]
+  linkedinPosts    LinkedInPost[]
 
   @@map("user")
 }
@@ -190,6 +192,8 @@ model Organization {
   subscriptions     Subscription[]
   usageMetrics      UsageMetrics[]
   activityLogs      ActivityLog[]
+  linkedinAccount   LinkedInAccount?
+  linkedinPosts     LinkedInPost[]
 
   @@map("organization")
 }
@@ -386,4 +390,85 @@ model ActivityLog {
   @@index([action])
   @@index([entity])
   @@map("activity_log")
+}
+
+// ============================================================================
+// DOMAIN — LINKEDIN
+// ============================================================================
+
+/// LinkedInAccount — an organization's connected LinkedIn identity, used to
+/// publish on behalf of the member who authorized it. One connection per org
+/// (the tenancy key), so switching orgs switches the posting identity.
+///
+/// SECURITY: accessToken / refreshToken are bearer credentials. They are read
+/// ONLY inside src/services/linkedin.service.ts (which is `server-only`) and
+/// MUST NEVER be selected into a tRPC response. Connection-state queries use
+/// LINKEDIN_ACCOUNT_SAFE_SELECT, which deliberately omits both.
+///
+/// SOURCE OF TRUTH KEYWORD: LinkedInAccount
+model LinkedInAccount {
+  id             String   @id @default(cuid())
+  organizationId String   @unique // Tenant scope — one LinkedIn identity per org
+  userId         String   // The member who authorized the connection
+
+  // `urn:li:person:{sub}` — derived from the OIDC /v2/userinfo `sub` claim and
+  // used as the `author` on every published post.
+  personUrn String
+
+  // Cached profile display fields so the composer preview renders without an
+  // extra LinkedIn round trip on every page load.
+  name      String
+  avatarUrl String?
+
+  // CREDENTIALS — never expose. LinkedIn access tokens are ~60 days; a refresh
+  // token is only issued to apps approved for it, hence nullable. When it is
+  // null, expiry means the member must reconnect (surfaced in the UI).
+  accessToken           String    @db.Text
+  refreshToken          String?   @db.Text
+  expiresAt             DateTime
+  refreshTokenExpiresAt DateTime?
+  scope                 String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts        LinkedInPost[]
+
+  @@index([userId])
+  @@map("linkedin_account")
+}
+
+/// LinkedInPost — a post this app published to LinkedIn. This table is the
+/// source of truth for "recent posts": reading a member's own posts back from
+/// LinkedIn requires the `r_member_social` scope, which LinkedIn restricts to
+/// approved partners, so the feed cannot be re-fetched.
+///
+/// Feature 2 (drafts / scheduling) extends this model with a `status` column
+/// rather than introducing a parallel table.
+///
+/// SOURCE OF TRUTH KEYWORD: LinkedInPost
+model LinkedInPost {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope
+  accountId      String // The LinkedInAccount that published it
+  authorId       String // The app user who hit Publish
+
+  commentary String  @db.Text // The post body as published
+  imageUrn   String? // `urn:li:image:{id}` when media was attached
+
+  // `urn:li:share:{id}` or `urn:li:ugcPost:{id}` — returned by LinkedIn in the
+  // `x-restli-id` response header, not the body.
+  postUrn     String   @unique
+  publishedAt DateTime @default(now())
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account      LinkedInAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, publishedAt])
+  @@index([accountId])
+  @@index([authorId])
+  @@map("linkedin_post")
 }
