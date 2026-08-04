@@ -5,9 +5,11 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: profileAnalysisRouter, profileAnalysis.create
+ * SOURCE OF TRUTH KEYWORDS: profileAnalysisRouter, profileAnalysis.create,
+ *   profileAnalysis.list, profileAnalysis.discard
  *
- * WHAT:  Turns a pasted LinkedIn profile into a structured critique.
+ * WHAT:  Turns a pasted LinkedIn profile into a structured critique, keeps the
+ *        result, and reads the org's saved analyses back.
  * WHY:   Mounted as `profileAnalysis` so the path `profileAnalysis.create`
  *        matches the RESOURCES key — that is what auto-wires the per-plan
  *        analysis quota, the usage counter, the rate limit, and the permission
@@ -25,7 +27,12 @@ import { z } from "zod";
 import { createTRPCRouter } from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
-import { analyzeProfileSchema, fetchProfileSchema } from "@/lib/types";
+import {
+  analyzeProfileSchema,
+  fetchProfileSchema,
+  listAnalysesSchema,
+  discardAnalysisSchema,
+} from "@/lib/types";
 import { isAiConfigured, getAiProvider } from "@/lib/config";
 import {
   isProfileFetchConfigured,
@@ -33,6 +40,7 @@ import {
 } from "@/lib/config/profile-source";
 import * as aiService from "@/services/ai.service";
 import * as profileSourceService from "@/services/profile-source.service";
+import * as profileAnalysisService from "@/services/profile-analysis.service";
 
 export const profileAnalysisRouter = createTRPCRouter({
   /**
@@ -110,12 +118,17 @@ export const profileAnalysisRouter = createTRPCRouter({
   /**
    * SOURCE OF TRUTH KEYWORDS: profileAnalysis.create
    *
-   * WHAT:  Analyzes a profile and returns the critique un-persisted.
+   * WHAT:  Analyzes a profile, saves the critique, and returns the saved row.
    * WHY:   Named `create` (not `analyze`) so the `<resource>.<verb>` convention
-   *        fires the quota and counter wiring in protectedProcedure. Nothing is
-   *        written to the database — the result lives in the page until the user
-   *        acts on it, so the counter measures model spend, which is the thing
-   *        that actually costs money.
+   *        fires the quota and counter wiring in protectedProcedure. The counter
+   *        measures model spend, which is the thing that actually costs money —
+   *        and that is precisely why the result is PERSISTED: the charge lands
+   *        the moment the model answers, so without a row a refresh would
+   *        destroy something the org has already paid for.
+   *
+   *        The model call and the write share the procedure's transaction, so a
+   *        failed write rolls the usage increment back with it. The org is never
+   *        billed a quota unit for an analysis it cannot see.
    * WHERE: Called by the profile-analysis form.
    */
   create: protectedProcedure({
@@ -128,7 +141,7 @@ export const profileAnalysisRouter = createTRPCRouter({
     .input(
       analyzeProfileSchema.and(z.object({ organizationId: z.string().min(1) })),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       /* Fail before the quota is spent: an unconfigured key is an operator
        * problem, and the user shouldn't lose an analysis to it. */
       if (!isAiConfigured()) {
@@ -140,11 +153,21 @@ export const profileAnalysisRouter = createTRPCRouter({
       }
 
       try {
-        return await aiService.analyzeLinkedInProfile(input);
+        const analysis = await aiService.analyzeLinkedInProfile(input);
+        return await profileAnalysisService.recordAnalysis(ctx.db, {
+          organizationId: input.organizationId,
+          authorId: ctx.user.id,
+          headline: input.headline,
+          about: input.about,
+          experience: input.experience,
+          analysis,
+        });
       } catch (error) {
-        /* Provider overload (503) and schema-validation failures both land here.
-         * Re-thrown as a tRPC error so the page can render the reason inline
-         * rather than a generic 500. */
+        /* Provider overload (503), schema-validation failures, and a failed
+         * save all land here. Re-thrown as a tRPC error so the page can render
+         * the reason inline rather than a generic 500 — and, because this is
+         * inside the procedure transaction, the throw is also what rolls the
+         * usage increment back. */
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
@@ -153,5 +176,64 @@ export const profileAnalysisRouter = createTRPCRouter({
               : "Profile analysis failed. Please try again.",
         });
       }
+    }),
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: profileAnalysis.list
+   *
+   * WHAT:  This organization's saved analyses, newest first.
+   * WHY:   A read-only query, so no counter and no audit row — nothing was
+   *        spent. Gated on `read` rather than `create` so a member who may
+   *        review past critiques does not also need permission to buy new ones.
+   * WHERE: Backs the history strip on the profile-analysis page.
+   */
+  list: protectedProcedure({
+    requirePermission: permissions.PROFILE_ANALYSIS_READ,
+  })
+    .input(listAnalysesSchema.extend({ organizationId: z.string().min(1) }))
+    .query(async ({ ctx, input }) =>
+      profileAnalysisService.listAnalyses(
+        ctx.db,
+        input.organizationId,
+        input.limit,
+      ),
+    ),
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: profileAnalysis.discard
+   *
+   * WHAT:  Forgets a saved analysis.
+   * WHY:   Named `discard` and NOT `delete`, deliberately. The counter wiring in
+   *        protectedProcedure decrements on any `<resource>.delete` path, which
+   *        is right for a quota counting things HELD and wrong for this one,
+   *        which counts MODEL SPEND: the API call is already paid for, and
+   *        dropping the row does not un-spend it. Under the `delete` name,
+   *        analyze → delete → analyze would be an unlimited free tier. Renaming
+   *        the verb is the escape hatch the registry documents (see
+   *        getMutationFeatureMap in src/lib/resources.ts) — it keeps both the
+   *        server bump and the client optimistic map from firing, with no
+   *        special-casing in the infrastructure layer.
+   *
+   *        NOT_FOUND on a no-op so a stale list row reports honestly instead of
+   *        silently succeeding.
+   * WHERE: Called by the history strip's discard button.
+   */
+  discard: protectedProcedure({
+    requirePermission: permissions.PROFILE_ANALYSIS_DISCARD,
+  })
+    .input(discardAnalysisSchema.extend({ organizationId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const { count } = await profileAnalysisService.discardAnalysis(
+        ctx.db,
+        input.organizationId,
+        input.analysisId,
+      );
+      if (count === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That analysis no longer exists.",
+        });
+      }
+      return { id: input.analysisId };
     }),
 });

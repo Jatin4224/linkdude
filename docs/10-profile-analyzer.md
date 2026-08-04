@@ -24,12 +24,13 @@ This feature has a different character from the first one. Feature 1 was mostly 
 10. [Step 6 — The vendor service](#step-6--the-vendor-service)
 11. [Step 7 — The router](#step-7--the-router)
 12. [Step 8 — The UI](#step-8--the-ui)
-13. [How one request flows end to end](#how-one-request-flows-end-to-end)
-14. [Testing it](#testing-it)
-15. [Things only a live call could teach us](#things-only-a-live-call-could-teach-us)
-16. [Mistakes that are easy to make](#mistakes-that-are-easy-to-make)
-17. [What we deliberately did NOT build](#what-we-deliberately-did-not-build)
-18. [File map](#file-map)
+13. [Step 9 — Saved history, and the verb that had to change](#step-9--saved-history-and-the-verb-that-had-to-change)
+14. [How one request flows end to end](#how-one-request-flows-end-to-end)
+15. [Testing it](#testing-it)
+16. [Things only a live call could teach us](#things-only-a-live-call-could-teach-us)
+17. [Mistakes that are easy to make](#mistakes-that-are-easy-to-make)
+18. [What we deliberately did NOT build](#what-we-deliberately-did-not-build)
+19. [File map](#file-map)
 
 ---
 
@@ -841,6 +842,75 @@ A number invites arguing with the number; a label says what to do about it.
 
 ---
 
+## Step 9 — Saved history, and the verb that had to change
+
+Steps 1-8 shipped the analyzer with the result held in React state and nothing written to the database. That was a deliberate choice at the time — it matched `aiGeneration` and skipped a migration. It was also wrong, and the reason is worth stating precisely.
+
+**The quota is spent at the moment the model answers.** `profileAnalysis.create` increments the usage counter inside the procedure transaction. A free-tier org has five analyses *in total*. So an ephemeral result meant a page refresh destroyed something the org had already paid for, with no way to get it back. Post generation does not have this problem in the same way — a draft you lose can be regenerated for one more of a much larger allowance.
+
+### The model
+
+`ProfileAnalysis` stores the input and the output side by side. The input columns exist so a history row is self-contained: it can be compared against a later run without the user re-pasting anything.
+
+`score` and `summary` are **denormalised out of** the `result` JSON. The list renders a score and a one-line summary per row; without the copies, drawing the list would mean parsing a full critique payload for every entry.
+
+`result` itself is a `Json` column rather than a spread of columns, because the critique is nested — per-section feedback objects, a strengths array, an improvements array. The precedent is `ActivityLog.metadata`.
+
+### The Json column is the one place an untyped value enters the app
+
+Prisma types a `Json` column as `Prisma.JsonValue`. That is exactly the kind of value this codebase does not allow to spread. So `profile-analysis.service.ts` parses every row back through `profileAnalysisSchema` — the *same* schema `generateObject` used to produce it — before it crosses the service boundary:
+
+```ts
+function toStoredAnalysis(row: ProfileAnalysisRow): StoredProfileAnalysis | null {
+  const parsed = profileAnalysisSchema.safeParse(row.result);
+  if (!parsed.success) return null;
+  return { id: row.id, /* … */ result: parsed.data };
+}
+```
+
+`safeParse` and a `null` return, not `parse` and a throw. If the critique schema ever changes, rows written under the old shape stop parsing — and throwing would take down the entire history list, hiding every valid analysis alongside the one stale row.
+
+The payoff is at the top of the stack: `StoredProfileAnalysis.result` is typed `ProfileAnalysis`, so a critique loaded from history and a critique that just came back from the model are **the same type**. `AnalysisResult` renders both with no branch, and `ProfileAnalyzer` holds one piece of state instead of two.
+
+### The verb: `discard`, not `delete`
+
+This is the part that is easy to get wrong, and it is not a naming preference.
+
+`protectedProcedure` decrements the usage counter on any path matching `<resource>.delete` ([`src/trpc/procedures/protected.ts`](../src/trpc/procedures/protected.ts)). That behaviour is correct for a quota counting **things you hold** — delete a post, free a slot. It is wrong for this one, which counts **model spend**. The API call was already billed; removing the saved row does not un-bill it.
+
+Under the name `delete`, this sequence would be an unlimited free tier:
+
+```
+analyze  → counter 1/5
+delete   → counter 0/5   ← the money is gone, the quota is not
+analyze  → counter 1/5   ← forever
+```
+
+The registry documents the way out, in `getMutationFeatureMap`:
+
+> *Rigid by design — if a procedure should bump a counter but doesn't fit `<resource>.create` / `<resource>.delete`, **rename the procedure** rather than special-casing here.*
+
+So the verb is `discard`. That one decision keeps both the server-side bump and the client-side optimistic map from firing, and the infrastructure layer stays closed — no flag, no exception list, no edit to `protected.ts`.
+
+The UI states it in the confirmation copy, because a user who assumes a refund would otherwise clear their history to "get analyses back":
+
+> The critique and its rewrites are removed permanently. This does not return the analysis to your monthly allowance — the model call has already been paid for.
+
+`discard` also throws `NOT_FOUND` when `deleteMany` reports `count === 0`, so a stale list row reports honestly instead of silently succeeding.
+
+### The registry change that came free
+
+Adding `read` to `permissions` let `nav.requirePermission` finally be correct. Step 1 documented a workaround — the nav was pinned to `create` because `read` did not exist on the resource, and the default would have produced a permission string matching nothing. Now:
+
+```ts
+permissions: ["create", "read", "discard"],
+nav: { …, requirePermission: "read" },
+```
+
+A member who may review past critiques but not spend org quota can now reach the page. `PROFILE_ANALYSIS_READ` and `PROFILE_ANALYSIS_DISCARD` are generated by `buildPermissionConstants()` — `permissions.ts` was not touched.
+
+---
+
 ## How one request flows end to end
 
 **User pastes a URL and clicks Fetch:**
@@ -984,7 +1054,8 @@ Two patterns worth extracting:
 
 | Not built | Why | When |
 |---|---|---|
-| **Saved analysis history** | Chose ephemeral to match `aiGeneration` and skip a migration. Seeing your score improve over time is the thing that makes a profile tool sticky, though — this is the obvious next addition | Next iteration: one `ProfileAnalysis` model |
+| ~~**Saved analysis history**~~ | ~~Chose ephemeral to match `aiGeneration` and skip a migration~~ | **Built — see [Step 9](#step-9--saved-history-and-the-verb-that-had-to-change)** |
+| **Score-over-time chart** | History rows now exist, so the data is there. Held back because two data points aren't a trend and the strip already shows the movement | When a typical org has run enough analyses for a line to mean something |
 | **PDF upload** | LinkedIn's own "Save to PDF" export is free, fully compliant, richer than scraping, and immune to vendor shutdowns. Costs a PDF-parsing dependency | Strong candidate — it's the *durable* input path |
 | **Auto-apply rewrites** | Would need `w_member_social`-style write access to profile fields. LinkedIn exposes no such API | Not possible |
 | **Analyzing someone else's profile** | Works technically, but the prompt and UI assume "your profile" | Competitor analysis would be its own feature |
@@ -1004,23 +1075,26 @@ Two patterns worth extracting:
 
 ## File map
 
-**New files (8):**
+**New files (10):**
 
 ```
 src/lib/types/profile-analysis.ts                              Input, output, and vendor schemas
 src/lib/config/profile-source.ts                               Vendor registry + timeouts
 src/services/profile-source.service.ts                         Vendor HTTP + per-vendor mapping
-src/trpc/routers/profile-analysis.ts                           fetchStatus / fetch / create
+src/services/profile-analysis.service.ts                       Persistence + Json re-validation   [Step 9]
+src/trpc/routers/profile-analysis.ts                           fetchStatus / fetch / create / list / discard
 src/app/(dashboard)/dashboard/profile-analysis/page.tsx        Thin shell
   .../_components/profile-analyzer.tsx                         Orchestration + permission gating
   .../_components/profile-form.tsx                             URL field + paste fields
   .../_components/analysis-result.tsx                          Score, rewrites, copy buttons
+  .../_components/analysis-history.tsx                         Saved analyses + discard            [Step 9]
 ```
 
-**Edited files (8):**
+**Edited files (9):**
 
 ```
-src/lib/resources.ts                          + profileAnalysis entry
+prisma/schema.prisma                          + ProfileAnalysis model                             [Step 9]
+src/lib/resources.ts                          + profileAnalysis entry; + read/discard, audit, nav read
 src/lib/types/index.ts                        + re-exports
 src/lib/config/index.ts                       + AI_MAX_RETRIES, AI_TIMEOUT_MS
 src/lib/config/ai.ts                          + retry/timeout ceilings; model → gemini-flash-latest

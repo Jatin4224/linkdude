@@ -295,7 +295,14 @@ export const RESOURCES = {
   profileAnalysis: {
     name: "Profile Analysis",
     description: "Analyze a LinkedIn profile and suggest improvements",
-    permissions: ["create"],
+    /* `discard` rather than `delete` is LOAD-BEARING. The counter-bump wiring in
+     * protectedProcedure keys off the path verb: `<resource>.delete` decrements
+     * the usage counter. That is correct for a quota counting THINGS HELD, and
+     * wrong for this one, which counts MODEL SPEND — the API call is already
+     * paid for, and removing the saved row does not un-spend it. Naming the verb
+     * `delete` would make analyze → delete → analyze an unlimited free tier.
+     * Renaming the verb is the documented way out (see getMutationFeatureMap). */
+    permissions: ["create", "read", "discard"],
     /* Metered on its own budget rather than sharing aiGeneration's: an analysis
      * sends a whole profile and asks for structured output, so it costs several
      * times what a post draft does. Sharing a counter would let one analysis
@@ -320,16 +327,23 @@ export const RESOURCES = {
        * thing standing between a stuck client and a real invoice. */
       fetch: { count: 5, window: "1 m" },
     },
+    audit: {
+      entity: "profileAnalysis",
+      describe: {
+        create: "Analyzed a LinkedIn profile (score {output.score})",
+        discard: "Discarded a saved profile analysis",
+      },
+    },
     nav: {
       label: "Profile Analysis",
       href: "/dashboard/profile-analysis",
       icon: "UserSearch",
       section: "main",
-      /* REQUIRED. Defaults to 'read', which this resource does not declare —
-       * omitting it yields `profileAnalysis:read`, a permission that exists
-       * nowhere. It is cast to Permission when the nav is built, so there is no
-       * compile error: the item would simply be invisible to every non-owner. */
-      requirePermission: "create",
+      /* 'read', not 'create': viewing saved analyses is the lower bar, and a
+       * member who may review history but not spend org quota should still
+       * reach the page. (This previously read 'create' only because `read` did
+       * not exist on this resource yet.) */
+      requirePermission: "read",
     },
   },
 

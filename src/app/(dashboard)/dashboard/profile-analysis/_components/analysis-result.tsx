@@ -56,7 +56,16 @@ const BASE_BAND = {
   className: "border-destructive/40 bg-destructive/10 text-destructive",
 } as const;
 
-function bandFor(score: number): { label: string; className: string } {
+/**
+ * SOURCE OF TRUTH KEYWORDS: bandFor, SCORE_BANDS
+ *
+ * WHAT:  Maps a 0-100 score onto its band label and token classes.
+ * WHY:   Exported so the history list labels a saved score the SAME way this
+ *        pane labels a fresh one — a second copy of the thresholds would let
+ *        the two disagree about what "Strong" means.
+ * WHERE: Used here and by analysis-history.tsx.
+ */
+export function bandFor(score: number): { label: string; className: string } {
   return SCORE_BANDS.find((band) => score >= band.min) ?? BASE_BAND;
 }
 

@@ -252,3 +252,56 @@ export const profileAnalysisSchema = z.object({
   improvements: z.array(profileImprovementSchema).min(1).max(4),
 });
 export type ProfileAnalysis = z.infer<typeof profileAnalysisSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: listAnalysesSchema, ListAnalysesValues
+ *
+ * WHAT:  Input for reading an organization's saved analyses.
+ * WHY:   Mirrors listPostsSchema — a bounded `take` rather than open pagination,
+ *        because the history is a sidebar strip, not a browsable archive, and
+ *        each row carries a full critique payload.
+ * WHERE: Router input for profileAnalysis.list.
+ */
+export const listAnalysesSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(10),
+});
+export type ListAnalysesValues = z.infer<typeof listAnalysesSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: discardAnalysisSchema, DiscardAnalysisValues
+ *
+ * WHAT:  Identifies a saved analysis to forget.
+ * WHY:   Named "discard", not "delete", throughout the stack — the verb decides
+ *        whether the usage counter is refunded, and this one must NOT refund.
+ *        See the router procedure for the full reasoning.
+ * WHERE: Router input for profileAnalysis.discard.
+ */
+export const discardAnalysisSchema = z.object({
+  analysisId: z.string().min(1),
+});
+export type DiscardAnalysisValues = z.infer<typeof discardAnalysisSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: StoredProfileAnalysis
+ *
+ * WHAT:  A persisted analysis as it leaves the server — row metadata plus the
+ *        critique itself.
+ * WHY:   `result` is typed ProfileAnalysis rather than Prisma.JsonValue. The row
+ *        is stored in a Json column, so Prisma hands back an untyped value; the
+ *        service parses it through profileAnalysisSchema before it crosses this
+ *        boundary, which keeps the UI reading the SAME type whether a critique
+ *        just came from the model or was loaded from history — AnalysisResult
+ *        renders both without a branch.
+ * WHERE: Returned by profileAnalysis.create and profileAnalysis.list; consumed
+ *        by the analyzer page and its history list.
+ */
+export interface StoredProfileAnalysis {
+  id: string;
+  /** Denormalised for the list; always equals `result.score`. */
+  score: number;
+  /** Denormalised for the list; always equals `result.summary`. */
+  summary: string;
+  headline: string;
+  createdAt: Date;
+  result: ProfileAnalysis;
+}

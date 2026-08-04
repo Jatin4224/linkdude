@@ -7,15 +7,19 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: ProfileAnalyzer
+ * SOURCE OF TRUTH KEYWORDS: ProfileAnalyzer, StoredProfileAnalysis
  *
- * WHAT:  The Profile Analysis screen — paste form on the left, critique on the
- *        right.
+ * WHAT:  The Profile Analysis screen — paste form and saved-analysis history on
+ *        the left, critique on the right.
  * WHY:   Two panes rather than a wizard so the user can edit an input and
  *        re-run without losing sight of the previous verdict. The Analyze button
  *        is gated on `profileAnalysis:create` client-side as well as on the
  *        server, so a member without the permission sees a disabled control and
  *        an explanation instead of clicking into a FORBIDDEN toast.
+ *
+ *        A fresh analysis and a history entry are the SAME type
+ *        (StoredProfileAnalysis), so one piece of state drives the result pane
+ *        and AnalysisResult never branches on where the critique came from.
  * WHERE: Rendered by the profile-analysis page. Calls profileAnalysis.create.
  */
 
@@ -32,23 +36,28 @@ import type {
   AnalyzeProfileValues,
   FetchProfileValues,
   FetchedProfile,
-  ProfileAnalysis,
+  StoredProfileAnalysis,
 } from "@/lib/types";
 import { ContentLayout } from "@/components/global/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileForm } from "./profile-form";
 import { AnalysisResult } from "./analysis-result";
+import { AnalysisHistory } from "./analysis-history";
 
 export function ProfileAnalyzer() {
   const organizationId = useActiveOrganizationId();
   const { hasPermission } = useActiveOrganization();
+  const utils = trpc.useUtils();
 
-  const [analysis, setAnalysis] = React.useState<ProfileAnalysis | null>(null);
+  const [selected, setSelected] = React.useState<StoredProfileAnalysis | null>(
+    null,
+  );
   const [fetched, setFetched] = React.useState<FetchedProfile | null>(null);
 
   const enabled = organizationId !== undefined;
   const orgId = organizationId ?? "";
   const canAnalyze = hasPermission(permissions.PROFILE_ANALYSIS_CREATE);
+  const canReadHistory = hasPermission(permissions.PROFILE_ANALYSIS_READ);
 
   /* Whether a vendor key is configured is a server fact, so it is read from the
    * server rather than guessed client-side — the URL tab is hidden entirely on
@@ -59,9 +68,15 @@ export function ProfileAnalyzer() {
   );
 
   const analyze = trpc.profileAnalysis.create.useMutation({
-    onSuccess: (result) => {
-      setAnalysis(result);
+    onSuccess: async (result) => {
+      setSelected(result);
       toast.success("Profile analyzed.");
+      /* The new row belongs at the top of the history, and the analysis quota
+         just moved — both are read from the server, so both are refetched. */
+      await Promise.all([
+        utils.profileAnalysis.list.invalidate(),
+        utils.usage.invalidate(),
+      ]);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -82,6 +97,12 @@ export function ProfileAnalyzer() {
   function handleFetch(values: FetchProfileValues) {
     if (!enabled || !canAnalyze) return;
     fetchProfile.mutate({ ...values, organizationId: orgId });
+  }
+
+  /* Only clears the pane when the discarded row is the one on screen —
+     discarding an older entry should not disturb what the user is reading. */
+  function handleDiscarded(analysisId: string) {
+    setSelected((current) => (current?.id === analysisId ? null : current));
   }
 
   return (
@@ -117,8 +138,8 @@ export function ProfileAnalyzer() {
           </CardContent>
         </Card>
 
-        {analysis ? (
-          <AnalysisResult analysis={analysis} />
+        {selected ? (
+          <AnalysisResult analysis={selected.result} />
         ) : (
           <Card className="h-fit">
             <CardContent className="p-8 text-center">
@@ -130,6 +151,19 @@ export function ProfileAnalyzer() {
             </CardContent>
           </Card>
         )}
+
+        {/* Spans the form column only, so history sits under the input it came
+            from rather than pushing the critique down the page. */}
+        {enabled && canReadHistory ? (
+          <div className="lg:col-start-1">
+            <AnalysisHistory
+              organizationId={orgId}
+              selectedId={selected?.id ?? null}
+              onSelect={setSelected}
+              onDiscarded={handleDiscarded}
+            />
+          </div>
+        ) : null}
       </div>
     </ContentLayout>
   );

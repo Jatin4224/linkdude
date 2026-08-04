@@ -128,6 +128,8 @@ export {
   apifyProfileSchema,
   scrapedErrorItemSchema,
   profileSourceSchema,
+  listAnalysesSchema,
+  discardAnalysisSchema,
   PROFILE_SOURCE_KEYS,
   LINKEDIN_PROFILE_URL_PATTERN,
   PROFILE_HEADLINE_MAX,
@@ -144,4 +146,7 @@ export type {
   BrightDataProfile,
   ApifyProfile,
   ProfileSource,
+  ListAnalysesValues,
+  DiscardAnalysisValues,
+  StoredProfileAnalysis,
 } from "./profile-analysis";
