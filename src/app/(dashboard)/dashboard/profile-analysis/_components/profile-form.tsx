@@ -32,6 +32,7 @@ import {
   type FetchProfileValues,
   type FetchedProfile,
 } from "@/lib/types";
+import { FeatureGate } from "@/components/feature-gate";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -224,19 +225,27 @@ export function ProfileForm({
             )}
           />
 
-          <Button
-            type="submit"
-            variant="brand"
-            disabled={busy}
-            className="w-full"
-          >
-            {isAnalyzing ? (
-              <Loader2Icon className="size-4 animate-spin" />
-            ) : (
-              <SparklesIcon className="size-4" />
-            )}
-            Analyze Profile
-          </Button>
+          {/* Gated at the BUTTON, not the form: FeatureGate clones one child to
+              intercept its onClick, and at the cap it calls preventDefault —
+              which suppresses the submit — then opens the upgrade modal. Without
+              this the click fires a request that comes back as a red toast, with
+              no path to fixing it. The server check is unchanged; this is the
+              difference between being told no and being offered the upgrade. */}
+          <FeatureGate resource="profileAnalysis">
+            <Button
+              type="submit"
+              variant="brand"
+              disabled={busy}
+              className="w-full"
+            >
+              {isAnalyzing ? (
+                <Loader2Icon className="size-4 animate-spin" />
+              ) : (
+                <SparklesIcon className="size-4" />
+              )}
+              Analyze Profile
+            </Button>
+          </FeatureGate>
         </form>
       </Form>
     </div>

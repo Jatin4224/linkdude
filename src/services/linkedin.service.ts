@@ -538,14 +538,20 @@ export async function listPublishedPosts(
 /**
  * SOURCE OF TRUTH KEYWORDS: deletePublishedPost
  *
- * WHAT:  Forgets our local record of a post.
+ * WHAT:  Forgets our local record of a post. Returns how many rows actually went.
  * WHY:   Scoped by organizationId as well as id so one tenant can never delete
  *        another's row by guessing a cuid. Does NOT delete from LinkedIn.
+ *
+ *        The `count` is returned rather than swallowed because the caller's
+ *        return value drives the usage counter: computeDeleteDecrement in
+ *        protectedProcedure only honours a `count` field, and anything else
+ *        decrements by 1. Returning void meant deleting an already-deleted or
+ *        other-tenant post still refunded a post slot.
  */
 export async function deletePublishedPost(
   db: DbClient,
   organizationId: string,
   postId: string,
-): Promise<void> {
-  await db.linkedInPost.deleteMany({ where: { id: postId, organizationId } });
+): Promise<{ count: number }> {
+  return db.linkedInPost.deleteMany({ where: { id: postId, organizationId } });
 }

@@ -139,17 +139,30 @@ export const linkedinPostsRouter = createTRPCRouter({
    * WHAT:  Removes our local record of a post.
    * WHY:   Explicitly does NOT delete from LinkedIn — the post stays live on the
    *        member's feed. Named `delete` so the auto-wired counter decrements.
+   *
+   *        Returns the `count` from the delete, NOT `{ id }`. The counter math
+   *        in protectedProcedure reads a `count` field off the result and falls
+   *        back to decrementing by 1 for anything else — so returning the id
+   *        meant deleting a row that did not exist (a stale list entry, another
+   *        tenant's id) still handed back a post slot. That is the DELETE NO-OP
+   *        rule; `count: 0` correctly moves nothing.
    */
   delete: protectedProcedure({
     requirePermission: permissions.LINKEDIN_POSTS_DELETE,
   })
     .input(deletePostSchema.extend(withOrganization.shape))
     .mutation(async ({ ctx, input }) => {
-      await linkedinService.deletePublishedPost(
+      const { count } = await linkedinService.deletePublishedPost(
         ctx.db,
         input.organizationId,
         input.postId,
       );
-      return { id: input.postId };
+      if (count === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That post record no longer exists.",
+        });
+      }
+      return { id: input.postId, count };
     }),
 });

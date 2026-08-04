@@ -43,19 +43,21 @@ export interface RecordAnalysisArgs extends AnalyzeProfileValues {
  *
  * WHAT:  The field set every read of this table returns.
  * WHY:   Named so the write path and the read path cannot drift — both build a
- *        StoredProfileAnalysis from exactly these columns. `about`/`experience`
- *        are deliberately excluded: they are stored for re-runs, not for the
- *        list, and shipping full profile text for every row would bloat the
- *        response for no rendered benefit.
+ *        StoredProfileAnalysis from exactly these columns.
  * WHERE: Used by recordAnalysis and listAnalyses below.
  */
 const PROFILE_ANALYSIS_LIST_SELECT = {
   id: true,
   score: true,
   summary: true,
-  headline: true,
   createdAt: true,
   result: true,
+  /* The original input. Selected because a history row is re-runnable: the user
+   * reloads it, edits a line, and analyzes again. Without these the columns
+   * would be written on every analysis and never read. */
+  headline: true,
+  about: true,
+  experience: true,
 } as const satisfies Prisma.ProfileAnalysisSelect;
 
 type ProfileAnalysisRow = Prisma.ProfileAnalysisGetPayload<{
@@ -80,9 +82,28 @@ function toStoredAnalysis(row: ProfileAnalysisRow): StoredProfileAnalysis | null
     id: row.id,
     score: row.score,
     summary: row.summary,
-    headline: row.headline,
     createdAt: row.createdAt,
     result: parsed.data,
+    input: toAnalyzeInput(row),
+  };
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: toAnalyzeInput
+ *
+ * WHAT:  Rebuilds the AnalyzeProfileValues a row was produced from.
+ * WHY:   `experience` is nullable in the column and OPTIONAL in the schema, and
+ *        `exactOptionalPropertyTypes` treats those as different things — an
+ *        explicit `undefined` is not a legal value for an optional property. So
+ *        the key is omitted entirely when the user skipped it, rather than set
+ *        to undefined, which keeps the reloaded form identical to the original
+ *        submission.
+ */
+function toAnalyzeInput(row: ProfileAnalysisRow): AnalyzeProfileValues {
+  return {
+    headline: row.headline,
+    about: row.about,
+    ...(row.experience === null ? {} : { experience: row.experience }),
   };
 }
 
@@ -127,9 +148,9 @@ export async function recordAnalysis(
       id: row.id,
       score: row.score,
       summary: row.summary,
-      headline: row.headline,
       createdAt: row.createdAt,
       result: args.analysis,
+      input: toAnalyzeInput(row),
     }
   );
 }

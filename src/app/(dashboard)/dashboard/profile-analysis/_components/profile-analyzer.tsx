@@ -39,6 +39,7 @@ import type {
   StoredProfileAnalysis,
 } from "@/lib/types";
 import { ContentLayout } from "@/components/global/page-header";
+import { UsageMeter } from "@/components/global/usage-meter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileForm } from "./profile-form";
 import { AnalysisResult } from "./analysis-result";
@@ -105,6 +106,22 @@ export function ProfileAnalyzer() {
     setSelected((current) => (current?.id === analysisId ? null : current));
   }
 
+  /* Refills the form from a past run so it can be edited and analyzed again.
+     Routed through the same `fetched` prop a vendor lookup uses because the job
+     is identical — put these values in the fields — and a second prefill path
+     would be a second way for the form to get out of sync. `name: null` keeps
+     the "Loaded <name>" confirmation line off; it belongs to the URL flow. */
+  function handleReuse(analysis: StoredProfileAnalysis) {
+    setSelected(analysis);
+    setFetched({
+      headline: analysis.input.headline,
+      about: analysis.input.about,
+      experience: analysis.input.experience ?? "",
+      name: null,
+    });
+    toast.success("Loaded into the form — edit and analyze again.");
+  }
+
   return (
     <ContentLayout title="Profile Analysis">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
@@ -120,6 +137,10 @@ export function ProfileAnalyzer() {
               LinkedIn doesn&apos;t let apps read profile text, so paste yours
               in below.
             </p>
+            {/* Above the form, not below it: an analysis is billed the moment it
+                runs, so the remaining count has to be visible while the user is
+                still deciding whether to spend one. */}
+            <UsageMeter resource="profileAnalysis" />
             <ProfileForm
               onAnalyze={handleAnalyze}
               onFetch={handleFetch}
@@ -160,6 +181,7 @@ export function ProfileAnalyzer() {
               organizationId={orgId}
               selectedId={selected?.id ?? null}
               onSelect={setSelected}
+              onReuse={handleReuse}
               onDiscarded={handleDiscarded}
             />
           </div>

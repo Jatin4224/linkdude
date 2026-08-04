@@ -309,7 +309,10 @@ export const RESOURCES = {
      * silently eat a handful of drafts. */
     limit: {
       perPlan: {
-        free: 5,
+        /* 3, not 5: a free analysis costs a model call, and the URL path that
+         * usually precedes it costs a paid vendor lookup on top. Free users
+         * generate no revenue against either. */
+        free: 3,
         starter: 50,
         pro: 300,
         enterprise: "unlimited",
@@ -324,8 +327,17 @@ export const RESOURCES = {
       create: { count: 5, window: "1 m" },
       /* URL lookups bill per call to a third-party vendor and do NOT increment
        * the usage counter (only create/delete do), so this limiter is the only
-       * thing standing between a stuck client and a real invoice. */
-      fetch: { count: 5, window: "1 m" },
+       * thing standing between a stuck client and a real invoice.
+       *
+       * Per HOUR, not per minute: 5/min is 300/hour sustained, which is a real
+       * Apify bill from one account. 20/hour still clears any human workflow
+       * while capping a stuck or scripted client at ~7% of the old ceiling.
+       *
+       * This is a blunt instrument and deliberately not tightened further —
+       * rate limits here are NOT per-plan, so anything strict enough to contain
+       * a free account would also throttle a paying one. The real fix is to
+       * give lookups their own perPlan quota; see profileLookup in the docs. */
+      fetch: { count: 20, window: "1 h" },
     },
     audit: {
       entity: "profileAnalysis",
@@ -339,11 +351,18 @@ export const RESOURCES = {
       href: "/dashboard/profile-analysis",
       icon: "UserSearch",
       section: "main",
-      /* 'read', not 'create': viewing saved analyses is the lower bar, and a
-       * member who may review history but not spend org quota should still
-       * reach the page. (This previously read 'create' only because `read` did
-       * not exist on this resource yet.) */
-      requirePermission: "read",
+      /* REQUIRED, and deliberately 'create' rather than the more natural 'read'.
+       *
+       * Custom roles store one OrganizationRole row per literal
+       * `resource:permission` string, and nothing backfills them when a new
+       * permission is added to this registry. `profileAnalysis:read` did not
+       * exist when any current role was created, so gating the nav on it would
+       * remove this page from every existing custom-role member — silently,
+       * exactly like the `as Permission` trap this comment used to describe.
+       *
+       * Switch this to 'read' only alongside a backfill that grants
+       * profileAnalysis:read to the roles that already hold :create. */
+      requirePermission: "create",
     },
   },
 

@@ -138,8 +138,8 @@ export function TRPCReactProvider({ children }: { children: React.ReactNode }) {
                * `exactOptionalPropertyTypes`. Rebuild a clean RequestInit
                * with `credentials: 'include'` for cookie forwarding; spread
                * to forward future tRPC additions (cache, priority, ...). */
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DOM RequestInit boundary, see comment.
               const init: RequestInit = {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DOM RequestInit boundary, see comment above.
                 ...(options as any),
                 credentials: "include",
               };

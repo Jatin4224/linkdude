@@ -301,7 +301,13 @@ export interface StoredProfileAnalysis {
   score: number;
   /** Denormalised for the list; always equals `result.summary`. */
   summary: string;
-  headline: string;
   createdAt: Date;
   result: ProfileAnalysis;
+  /**
+   * The exact input this critique was produced from. Returned — not just
+   * stored — so a past run can be reloaded into the form and re-analyzed after
+   * an edit. Columns that are written but never read are pure cost; this is
+   * what makes keeping them correct.
+   */
+  input: AnalyzeProfileValues;
 }
