@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -21,45 +20,56 @@
  *        src/components/global/sidebar.
  */
 
-import { redirect } from 'next/navigation'
-import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
+import { redirect } from "next/navigation";
+import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 
-import { getCachedSession } from '@/lib/better-auth/auth'
-import { createTRPCContext } from '@/trpc/init'
-import { getQueryClient, trpc } from '@/trpc/server'
-import { AUTH_ROUTES, ROUTES, PORTAL_PATH, isPortalOwnerEmail } from '@/lib/config'
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-import { AppSidebar } from '@/components/global/sidebar'
+import { getCachedSession } from "@/lib/better-auth/auth";
+import { createTRPCContext } from "@/trpc/init";
+import { getQueryClient, trpc } from "@/trpc/server";
+import {
+  AUTH_ROUTES,
+  ROUTES,
+  PORTAL_PATH,
+  isPortalOwnerEmail,
+} from "@/lib/config";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/global/sidebar";
 
 export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const session = await getCachedSession()
-  if (!session) redirect(AUTH_ROUTES.signIn)
+  const session = await getCachedSession();
+  if (!session) redirect(AUTH_ROUTES.signIn);
 
-  const ctx = await createTRPCContext()
-  await ctx.resolveAuth()
-  const activeOrganization = await ctx.getActiveOrganization()
+  const ctx = await createTRPCContext();
+  await ctx.resolveAuth();
+  const activeOrganization = await ctx.getActiveOrganization();
   if (!activeOrganization) {
     /* A fresh platform-admin owner (no org yet) belongs in /portal, which
      * bootstraps their portal org — not the tenant onboarding flow. */
-    if (isPortalOwnerEmail(session.user.email)) redirect(PORTAL_PATH)
-    redirect(ROUTES.onboarding)
+    if (isPortalOwnerEmail(session.user.email)) redirect(PORTAL_PATH);
+    redirect(ROUTES.onboarding);
   }
 
   /* Prefetch everything the sidebar/user-menu read, then hydrate — the client
    * components resolve from cache on first paint (no flicker). */
-  const queryClient = getQueryClient()
+  const queryClient = getQueryClient();
   await Promise.all([
-    queryClient.prefetchQuery(trpc.organization.getActiveOrganization.queryOptions()),
-    queryClient.prefetchQuery(trpc.organization.getUserOrganizations.queryOptions()),
     queryClient.prefetchQuery(
-      trpc.usage.getFeatureGates.queryOptions({ organizationId: activeOrganization.id })
+      trpc.organization.getActiveOrganization.queryOptions(),
+    ),
+    queryClient.prefetchQuery(
+      trpc.organization.getUserOrganizations.queryOptions(),
+    ),
+    queryClient.prefetchQuery(
+      trpc.usage.getFeatureGates.queryOptions({
+        organizationId: activeOrganization.id,
+      }),
     ),
     queryClient.prefetchQuery(trpc.user.getProfile.queryOptions()),
-  ])
+  ]);
 
   return (
     <SidebarProvider>
@@ -68,5 +78,5 @@ export default async function DashboardLayout({
         <SidebarInset>{children}</SidebarInset>
       </HydrationBoundary>
     </SidebarProvider>
-  )
+  );
 }

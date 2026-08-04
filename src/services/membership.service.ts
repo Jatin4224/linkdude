@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -17,10 +16,10 @@
  *        and anywhere the active-org lookup needs the full membership list.
  */
 
-import 'server-only'
+import "server-only";
 
-import { cache } from 'react'
-import { prisma } from '@/lib/config'
+import { cache } from "react";
+import { prisma } from "@/lib/config";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getUserMemberships
@@ -34,6 +33,6 @@ export const getUserMemberships = cache(async (userId: string) => {
   return prisma.member.findMany({
     where: { userId },
     include: { organization: true },
-    orderBy: { createdAt: 'desc' },
-  })
-})
+    orderBy: { createdAt: "desc" },
+  });
+});

@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AnalysisResult, AnalysisResultProps, ScoreDial,
@@ -20,18 +19,18 @@
  * WHERE: Rendered by profile-analyzer.tsx once the mutation resolves.
  */
 
-import * as React from 'react'
-import { CheckIcon, CopyIcon, LightbulbIcon, ThumbsUpIcon } from 'lucide-react'
-import { toast } from 'sonner'
+import * as React from "react";
+import { CheckIcon, CopyIcon, LightbulbIcon, ThumbsUpIcon } from "lucide-react";
+import { toast } from "sonner";
 
-import type { ProfileAnalysis, SectionFeedback } from '@/lib/types'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
+import type { ProfileAnalysis, SectionFeedback } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 export interface AnalysisResultProps {
-  analysis: ProfileAnalysis
+  analysis: ProfileAnalysis;
 }
 
 /* Bands rather than a raw number alone: the label tells the user what the score
@@ -39,46 +38,46 @@ export interface AnalysisResultProps {
 const SCORE_BANDS = [
   {
     min: 75,
-    label: 'Strong',
-    className: 'border-brand-border bg-brand-soft text-brand-soft-foreground',
+    label: "Strong",
+    className: "border-brand-border bg-brand-soft text-brand-soft-foreground",
   },
   {
     min: 50,
-    label: 'Solid, needs sharpening',
-    className: 'border-border bg-muted text-foreground',
+    label: "Solid, needs sharpening",
+    className: "border-border bg-muted text-foreground",
   },
-] as const
+] as const;
 
 /* The floor case, declared separately rather than as a `min: 0` row so the
  * lookup below returns a total result — indexing the array for a fallback would
  * be `possibly undefined` under noUncheckedIndexedAccess. */
 const BASE_BAND = {
-  label: 'Needs work',
-  className: 'border-destructive/40 bg-destructive/10 text-destructive',
-} as const
+  label: "Needs work",
+  className: "border-destructive/40 bg-destructive/10 text-destructive",
+} as const;
 
 function bandFor(score: number): { label: string; className: string } {
-  return SCORE_BANDS.find((band) => score >= band.min) ?? BASE_BAND
+  return SCORE_BANDS.find((band) => score >= band.min) ?? BASE_BAND;
 }
 
 /* Copy is the primary action on every rewrite — the user came here to paste
  * something into LinkedIn, not to retype it. */
 function CopyButton({ text, label }: { text: string; label: string }) {
-  const [copied, setCopied] = React.useState(false)
+  const [copied, setCopied] = React.useState(false);
 
   React.useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 2000)
-    return () => clearTimeout(timer)
-  }, [copied])
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
     } catch {
       /* Clipboard access is denied in insecure contexts and some browsers. */
-      toast.error('Could not copy. Select the text and copy manually.')
+      toast.error("Could not copy. Select the text and copy manually.");
     }
   }
 
@@ -90,18 +89,22 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       onClick={handleCopy}
       aria-label={`Copy ${label}`}
     >
-      {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? (
+        <CheckIcon className="size-4" />
+      ) : (
+        <CopyIcon className="size-4" />
+      )}
+      {copied ? "Copied" : "Copy"}
     </Button>
-  )
+  );
 }
 
 function RewriteBlock({
   title,
   feedback,
 }: {
-  title: string
-  feedback: SectionFeedback
+  title: string;
+  feedback: SectionFeedback;
 }) {
   return (
     <Card>
@@ -119,24 +122,28 @@ function RewriteBlock({
         </p>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export function AnalysisResult({ analysis }: AnalysisResultProps) {
-  const band = bandFor(analysis.score)
+  const band = bandFor(analysis.score);
 
   return (
     <div className="flex flex-col gap-4">
       <Card className="border-t-2 border-t-brand">
         <CardContent className="flex flex-col gap-4 p-4">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-3xl font-semibold tabular-nums">{analysis.score}</span>
+            <span className="text-3xl font-semibold tabular-nums">
+              {analysis.score}
+            </span>
             <span className="text-sm text-muted-foreground">/ 100</span>
             <Badge variant="outline" className={band.className}>
               {band.label}
             </Badge>
           </div>
-          <p className="text-sm leading-relaxed text-muted-foreground">{analysis.summary}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {analysis.summary}
+          </p>
         </CardContent>
       </Card>
 
@@ -185,5 +192,5 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -21,12 +20,12 @@
  *        against these schemas so the client and server agree byte-for-byte.
  */
 
-import { z } from 'zod'
+import { z } from "zod";
 
 /* Server (auth.ts) does not impose a max; Better Auth's own bcrypt path
  * caps at 72 bytes, but most users will not see that. The 8-character
  * minimum matches the `minLength={8}` hint we surface in the UI. */
-export const AUTH_PASSWORD_MIN_LENGTH = 8
+export const AUTH_PASSWORD_MIN_LENGTH = 8;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: signInSchema, SignInValues
@@ -37,11 +36,15 @@ export const AUTH_PASSWORD_MIN_LENGTH = 8
  * WHERE: Used by AuthForm in sign-in mode.
  */
 export const signInSchema = z.object({
-  email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email.'),
-  password: z.string().min(1, 'Password is required.'),
-})
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required.")
+    .email("Enter a valid email."),
+  password: z.string().min(1, "Password is required."),
+});
 
-export type SignInValues = z.infer<typeof signInSchema>
+export type SignInValues = z.infer<typeof signInSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: signUpSchema, SignUpValues
@@ -53,14 +56,25 @@ export type SignInValues = z.infer<typeof signInSchema>
  * WHERE: Used by AuthForm in sign-up mode.
  */
 export const signUpSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required.').max(120, 'Name is too long.'),
-  email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email.'),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name is required.")
+    .max(120, "Name is too long."),
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required.")
+    .email("Enter a valid email."),
   password: z
     .string()
-    .min(AUTH_PASSWORD_MIN_LENGTH, `At least ${AUTH_PASSWORD_MIN_LENGTH} characters.`),
-})
+    .min(
+      AUTH_PASSWORD_MIN_LENGTH,
+      `At least ${AUTH_PASSWORD_MIN_LENGTH} characters.`,
+    ),
+});
 
-export type SignUpValues = z.infer<typeof signUpSchema>
+export type SignUpValues = z.infer<typeof signUpSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AuthFormMode
@@ -71,7 +85,7 @@ export type SignUpValues = z.infer<typeof signUpSchema>
  *        the lookup below — one file, one diff.
  * WHERE: Consumed by AuthForm and the (auth) route pages.
  */
-export type AuthFormMode = 'sign-in' | 'sign-up'
+export type AuthFormMode = "sign-in" | "sign-up";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AuthValuesByMode
@@ -83,8 +97,8 @@ export type AuthFormMode = 'sign-in' | 'sign-up'
  * WHERE: Consumed by AuthForm via generic constraint.
  */
 export interface AuthValuesByMode {
-  'sign-in': SignInValues
-  'sign-up': SignUpValues
+  "sign-in": SignInValues;
+  "sign-up": SignUpValues;
 }
 
 /**
@@ -97,9 +111,9 @@ export interface AuthValuesByMode {
  * WHERE: Used by AuthForm to build the zodResolver.
  */
 export const authSchemaFor = {
-  'sign-in': signInSchema,
-  'sign-up': signUpSchema,
-} as const satisfies Record<AuthFormMode, z.ZodType>
+  "sign-in": signInSchema,
+  "sign-up": signUpSchema,
+} as const satisfies Record<AuthFormMode, z.ZodType>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: forgotPasswordSchema, ForgotPasswordValues
@@ -108,10 +122,14 @@ export const authSchemaFor = {
  * WHERE: Used by the forgot-password form.
  */
 export const forgotPasswordSchema = z.object({
-  email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email.'),
-})
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required.")
+    .email("Enter a valid email."),
+});
 
-export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>
+export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: resetPasswordSchema, ResetPasswordValues
@@ -123,12 +141,15 @@ export const resetPasswordSchema = z
   .object({
     password: z
       .string()
-      .min(AUTH_PASSWORD_MIN_LENGTH, `At least ${AUTH_PASSWORD_MIN_LENGTH} characters.`),
-    confirmPassword: z.string().min(1, 'Please confirm your password.'),
+      .min(
+        AUTH_PASSWORD_MIN_LENGTH,
+        `At least ${AUTH_PASSWORD_MIN_LENGTH} characters.`,
+      ),
+    confirmPassword: z.string().min(1, "Please confirm your password."),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match.',
-    path: ['confirmPassword'],
-  })
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
 
-export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>
+export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;

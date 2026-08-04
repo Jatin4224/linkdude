@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -23,13 +22,13 @@
  *        redirects.
  */
 
-export const PORTAL_PATH = process.env['PORTAL_PATH_PREFIX'] || '/portal'
+export const PORTAL_PATH = process.env["PORTAL_PATH_PREFIX"] || "/portal";
 
 export const portalConfig = {
-  enabled: process.env['PORTAL_ENABLED'] === 'true',
-  initialOwnerEmail: process.env['PORTAL_INITIAL_OWNER_EMAIL'] || '',
+  enabled: process.env["PORTAL_ENABLED"] === "true",
+  initialOwnerEmail: process.env["PORTAL_INITIAL_OWNER_EMAIL"] || "",
   pathPrefix: PORTAL_PATH,
-} as const
+} as const;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: isPortalEnabled
@@ -38,7 +37,7 @@ export const portalConfig = {
  * WHERE: Gate before any portal operation / route.
  */
 export function isPortalEnabled(): boolean {
-  return portalConfig.enabled
+  return portalConfig.enabled;
 }
 
 /**
@@ -51,6 +50,9 @@ export function isPortalEnabled(): boolean {
  * WHERE: portal.service admin resolution + auto-provision.
  */
 export function isPortalOwnerEmail(email: string): boolean {
-  if (!portalConfig.enabled || !portalConfig.initialOwnerEmail) return false
-  return email.toLowerCase().trim() === portalConfig.initialOwnerEmail.toLowerCase().trim()
+  if (!portalConfig.enabled || !portalConfig.initialOwnerEmail) return false;
+  return (
+    email.toLowerCase().trim() ===
+    portalConfig.initialOwnerEmail.toLowerCase().trim()
+  );
 }

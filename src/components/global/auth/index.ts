@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -16,9 +15,9 @@
  * WHERE: Imported by every page under src/app/(auth)/.
  */
 
-export { AuthForm } from './auth-form'
-export type { AuthFormProps } from './auth-form'
-export { AuthShell } from './auth-shell'
-export type { AuthShellProps } from './auth-shell'
-export { ForgotPasswordForm } from './forgot-password-form'
-export { ResetPasswordForm } from './reset-password-form'
+export { AuthForm } from "./auth-form";
+export type { AuthFormProps } from "./auth-form";
+export { AuthShell } from "./auth-shell";
+export type { AuthShellProps } from "./auth-shell";
+export { ForgotPasswordForm } from "./forgot-password-form";
+export { ResetPasswordForm } from "./reset-password-form";

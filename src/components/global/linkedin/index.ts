@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -15,6 +14,6 @@
  * WHERE: Imported by the composer and any future LinkedIn surface.
  */
 
-export { LinkedInPostPreview } from './post-preview'
-export type { LinkedInPostPreviewProps } from './post-preview'
-export { LinkedInConnectButton, LINKEDIN_CONNECT_PATH } from './connect-button'
+export { LinkedInPostPreview } from "./post-preview";
+export type { LinkedInPostPreviewProps } from "./post-preview";
+export { LinkedInConnectButton, LINKEDIN_CONNECT_PATH } from "./connect-button";

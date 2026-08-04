@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-import 'server-only'
+import "server-only";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_ACCOUNT_SAFE_SELECT, buildAuthorizationUrl,
@@ -26,8 +25,8 @@ import 'server-only'
  *        caller's `db` client so it can join a transaction.
  */
 
-import type { DbClient } from '@/lib/config/prisma'
-import type { LinkedInAccount, Prisma } from '@/generated/prisma'
+import type { DbClient } from "@/lib/config/prisma";
+import type { LinkedInAccount, Prisma } from "@/generated/prisma";
 import {
   getLinkedInCredentials,
   getLinkedInRedirectUri,
@@ -35,8 +34,11 @@ import {
   LINKEDIN_API_VERSION,
   LINKEDIN_ENDPOINTS,
   LINKEDIN_SCOPES,
-} from '@/lib/config/linkedin'
-import type { LinkedInConnectionStatus, PostImageValues } from '@/lib/types/linkedin'
+} from "@/lib/config/linkedin";
+import type {
+  LinkedInConnectionStatus,
+  PostImageValues,
+} from "@/lib/types/linkedin";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_ACCOUNT_SAFE_SELECT
@@ -52,42 +54,42 @@ export const LINKEDIN_ACCOUNT_SAFE_SELECT = {
   avatarUrl: true,
   expiresAt: true,
   refreshToken: false,
-} as const satisfies Prisma.LinkedInAccountSelect
+} as const satisfies Prisma.LinkedInAccountSelect;
 
 /* Refresh this far ahead of expiry so a long publish doesn't straddle it. */
-const TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000
+const TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;
 
 interface LinkedInTokenResponse {
-  access_token: string
-  expires_in: number
-  refresh_token?: string
-  refresh_token_expires_in?: number
-  scope?: string
+  access_token: string;
+  expires_in: number;
+  refresh_token?: string;
+  refresh_token_expires_in?: number;
+  scope?: string;
 }
 
 interface LinkedInUserInfo {
-  sub: string
-  name?: string
-  picture?: string
+  sub: string;
+  name?: string;
+  picture?: string;
 }
 
 interface LinkedInImageUploadResponse {
-  value: { uploadUrl: string; image: string }
+  value: { uploadUrl: string; image: string };
 }
 
 export interface PublishPostResult {
-  postUrn: string
-  imageUrn: string | null
+  postUrn: string;
+  imageUrn: string | null;
 }
 
 /* LinkedIn returns errors as JSON with a `message`, but not always — a 5xx can
  * be HTML. Read as text and surface a bounded excerpt so failures are
  * diagnosable without dumping a whole error page into the UI. */
 async function readError(response: Response, context: string): Promise<Error> {
-  const body = await response.text().catch(() => '')
+  const body = await response.text().catch(() => "");
   return new Error(
-    `[linkedin] ${context} failed (${response.status}): ${body.slice(0, 300) || 'no response body'}`
-  )
+    `[linkedin] ${context} failed (${response.status}): ${body.slice(0, 300) || "no response body"}`,
+  );
 }
 
 /* Every versioned LinkedIn REST call needs these three headers; the API
@@ -95,9 +97,9 @@ async function readError(response: Response, context: string): Promise<Error> {
 function restHeaders(accessToken: string): Record<string, string> {
   return {
     Authorization: `Bearer ${accessToken}`,
-    'X-Restli-Protocol-Version': '2.0.0',
-    'LinkedIn-Version': LINKEDIN_API_VERSION,
-  }
+    "X-Restli-Protocol-Version": "2.0.0",
+    "LinkedIn-Version": LINKEDIN_API_VERSION,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -114,14 +116,14 @@ function restHeaders(accessToken: string): Record<string, string> {
  * WHERE: Called by src/app/api/linkedin/connect/route.ts.
  */
 export function buildAuthorizationUrl(state: string): string {
-  const { clientId } = getLinkedInCredentials()
-  const url = new URL(LINKEDIN_ENDPOINTS.authorization)
-  url.searchParams.set('response_type', 'code')
-  url.searchParams.set('client_id', clientId)
-  url.searchParams.set('redirect_uri', getLinkedInRedirectUri())
-  url.searchParams.set('state', state)
-  url.searchParams.set('scope', LINKEDIN_SCOPES.join(' '))
-  return url.toString()
+  const { clientId } = getLinkedInCredentials();
+  const url = new URL(LINKEDIN_ENDPOINTS.authorization);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("redirect_uri", getLinkedInRedirectUri());
+  url.searchParams.set("state", state);
+  url.searchParams.set("scope", LINKEDIN_SCOPES.join(" "));
+  return url.toString();
 }
 
 /**
@@ -133,23 +135,25 @@ export function buildAuthorizationUrl(state: string): string {
  *        both read from getLinkedInRedirectUri so they cannot drift.
  * WHERE: Called by the callback route.
  */
-export async function exchangeCodeForToken(code: string): Promise<LinkedInTokenResponse> {
-  const { clientId, clientSecret } = getLinkedInCredentials()
+export async function exchangeCodeForToken(
+  code: string,
+): Promise<LinkedInTokenResponse> {
+  const { clientId, clientSecret } = getLinkedInCredentials();
 
   const response = await fetch(LINKEDIN_ENDPOINTS.accessToken, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      grant_type: 'authorization_code',
+      grant_type: "authorization_code",
       code,
       client_id: clientId,
       client_secret: clientSecret,
       redirect_uri: getLinkedInRedirectUri(),
     }),
-  })
+  });
 
-  if (!response.ok) throw await readError(response, 'token exchange')
-  return (await response.json()) as LinkedInTokenResponse
+  if (!response.ok) throw await readError(response, "token exchange");
+  return (await response.json()) as LinkedInTokenResponse;
 }
 
 /**
@@ -160,22 +164,24 @@ export async function exchangeCodeForToken(code: string): Promise<LinkedInTokenR
  *        which is why the stored column is nullable and callers must handle the
  *        reconnect path.
  */
-async function refreshAccessToken(refreshToken: string): Promise<LinkedInTokenResponse> {
-  const { clientId, clientSecret } = getLinkedInCredentials()
+async function refreshAccessToken(
+  refreshToken: string,
+): Promise<LinkedInTokenResponse> {
+  const { clientId, clientSecret } = getLinkedInCredentials();
 
   const response = await fetch(LINKEDIN_ENDPOINTS.accessToken, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      grant_type: 'refresh_token',
+      grant_type: "refresh_token",
       refresh_token: refreshToken,
       client_id: clientId,
       client_secret: clientSecret,
     }),
-  })
+  });
 
-  if (!response.ok) throw await readError(response, 'token refresh')
-  return (await response.json()) as LinkedInTokenResponse
+  if (!response.ok) throw await readError(response, "token refresh");
+  return (await response.json()) as LinkedInTokenResponse;
 }
 
 /**
@@ -187,12 +193,14 @@ async function refreshAccessToken(refreshToken: string): Promise<LinkedInTokenRe
  *        composer preview renders without a LinkedIn round trip per page load.
  * WHERE: Called once per connection, from the callback route.
  */
-export async function fetchMemberProfile(accessToken: string): Promise<LinkedInUserInfo> {
+export async function fetchMemberProfile(
+  accessToken: string,
+): Promise<LinkedInUserInfo> {
   const response = await fetch(LINKEDIN_ENDPOINTS.userinfo, {
     headers: { Authorization: `Bearer ${accessToken}` },
-  })
-  if (!response.ok) throw await readError(response, 'userinfo')
-  return (await response.json()) as LinkedInUserInfo
+  });
+  if (!response.ok) throw await readError(response, "userinfo");
+  return (await response.json()) as LinkedInUserInfo;
 }
 
 // ---------------------------------------------------------------------------
@@ -200,12 +208,12 @@ export async function fetchMemberProfile(accessToken: string): Promise<LinkedInU
 // ---------------------------------------------------------------------------
 
 export interface UpsertConnectionArgs {
-  organizationId: string
-  userId: string
-  personUrn: string
-  name: string
-  avatarUrl: string | null
-  token: LinkedInTokenResponse
+  organizationId: string;
+  userId: string;
+  personUrn: string;
+  name: string;
+  avatarUrl: string | null;
+  token: LinkedInTokenResponse;
 }
 
 /**
@@ -219,13 +227,13 @@ export interface UpsertConnectionArgs {
  */
 export async function upsertConnection(
   db: DbClient,
-  args: UpsertConnectionArgs
+  args: UpsertConnectionArgs,
 ): Promise<LinkedInAccount> {
-  const now = Date.now()
-  const expiresAt = new Date(now + args.token.expires_in * 1000)
+  const now = Date.now();
+  const expiresAt = new Date(now + args.token.expires_in * 1000);
   const refreshTokenExpiresAt = args.token.refresh_token_expires_in
     ? new Date(now + args.token.refresh_token_expires_in * 1000)
-    : null
+    : null;
 
   const data = {
     userId: args.userId,
@@ -236,14 +244,14 @@ export async function upsertConnection(
     refreshToken: args.token.refresh_token ?? null,
     expiresAt,
     refreshTokenExpiresAt,
-    scope: args.token.scope ?? LINKEDIN_SCOPES.join(' '),
-  }
+    scope: args.token.scope ?? LINKEDIN_SCOPES.join(" "),
+  };
 
   return db.linkedInAccount.upsert({
     where: { organizationId: args.organizationId },
     create: { organizationId: args.organizationId, ...data },
     update: data,
-  })
+  });
 }
 
 /**
@@ -253,8 +261,11 @@ export async function upsertConnection(
  * WHY:   deleteMany rather than delete so disconnecting an already-disconnected
  *        org is idempotent instead of throwing P2025.
  */
-export async function disconnectAccount(db: DbClient, organizationId: string): Promise<void> {
-  await db.linkedInAccount.deleteMany({ where: { organizationId } })
+export async function disconnectAccount(
+  db: DbClient,
+  organizationId: string,
+): Promise<void> {
+  await db.linkedInAccount.deleteMany({ where: { organizationId } });
 }
 
 /**
@@ -269,13 +280,18 @@ export async function disconnectAccount(db: DbClient, organizationId: string): P
  */
 export async function getConnectionStatus(
   db: DbClient,
-  organizationId: string
+  organizationId: string,
 ): Promise<LinkedInConnectionStatus> {
-  const configured = isLinkedInConfigured()
+  const configured = isLinkedInConfigured();
   const account = await db.linkedInAccount.findUnique({
     where: { organizationId },
-    select: { name: true, avatarUrl: true, expiresAt: true, refreshToken: true },
-  })
+    select: {
+      name: true,
+      avatarUrl: true,
+      expiresAt: true,
+      refreshToken: true,
+    },
+  });
 
   if (!account) {
     return {
@@ -285,12 +301,12 @@ export async function getConnectionStatus(
       avatarUrl: null,
       expiresAt: null,
       needsReconnect: false,
-    }
+    };
   }
 
   /* Expired with no refresh token means the only way back is a fresh consent
    * flow — surfaced so the UI can say "Reconnect" rather than failing at publish. */
-  const expired = account.expiresAt.getTime() <= Date.now()
+  const expired = account.expiresAt.getTime() <= Date.now();
   return {
     connected: true,
     configured,
@@ -298,7 +314,7 @@ export async function getConnectionStatus(
     avatarUrl: account.avatarUrl,
     expiresAt: account.expiresAt,
     needsReconnect: expired && !account.refreshToken,
-  }
+  };
 }
 
 /**
@@ -313,30 +329,33 @@ export async function getConnectionStatus(
  */
 export async function getValidAccessToken(
   db: DbClient,
-  organizationId: string
+  organizationId: string,
 ): Promise<{ accessToken: string; personUrn: string; accountId: string }> {
-  const account = await db.linkedInAccount.findUnique({ where: { organizationId } })
+  const account = await db.linkedInAccount.findUnique({
+    where: { organizationId },
+  });
   if (!account) {
-    throw new Error('No LinkedIn account is connected for this organization.')
+    throw new Error("No LinkedIn account is connected for this organization.");
   }
 
-  const stale = account.expiresAt.getTime() - TOKEN_REFRESH_SKEW_MS <= Date.now()
+  const stale =
+    account.expiresAt.getTime() - TOKEN_REFRESH_SKEW_MS <= Date.now();
   if (!stale) {
     return {
       accessToken: account.accessToken,
       personUrn: account.personUrn,
       accountId: account.id,
-    }
+    };
   }
 
   if (!account.refreshToken) {
     throw new Error(
-      'Your LinkedIn connection has expired. Reconnect your account to keep publishing.'
-    )
+      "Your LinkedIn connection has expired. Reconnect your account to keep publishing.",
+    );
   }
 
-  const token = await refreshAccessToken(account.refreshToken)
-  const now = Date.now()
+  const token = await refreshAccessToken(account.refreshToken);
+  const now = Date.now();
   const updated = await db.linkedInAccount.update({
     where: { organizationId },
     data: {
@@ -349,13 +368,13 @@ export async function getValidAccessToken(
         ? new Date(now + token.refresh_token_expires_in * 1000)
         : account.refreshTokenExpiresAt,
     },
-  })
+  });
 
   return {
     accessToken: updated.accessToken,
     personUrn: updated.personUrn,
     accountId: updated.id,
-  }
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -375,33 +394,43 @@ export async function getValidAccessToken(
 export async function uploadImage(
   accessToken: string,
   personUrn: string,
-  image: PostImageValues
+  image: PostImageValues,
 ): Promise<string> {
-  const initResponse = await fetch(`${LINKEDIN_ENDPOINTS.images}?action=initializeUpload`, {
-    method: 'POST',
-    headers: { ...restHeaders(accessToken), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ initializeUploadRequest: { owner: personUrn } }),
-  })
+  const initResponse = await fetch(
+    `${LINKEDIN_ENDPOINTS.images}?action=initializeUpload`,
+    {
+      method: "POST",
+      headers: {
+        ...restHeaders(accessToken),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ initializeUploadRequest: { owner: personUrn } }),
+    },
+  );
 
-  if (!initResponse.ok) throw await readError(initResponse, 'image upload initialize')
-  const { value } = (await initResponse.json()) as LinkedInImageUploadResponse
+  if (!initResponse.ok)
+    throw await readError(initResponse, "image upload initialize");
+  const { value } = (await initResponse.json()) as LinkedInImageUploadResponse;
 
-  const binary = Buffer.from(image.data, 'base64')
+  const binary = Buffer.from(image.data, "base64");
   const uploadResponse = await fetch(value.uploadUrl, {
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': image.mimeType },
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": image.mimeType,
+    },
     body: new Uint8Array(binary),
-  })
+  });
 
-  if (!uploadResponse.ok) throw await readError(uploadResponse, 'image upload')
-  return value.image
+  if (!uploadResponse.ok) throw await readError(uploadResponse, "image upload");
+  return value.image;
 }
 
 export interface PublishPostArgs {
-  accessToken: string
-  personUrn: string
-  commentary: string
-  image?: PostImageValues | undefined
+  accessToken: string;
+  personUrn: string;
+  commentary: string;
+  image?: PostImageValues | undefined;
 }
 
 /**
@@ -413,37 +442,44 @@ export interface PublishPostArgs {
  *        the only way to record what we published.
  * WHERE: Called by linkedinPosts.create.
  */
-export async function publishPost(args: PublishPostArgs): Promise<PublishPostResult> {
+export async function publishPost(
+  args: PublishPostArgs,
+): Promise<PublishPostResult> {
   const imageUrn = args.image
     ? await uploadImage(args.accessToken, args.personUrn, args.image)
-    : null
+    : null;
 
   const response = await fetch(LINKEDIN_ENDPOINTS.posts, {
-    method: 'POST',
-    headers: { ...restHeaders(args.accessToken), 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: {
+      ...restHeaders(args.accessToken),
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
       author: args.personUrn,
       commentary: args.commentary,
-      visibility: 'PUBLIC',
+      visibility: "PUBLIC",
       distribution: {
-        feedDistribution: 'MAIN_FEED',
+        feedDistribution: "MAIN_FEED",
         targetEntities: [],
         thirdPartyDistributionChannels: [],
       },
       ...(imageUrn ? { content: { media: { id: imageUrn } } } : {}),
-      lifecycleState: 'PUBLISHED',
+      lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     }),
-  })
+  });
 
-  if (!response.ok) throw await readError(response, 'publish post')
+  if (!response.ok) throw await readError(response, "publish post");
 
-  const postUrn = response.headers.get('x-restli-id')
+  const postUrn = response.headers.get("x-restli-id");
   if (!postUrn) {
-    throw new Error('[linkedin] publish succeeded but returned no post URN (x-restli-id header).')
+    throw new Error(
+      "[linkedin] publish succeeded but returned no post URN (x-restli-id header).",
+    );
   }
 
-  return { postUrn, imageUrn }
+  return { postUrn, imageUrn };
 }
 
 // ---------------------------------------------------------------------------
@@ -451,12 +487,12 @@ export async function publishPost(args: PublishPostArgs): Promise<PublishPostRes
 // ---------------------------------------------------------------------------
 
 export interface RecordPublishedPostArgs {
-  organizationId: string
-  accountId: string
-  authorId: string
-  commentary: string
-  postUrn: string
-  imageUrn: string | null
+  organizationId: string;
+  accountId: string;
+  authorId: string;
+  commentary: string;
+  postUrn: string;
+  imageUrn: string | null;
 }
 
 /**
@@ -467,8 +503,11 @@ export interface RecordPublishedPostArgs {
  *        member's own posts behind `r_member_social`, which is restricted to
  *        approved partners, so the feed can never be re-fetched.
  */
-export async function recordPublishedPost(db: DbClient, args: RecordPublishedPostArgs) {
-  return db.linkedInPost.create({ data: args })
+export async function recordPublishedPost(
+  db: DbClient,
+  args: RecordPublishedPostArgs,
+) {
+  return db.linkedInPost.create({ data: args });
 }
 
 /**
@@ -477,10 +516,14 @@ export async function recordPublishedPost(db: DbClient, args: RecordPublishedPos
  * WHAT:  Recent posts for an organization, newest first.
  * WHERE: Backs the recent-posts strip under the composer.
  */
-export async function listPublishedPosts(db: DbClient, organizationId: string, limit: number) {
+export async function listPublishedPosts(
+  db: DbClient,
+  organizationId: string,
+  limit: number,
+) {
   return db.linkedInPost.findMany({
     where: { organizationId },
-    orderBy: { publishedAt: 'desc' },
+    orderBy: { publishedAt: "desc" },
     take: limit,
     select: {
       id: true,
@@ -489,7 +532,7 @@ export async function listPublishedPosts(db: DbClient, organizationId: string, l
       imageUrn: true,
       publishedAt: true,
     },
-  })
+  });
 }
 
 /**
@@ -502,7 +545,7 @@ export async function listPublishedPosts(db: DbClient, organizationId: string, l
 export async function deletePublishedPost(
   db: DbClient,
   organizationId: string,
-  postId: string
+  postId: string,
 ): Promise<void> {
-  await db.linkedInPost.deleteMany({ where: { id: postId, organizationId } })
+  await db.linkedInPost.deleteMany({ where: { id: postId, organizationId } });
 }

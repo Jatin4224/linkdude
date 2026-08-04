@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -26,7 +25,7 @@
  *        src/services/ai.service.ts and the profile-analysis route components.
  */
 
-import { z } from 'zod'
+import { z } from "zod";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PROFILE_SOURCE_KEYS, ProfileSource,
@@ -39,9 +38,9 @@ import { z } from 'zod'
  *        in PROFILE_SOURCES.
  * WHERE: Drives the registry in src/lib/config/profile-source.ts.
  */
-export const PROFILE_SOURCE_KEYS = ['apify', 'brightdata'] as const
-export const profileSourceSchema = z.enum(PROFILE_SOURCE_KEYS)
-export type ProfileSource = z.infer<typeof profileSourceSchema>
+export const PROFILE_SOURCE_KEYS = ["apify", "brightdata"] as const;
+export const profileSourceSchema = z.enum(PROFILE_SOURCE_KEYS);
+export type ProfileSource = z.infer<typeof profileSourceSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: fetchProfileSchema, FetchProfileValues,
@@ -56,7 +55,7 @@ export type ProfileSource = z.infer<typeof profileSourceSchema>
  * WHERE: Router input for profileAnalysis.fetch; resolver for the URL tab.
  */
 export const LINKEDIN_PROFILE_URL_PATTERN =
-  /^https?:\/\/([a-z]{2,3}\.)?linkedin\.com\/in\/[^/?#\s]+\/?/i
+  /^https?:\/\/([a-z]{2,3}\.)?linkedin\.com\/in\/[^/?#\s]+\/?/i;
 
 export const fetchProfileSchema = z.object({
   profileUrl: z
@@ -64,16 +63,16 @@ export const fetchProfileSchema = z.object({
     .trim()
     .regex(
       LINKEDIN_PROFILE_URL_PATTERN,
-      'Enter a LinkedIn profile URL, e.g. https://www.linkedin.com/in/your-name'
+      "Enter a LinkedIn profile URL, e.g. https://www.linkedin.com/in/your-name",
     ),
-})
-export type FetchProfileValues = z.infer<typeof fetchProfileSchema>
+});
+export type FetchProfileValues = z.infer<typeof fetchProfileSchema>;
 
 /* LinkedIn's own field ceilings, so an over-long paste is rejected here rather
  * than producing advice about text the user cannot actually save. */
-export const PROFILE_HEADLINE_MAX = 220
-export const PROFILE_ABOUT_MAX = 2600
-export const PROFILE_EXPERIENCE_MAX = 5000
+export const PROFILE_HEADLINE_MAX = 220;
+export const PROFILE_ABOUT_MAX = 2600;
+export const PROFILE_EXPERIENCE_MAX = 5000;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: analyzeProfileSchema, AnalyzeProfileValues
@@ -90,20 +89,29 @@ export const analyzeProfileSchema = z.object({
   headline: z
     .string()
     .trim()
-    .min(10, 'Paste your headline — at least 10 characters')
-    .max(PROFILE_HEADLINE_MAX, `Headlines are limited to ${PROFILE_HEADLINE_MAX} characters`),
+    .min(10, "Paste your headline — at least 10 characters")
+    .max(
+      PROFILE_HEADLINE_MAX,
+      `Headlines are limited to ${PROFILE_HEADLINE_MAX} characters`,
+    ),
   about: z
     .string()
     .trim()
-    .min(50, 'Paste your About section — at least 50 characters to analyze')
-    .max(PROFILE_ABOUT_MAX, `About is limited to ${PROFILE_ABOUT_MAX} characters`),
+    .min(50, "Paste your About section — at least 50 characters to analyze")
+    .max(
+      PROFILE_ABOUT_MAX,
+      `About is limited to ${PROFILE_ABOUT_MAX} characters`,
+    ),
   experience: z
     .string()
     .trim()
-    .max(PROFILE_EXPERIENCE_MAX, `Experience is limited to ${PROFILE_EXPERIENCE_MAX} characters`)
+    .max(
+      PROFILE_EXPERIENCE_MAX,
+      `Experience is limited to ${PROFILE_EXPERIENCE_MAX} characters`,
+    )
     .optional(),
-})
-export type AnalyzeProfileValues = z.infer<typeof analyzeProfileSchema>
+});
+export type AnalyzeProfileValues = z.infer<typeof analyzeProfileSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: brightDataProfileSchema, BrightDataProfile
@@ -126,7 +134,7 @@ const brightDataExperienceSchema = z.looseObject({
   description: z.string().nullish(),
   start_date: z.string().nullish(),
   end_date: z.string().nullish(),
-})
+});
 
 /**
  * SOURCE OF TRUTH KEYWORDS: apifyProfileSchema, ApifyProfile
@@ -147,15 +155,15 @@ const apifyExperienceSchema = z.looseObject({
   duration: z.string().nullish(),
   /* `{ year, month? }` rather than a string, so it is read structurally. */
   startDate: z.looseObject({ year: z.number().nullish() }).nullish(),
-})
+});
 
 export const apifyProfileSchema = z.looseObject({
   name: z.string().nullish(),
   headline: z.string().nullish(),
   about: z.string().nullish(),
   experience: z.array(apifyExperienceSchema).nullish(),
-})
-export type ApifyProfile = z.infer<typeof apifyProfileSchema>
+});
+export type ApifyProfile = z.infer<typeof apifyProfileSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: scrapedErrorItemSchema
@@ -168,7 +176,7 @@ export type ApifyProfile = z.infer<typeof apifyProfileSchema>
  *        looks empty" and the real message would be discarded.
  * WHERE: Checked before mapping in src/services/profile-source.service.ts.
  */
-export const scrapedErrorItemSchema = z.object({ error: z.string().min(1) })
+export const scrapedErrorItemSchema = z.object({ error: z.string().min(1) });
 
 export const brightDataProfileSchema = z.looseObject({
   name: z.string().nullish(),
@@ -181,8 +189,8 @@ export const brightDataProfileSchema = z.looseObject({
   city: z.string().nullish(),
   current_company: z.looseObject({ name: z.string().nullish() }).nullish(),
   experience: z.array(brightDataExperienceSchema).nullish(),
-})
-export type BrightDataProfile = z.infer<typeof brightDataProfileSchema>
+});
+export type BrightDataProfile = z.infer<typeof brightDataProfileSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: FetchedProfile
@@ -196,11 +204,11 @@ export type BrightDataProfile = z.infer<typeof brightDataProfileSchema>
  * WHERE: Returned by profileAnalysis.fetch; fills the form in the analyzer.
  */
 export interface FetchedProfile {
-  headline: string
-  about: string
-  experience: string
+  headline: string;
+  about: string;
+  experience: string;
   /** Display name, shown so the user can confirm the right profile was pulled. */
-  name: string | null
+  name: string | null;
 }
 
 /**
@@ -213,14 +221,14 @@ export interface FetchedProfile {
 export const sectionFeedbackSchema = z.object({
   verdict: z.string().min(1).max(400),
   rewrite: z.string().min(1).max(PROFILE_ABOUT_MAX),
-})
-export type SectionFeedback = z.infer<typeof sectionFeedbackSchema>
+});
+export type SectionFeedback = z.infer<typeof sectionFeedbackSchema>;
 
 export const profileImprovementSchema = z.object({
   issue: z.string().min(1).max(300),
   fix: z.string().min(1).max(600),
-})
-export type ProfileImprovement = z.infer<typeof profileImprovementSchema>
+});
+export type ProfileImprovement = z.infer<typeof profileImprovementSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: profileAnalysisSchema, ProfileAnalysis
@@ -242,5 +250,5 @@ export const profileAnalysisSchema = z.object({
   aboutFeedback: sectionFeedbackSchema,
   strengths: z.array(z.string().min(1).max(300)).min(1).max(3),
   improvements: z.array(profileImprovementSchema).min(1).max(4),
-})
-export type ProfileAnalysis = z.infer<typeof profileAnalysisSchema>
+});
+export type ProfileAnalysis = z.infer<typeof profileAnalysisSchema>;

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -15,8 +14,10 @@
  * WHERE: Consumed by the team _components (member list, sheets, ownership card).
  */
 
-import type { inferRouterOutputs } from '@trpc/server'
-import type { AppRouter } from '@/trpc/routers/_app'
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@/trpc/routers/_app";
 
-export type OrganizationMember = inferRouterOutputs<AppRouter>['member']['list'][number]
-export type OrganizationRoleRow = inferRouterOutputs<AppRouter>['organizationRoles']['list'][number]
+export type OrganizationMember =
+  inferRouterOutputs<AppRouter>["member"]["list"][number];
+export type OrganizationRoleRow =
+  inferRouterOutputs<AppRouter>["organizationRoles"]["list"][number];

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -16,41 +15,41 @@
  *        helpers come from src/lib/rate-limit.
  */
 
-import { auth } from '@/lib/better-auth/auth'
-import { toNextJsHandler } from 'better-auth/next-js'
+import { auth } from "@/lib/better-auth/auth";
+import { toNextJsHandler } from "better-auth/next-js";
 import {
   authLimiter,
   buildRateLimitHeaders,
   checkRateLimit,
   getClientIp,
-} from '@/lib/rate-limit'
+} from "@/lib/rate-limit";
 
-const handlers = toNextJsHandler(auth)
+const handlers = toNextJsHandler(auth);
 
-export const GET = handlers.GET
+export const GET = handlers.GET;
 
 // POSTs cover every credential-bearing flow (sign-in, sign-up, password reset,
 // 2FA, OAuth start) — IP-keyed limit blocks brute-force and stuffing.
 export async function POST(request: Request): Promise<Response> {
-  const ip = getClientIp(request.headers)
-  const identifier = ip ?? 'auth:anonymous'
+  const ip = getClientIp(request.headers);
+  const identifier = ip ?? "auth:anonymous";
 
-  const result = await checkRateLimit(authLimiter, identifier)
+  const result = await checkRateLimit(authLimiter, identifier);
   if (!result.allowed) {
     return new Response(
       JSON.stringify({
-        error: 'TOO_MANY_REQUESTS',
-        message: 'Too many authentication attempts. Please try again shortly.',
+        error: "TOO_MANY_REQUESTS",
+        message: "Too many authentication attempts. Please try again shortly.",
       }),
       {
         status: 429,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...buildRateLimitHeaders(result),
         },
-      }
-    )
+      },
+    );
   }
 
-  return handlers.POST(request)
+  return handlers.POST(request);
 }

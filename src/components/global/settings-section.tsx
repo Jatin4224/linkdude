@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: SettingsSection, SettingsSectionProps
@@ -19,17 +18,17 @@
  * WHERE: settings/billing, settings/organization, etc.
  */
 
-import * as React from 'react'
+import * as React from "react";
 
-import { SectionHeader } from '@/components/global/section-header'
-import { Separator } from '@/components/ui/separator'
+import { SectionHeader } from "@/components/global/section-header";
+import { Separator } from "@/components/ui/separator";
 
 export interface SettingsSectionProps {
-  title: string
-  description?: string
-  label: string
-  labelDescription?: string
-  children: React.ReactNode
+  title: string;
+  description?: string;
+  label: string;
+  labelDescription?: string;
+  children: React.ReactNode;
 }
 
 export function SettingsSection({
@@ -53,5 +52,5 @@ export function SettingsSection({
         <div className="max-w-md">{children}</div>
       </div>
     </div>
-  )
+  );
 }

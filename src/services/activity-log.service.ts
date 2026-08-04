@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -20,11 +19,11 @@
  *        read path powers src/trpc/routers/audit-logs.ts.
  */
 
-import 'server-only'
-import { z } from 'zod'
-import { prisma, type DbClient } from '@/lib/config'
-import type { Prisma } from '@/generated/prisma'
-import type { ResourceKey } from '@/lib/resources'
+import "server-only";
+import { z } from "zod";
+import { prisma, type DbClient } from "@/lib/config";
+import type { Prisma } from "@/generated/prisma";
+import type { ResourceKey } from "@/lib/resources";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: ActivityAction
@@ -36,12 +35,9 @@ import type { ResourceKey } from '@/lib/resources'
  *        overrides in router options.
  */
 export type ActivityAction =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | (string & { __activityAction?: never })
+  "create" | "update" | "delete" | (string & { __activityAction?: never });
 
-type AuditMetadataPrimitive = string | number | boolean | null
+type AuditMetadataPrimitive = string | number | boolean | null;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AuditMetadata
@@ -52,10 +48,10 @@ type AuditMetadataPrimitive = string | number | boolean | null
  * WHERE: Validated by auditMetadataSchema before write inside logActivity.
  */
 export interface AuditMetadata {
-  changedFields?: string[] | undefined
-  previousValue?: AuditMetadataPrimitive | AuditMetadataPrimitive[] | undefined
-  newValue?: AuditMetadataPrimitive | AuditMetadataPrimitive[] | undefined
-  data?: Record<string, AuditMetadataPrimitive> | undefined
+  changedFields?: string[] | undefined;
+  previousValue?: AuditMetadataPrimitive | AuditMetadataPrimitive[] | undefined;
+  newValue?: AuditMetadataPrimitive | AuditMetadataPrimitive[] | undefined;
+  data?: Record<string, AuditMetadataPrimitive> | undefined;
 }
 
 const auditMetadataPrimitiveSchema = z.union([
@@ -63,7 +59,7 @@ const auditMetadataPrimitiveSchema = z.union([
   z.number(),
   z.boolean(),
   z.null(),
-])
+]);
 
 /**
  * SOURCE OF TRUTH KEYWORDS: auditMetadataSchema
@@ -76,13 +72,19 @@ const auditMetadataPrimitiveSchema = z.union([
 export const auditMetadataSchema = z.strictObject({
   changedFields: z.array(z.string()).optional(),
   previousValue: z
-    .union([auditMetadataPrimitiveSchema, z.array(auditMetadataPrimitiveSchema)])
+    .union([
+      auditMetadataPrimitiveSchema,
+      z.array(auditMetadataPrimitiveSchema),
+    ])
     .optional(),
   newValue: z
-    .union([auditMetadataPrimitiveSchema, z.array(auditMetadataPrimitiveSchema)])
+    .union([
+      auditMetadataPrimitiveSchema,
+      z.array(auditMetadataPrimitiveSchema),
+    ])
     .optional(),
   data: z.record(z.string(), auditMetadataPrimitiveSchema).optional(),
-})
+});
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AuditEntityName
@@ -94,12 +96,7 @@ export const auditMetadataSchema = z.strictObject({
  *        auto-audit from the procedure path.
  */
 export type AuditEntityName =
-  | ResourceKey
-  | 'organization'
-  | 'subscription'
-  | 'session'
-  | 'member'
-  | 'role'
+  ResourceKey | "organization" | "subscription" | "session" | "member" | "role";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LogActivityInput
@@ -112,15 +109,15 @@ export type AuditEntityName =
  *        metadata.
  */
 export interface LogActivityInput {
-  userId: string
-  organizationId: string
-  action: ActivityAction
-  entity: AuditEntityName
-  entityId?: string | null | undefined
-  description?: string | undefined
-  metadata?: AuditMetadata | undefined
-  ipAddress?: string | null | undefined
-  userAgent?: string | null | undefined
+  userId: string;
+  organizationId: string;
+  action: ActivityAction;
+  entity: AuditEntityName;
+  entityId?: string | null | undefined;
+  description?: string | undefined;
+  metadata?: AuditMetadata | undefined;
+  ipAddress?: string | null | undefined;
+  userAgent?: string | null | undefined;
 }
 
 /**
@@ -133,8 +130,8 @@ export interface LogActivityInput {
  * WHERE: Returned inside AuditLogPage to the audit-logs tRPC router.
  */
 export type AuditLogEntry = Prisma.ActivityLogGetPayload<{
-  select: typeof AUDIT_LOG_SAFE_SELECT
-}>
+  select: typeof AUDIT_LOG_SAFE_SELECT;
+}>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AuditLogPage
@@ -145,11 +142,11 @@ export type AuditLogEntry = Prisma.ActivityLogGetPayload<{
  * WHERE: Returned by getOrganizationAuditLogs to the audit-logs router.
  */
 export interface AuditLogPage {
-  logs: AuditLogEntry[]
-  total: number
-  page: number
-  pageSize: number
-  totalPages: number
+  logs: AuditLogEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 /**
@@ -168,7 +165,7 @@ export interface AuditLogPage {
 // before calling); the typed `AuditMetadata` shape is JSON-safe by construction.
 export async function logActivity(
   input: LogActivityInput,
-  db: DbClient = prisma
+  db: DbClient = prisma,
 ): Promise<void> {
   await db.activityLog.create({
     data: {
@@ -184,7 +181,7 @@ export async function logActivity(
         metadata: input.metadata as Prisma.InputJsonValue,
       }),
     },
-  })
+  });
 }
 
 // Security boundary: do NOT add `ipAddress` or `userAgent` here. The dashboard
@@ -206,7 +203,7 @@ const AUDIT_LOG_SAFE_SELECT = {
       image: true,
     },
   },
-} as const
+} as const;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getOrganizationAuditLogs
@@ -226,38 +223,41 @@ const AUDIT_LOG_SAFE_SELECT = {
  *        never exposed even to the platform admin — the boundary holds here too.
  * WHERE: Called by portal.service (portal-admin gated).
  */
-export async function getPlatformActivityLogs(skip: number, take: number): Promise<AuditLogPage> {
+export async function getPlatformActivityLogs(
+  skip: number,
+  take: number,
+): Promise<AuditLogPage> {
   const [logs, total] = await Promise.all([
     prisma.activityLog.findMany({
       select: AUDIT_LOG_SAFE_SELECT,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       skip,
       take,
     }),
     prisma.activityLog.count(),
-  ])
-  const pageSize = Math.max(1, take)
+  ]);
+  const pageSize = Math.max(1, take);
   return {
     logs,
     total,
     page: Math.floor(skip / pageSize) + 1,
     pageSize,
     totalPages: Math.ceil(total / pageSize),
-  }
+  };
 }
 
 export async function getOrganizationAuditLogs(
   filters: {
-    organizationId: string
-    action?: string | undefined
-    entity?: string | undefined
-    userId?: string | undefined
-    fromDate?: Date | undefined
-    toDate?: Date | undefined
-    search?: string | undefined
+    organizationId: string;
+    action?: string | undefined;
+    entity?: string | undefined;
+    userId?: string | undefined;
+    fromDate?: Date | undefined;
+    toDate?: Date | undefined;
+    search?: string | undefined;
   },
   skip: number,
-  take: number
+  take: number,
 ): Promise<AuditLogPage> {
   const where: Prisma.ActivityLogWhereInput = {
     organizationId: filters.organizationId,
@@ -272,28 +272,39 @@ export async function getOrganizationAuditLogs(
     }),
     ...(filters.search && {
       OR: [
-        { description: { contains: filters.search, mode: 'insensitive' as const } },
-        { entity: { contains: filters.search, mode: 'insensitive' as const } },
-        { entityId: { contains: filters.search, mode: 'insensitive' as const } },
-        { action: { contains: filters.search, mode: 'insensitive' as const } },
-        { user: { name: { contains: filters.search, mode: 'insensitive' as const } } },
+        {
+          description: {
+            contains: filters.search,
+            mode: "insensitive" as const,
+          },
+        },
+        { entity: { contains: filters.search, mode: "insensitive" as const } },
+        {
+          entityId: { contains: filters.search, mode: "insensitive" as const },
+        },
+        { action: { contains: filters.search, mode: "insensitive" as const } },
+        {
+          user: {
+            name: { contains: filters.search, mode: "insensitive" as const },
+          },
+        },
       ],
     }),
-  }
+  };
 
   const [logs, total] = await Promise.all([
     prisma.activityLog.findMany({
       where,
       select: AUDIT_LOG_SAFE_SELECT,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       skip,
       take,
     }),
     prisma.activityLog.count({ where }),
-  ])
+  ]);
 
-  const pageSize = Math.max(1, take)
-  const page = Math.floor(skip / pageSize) + 1
+  const pageSize = Math.max(1, take);
+  const page = Math.floor(skip / pageSize) + 1;
 
   return {
     logs,
@@ -301,5 +312,5 @@ export async function getOrganizationAuditLogs(
     page,
     pageSize,
     totalPages: Math.ceil(total / pageSize),
-  }
+  };
 }

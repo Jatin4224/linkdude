@@ -1,9 +1,6 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
+ *   *
+ *    *    */
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AuthShell, AuthShellProps
@@ -16,12 +13,12 @@
  * WHERE: Used by the (auth) route group pages under src/app/(auth)/.
  */
 
-import * as React from 'react'
+import * as React from "react";
 
-import { PlatformLogo } from '@/components/global/platform-logo'
+import { PlatformLogo } from "@/components/global/platform-logo";
 
 export interface AuthShellProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export function AuthShell({ children }: AuthShellProps) {
@@ -34,5 +31,5 @@ export function AuthShell({ children }: AuthShellProps) {
         {children}
       </div>
     </div>
-  )
+  );
 }

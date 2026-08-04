@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: RootPage
@@ -23,21 +22,21 @@
  *        landing route: ROUTES (src/lib/config/routes.ts).
  */
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-import { trpc } from '@/trpc/react-provider'
-import { ROUTES } from '@/lib/config'
+import { trpc } from "@/trpc/react-provider";
+import { ROUTES } from "@/lib/config";
 
 export default function RootPage(): null {
-  const router = useRouter()
+  const router = useRouter();
   /* Anonymous → UNAUTHORIZED → observer → sign-in. Authenticated → resolves
    * (org or null) and we forward to the dashboard. */
-  const { isSuccess } = trpc.organization.getActiveOrganization.useQuery()
+  const { isSuccess } = trpc.organization.getActiveOrganization.useQuery();
 
   useEffect(() => {
-    if (isSuccess) router.replace(ROUTES.dashboard)
-  }, [isSuccess, router])
+    if (isSuccess) router.replace(ROUTES.dashboard);
+  }, [isSuccess, router]);
 
-  return null
+  return null;
 }

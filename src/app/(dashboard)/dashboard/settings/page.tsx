@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -13,8 +12,8 @@
  * WHERE: Sub-pages: organization, billing, audit-logs, profile.
  */
 
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
 export default function SettingsIndexPage() {
-  redirect('/dashboard/settings/billing')
+  redirect("/dashboard/settings/billing");
 }

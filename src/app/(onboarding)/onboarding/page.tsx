@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -20,24 +19,24 @@
  *        getCachedSession; routes via AUTH_ROUTES / PORTAL_PATH.
  */
 
-import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { getCachedSession } from '@/lib/better-auth/auth'
-import { AUTH_ROUTES, PORTAL_PATH, isPortalOwnerEmail } from '@/lib/config'
-import { OnboardingFlow } from './_components/onboarding-flow'
+import { getCachedSession } from "@/lib/better-auth/auth";
+import { AUTH_ROUTES, PORTAL_PATH, isPortalOwnerEmail } from "@/lib/config";
+import { OnboardingFlow } from "./_components/onboarding-flow";
 
 export const metadata: Metadata = {
-  title: 'Get started',
-}
+  title: "Get started",
+};
 
 export default async function OnboardingPage() {
-  const session = await getCachedSession()
-  if (!session) redirect(AUTH_ROUTES.signIn)
+  const session = await getCachedSession();
+  if (!session) redirect(AUTH_ROUTES.signIn);
 
   /* Platform-admin owner shouldn't create a tenant org — send them to /portal,
    * which bootstraps their portal workspace. */
-  if (isPortalOwnerEmail(session.user.email)) redirect(PORTAL_PATH)
+  if (isPortalOwnerEmail(session.user.email)) redirect(PORTAL_PATH);
 
-  return <OnboardingFlow />
+  return <OnboardingFlow />;
 }

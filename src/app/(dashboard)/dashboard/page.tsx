@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -15,14 +14,20 @@
  * WHERE: Route /dashboard under the (dashboard) layout.
  */
 
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
 
-import { ContentLayout } from '@/components/global/page-header'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ContentLayout } from "@/components/global/page-header";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: 'Dashboard',
-}
+  title: "Dashboard",
+};
 
 export default function DashboardHomePage() {
   return (
@@ -31,14 +36,16 @@ export default function DashboardHomePage() {
         <CardHeader>
           <CardTitle>Welcome</CardTitle>
           <CardDescription>
-            This is your dashboard. Add your product’s features here — declare them in
-            src/lib/resources.ts and they appear in the sidebar automatically.
+            This is your dashboard. Add your product’s features here — declare
+            them in src/lib/resources.ts and they appear in the sidebar
+            automatically.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Use the sidebar to manage your team, organization settings, and billing.
+          Use the sidebar to manage your team, organization settings, and
+          billing.
         </CardContent>
       </Card>
     </ContentLayout>
-  )
+  );
 }

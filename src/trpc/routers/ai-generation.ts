@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -20,15 +19,15 @@
  *        src/services/ai.service.ts. Consumed by the composer's Generate button.
  */
 
-import { TRPCError } from '@trpc/server'
-import { z } from 'zod'
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 
-import { createTRPCRouter } from '../init'
-import { protectedProcedure } from '../procedures'
-import { permissions } from '@/lib/better-auth/permissions'
-import { generatePostSchema } from '@/lib/types'
-import { isAiConfigured, getAiProvider } from '@/lib/config'
-import * as aiService from '@/services/ai.service'
+import { createTRPCRouter } from "../init";
+import { protectedProcedure } from "../procedures";
+import { permissions } from "@/lib/better-auth/permissions";
+import { generatePostSchema } from "@/lib/types";
+import { isAiConfigured, getAiProvider } from "@/lib/config";
+import * as aiService from "@/services/ai.service";
 
 export const aiGenerationRouter = createTRPCRouter({
   /**
@@ -50,31 +49,35 @@ export const aiGenerationRouter = createTRPCRouter({
      * web-fetch round trips on top of generation. */
     txTimeout: 60_000,
   })
-    .input(generatePostSchema.and(z.object({ organizationId: z.string().min(1) })))
+    .input(
+      generatePostSchema.and(z.object({ organizationId: z.string().min(1) })),
+    )
     .mutation(async ({ input }) => {
       /* Fail before the quota is spent: an unconfigured key is an operator
        * problem, and the user shouldn't lose a generation to it. */
       if (!isAiConfigured()) {
         /* Names the key for whichever vendor AI_PROVIDER selects, so the message
          * stays correct after a provider switch. */
-        const provider = getAiProvider()
+        const provider = getAiProvider();
         throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
+          code: "PRECONDITION_FAILED",
           message: `AI generation is not configured. Add ${provider.apiKeyEnvVar} to enable it.`,
-        })
+        });
       }
 
       try {
-        return await aiService.generateLinkedInPost(input)
+        return await aiService.generateLinkedInPost(input);
       } catch (error) {
         /* Provider and validation failures both surface here. Re-thrown as a
          * tRPC error so the composer can render the reason inline rather than a
          * generic 500. */
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
+          code: "INTERNAL_SERVER_ERROR",
           message:
-            error instanceof Error ? error.message : 'Post generation failed. Please try again.',
-        })
+            error instanceof Error
+              ? error.message
+              : "Post generation failed. Please try again.",
+        });
       }
     }),
-})
+});

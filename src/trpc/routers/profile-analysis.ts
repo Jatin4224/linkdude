@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -20,17 +19,20 @@
  *        src/services/ai.service.ts. Consumed by the profile-analysis route.
  */
 
-import { TRPCError } from '@trpc/server'
-import { z } from 'zod'
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 
-import { createTRPCRouter } from '../init'
-import { protectedProcedure } from '../procedures'
-import { permissions } from '@/lib/better-auth/permissions'
-import { analyzeProfileSchema, fetchProfileSchema } from '@/lib/types'
-import { isAiConfigured, getAiProvider } from '@/lib/config'
-import { isProfileFetchConfigured, getProfileSource } from '@/lib/config/profile-source'
-import * as aiService from '@/services/ai.service'
-import * as profileSourceService from '@/services/profile-source.service'
+import { createTRPCRouter } from "../init";
+import { protectedProcedure } from "../procedures";
+import { permissions } from "@/lib/better-auth/permissions";
+import { analyzeProfileSchema, fetchProfileSchema } from "@/lib/types";
+import { isAiConfigured, getAiProvider } from "@/lib/config";
+import {
+  isProfileFetchConfigured,
+  getProfileSource,
+} from "@/lib/config/profile-source";
+import * as aiService from "@/services/ai.service";
+import * as profileSourceService from "@/services/profile-source.service";
 
 export const profileAnalysisRouter = createTRPCRouter({
   /**
@@ -77,29 +79,31 @@ export const profileAnalysisRouter = createTRPCRouter({
     /* Nothing is created or changed — an audit row per lookup would be noise. */
     audit: false,
   })
-    .input(fetchProfileSchema.and(z.object({ organizationId: z.string().min(1) })))
+    .input(
+      fetchProfileSchema.and(z.object({ organizationId: z.string().min(1) })),
+    )
     .mutation(async ({ input }) => {
       if (!isProfileFetchConfigured()) {
-        const source = getProfileSource()
+        const source = getProfileSource();
         throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
+          code: "PRECONDITION_FAILED",
           message: `URL lookups are not configured. Add ${source.apiKeyEnvVar} to enable them, or paste your profile details manually.`,
-        })
+        });
       }
 
       try {
-        return await profileSourceService.fetchProfileFromUrl(input.profileUrl)
+        return await profileSourceService.fetchProfileFromUrl(input.profileUrl);
       } catch (error) {
         /* The service already rewrites vendor failures into user-facing
          * sentences that end in "paste your details manually", so the message
          * passes through rather than being flattened to a generic one. */
         throw new TRPCError({
-          code: 'BAD_GATEWAY',
+          code: "BAD_GATEWAY",
           message:
             error instanceof Error
               ? error.message
-              : 'Could not fetch that profile. Paste your details manually.',
-        })
+              : "Could not fetch that profile. Paste your details manually.",
+        });
       }
     }),
 
@@ -121,29 +125,33 @@ export const profileAnalysisRouter = createTRPCRouter({
      * Structured output over a whole profile is slower than drafting a post. */
     txTimeout: 60_000,
   })
-    .input(analyzeProfileSchema.and(z.object({ organizationId: z.string().min(1) })))
+    .input(
+      analyzeProfileSchema.and(z.object({ organizationId: z.string().min(1) })),
+    )
     .mutation(async ({ input }) => {
       /* Fail before the quota is spent: an unconfigured key is an operator
        * problem, and the user shouldn't lose an analysis to it. */
       if (!isAiConfigured()) {
-        const provider = getAiProvider()
+        const provider = getAiProvider();
         throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
+          code: "PRECONDITION_FAILED",
           message: `AI analysis is not configured. Add ${provider.apiKeyEnvVar} to enable it.`,
-        })
+        });
       }
 
       try {
-        return await aiService.analyzeLinkedInProfile(input)
+        return await aiService.analyzeLinkedInProfile(input);
       } catch (error) {
         /* Provider overload (503) and schema-validation failures both land here.
          * Re-thrown as a tRPC error so the page can render the reason inline
          * rather than a generic 500. */
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
+          code: "INTERNAL_SERVER_ERROR",
           message:
-            error instanceof Error ? error.message : 'Profile analysis failed. Please try again.',
-        })
+            error instanceof Error
+              ? error.message
+              : "Profile analysis failed. Please try again.",
+        });
       }
     }),
-})
+});

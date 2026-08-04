@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -19,14 +18,14 @@
  *        route. Client-side keys live in src/lib/stripe/*.
  */
 
-import Stripe from 'stripe'
+import Stripe from "stripe";
 
 /* Pinned to the installed SDK's latest API version. In this version the
  * subscription period fields live on the subscription ITEMS
  * (items.data[0].current_period_*), not on the subscription itself. */
-export const STRIPE_API_VERSION = '2026-06-24.dahlia' as const
+export const STRIPE_API_VERSION = "2026-06-24.dahlia" as const;
 
-let client: Stripe | null = null
+let client: Stripe | null = null;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: isStripeConfigured
@@ -35,7 +34,7 @@ let client: Stripe | null = null
  * WHERE: Guard in the billing router / webhook before touching Stripe.
  */
 export function isStripeConfigured(): boolean {
-  return Boolean(process.env['STRIPE_SECRET_KEY'])
+  return Boolean(process.env["STRIPE_SECRET_KEY"]);
 }
 
 /**
@@ -48,16 +47,16 @@ export function isStripeConfigured(): boolean {
  * WHERE: Called by billing services / router / webhook.
  */
 export function getStripeClient(): Stripe {
-  const secret = process.env['STRIPE_SECRET_KEY']
+  const secret = process.env["STRIPE_SECRET_KEY"];
   if (!secret) {
     throw new Error(
-      '[stripe] STRIPE_SECRET_KEY is not set. Billing is unavailable until it is configured.'
-    )
+      "[stripe] STRIPE_SECRET_KEY is not set. Billing is unavailable until it is configured.",
+    );
   }
   if (!client) {
-    client = new Stripe(secret, { apiVersion: STRIPE_API_VERSION })
+    client = new Stripe(secret, { apiVersion: STRIPE_API_VERSION });
   }
-  return client
+  return client;
 }
 
 /**
@@ -67,9 +66,9 @@ export function getStripeClient(): Stripe {
  * WHERE: Used by the /api/stripe/webhook route to verify signatures.
  */
 export function getStripeWebhookSecret(): string {
-  const secret = process.env['STRIPE_WEBHOOK_SECRET']
+  const secret = process.env["STRIPE_WEBHOOK_SECRET"];
   if (!secret) {
-    throw new Error('[stripe] STRIPE_WEBHOOK_SECRET is not set.')
+    throw new Error("[stripe] STRIPE_WEBHOOK_SECRET is not set.");
   }
-  return secret
+  return secret;
 }

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -28,7 +27,7 @@ import {
   UserSearch,
   Users,
   type LucideIcon,
-} from 'lucide-react'
+} from "lucide-react";
 
 /* Keyed by the exact strings used in RESOURCES[*].nav.icon. */
 export const NAV_ICONS: Record<string, LucideIcon> = {
@@ -41,9 +40,9 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
   Sparkles,
   UserSearch,
-}
+};
 
-export type NavIconName = keyof typeof NAV_ICONS
+export type NavIconName = keyof typeof NAV_ICONS;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getNavIcon
@@ -53,5 +52,5 @@ export type NavIconName = keyof typeof NAV_ICONS
  * WHERE: Called by app-sidebar.tsx when rendering each nav item.
  */
 export function getNavIcon(name: string): LucideIcon {
-  return NAV_ICONS[name] ?? Circle
+  return NAV_ICONS[name] ?? Circle;
 }

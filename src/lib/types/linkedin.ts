@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -25,12 +24,16 @@
  *        integrations routers, and the composer UI.
  */
 
-import { z } from 'zod'
-import { LINKEDIN_MAX_COMMENTARY } from '@/lib/config/linkedin'
+import { z } from "zod";
+import { LINKEDIN_MAX_COMMENTARY } from "@/lib/config/linkedin";
 
 /* LinkedIn's Images API accepts these for member posts. */
-export const LINKEDIN_IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif'] as const
-export type LinkedInImageMimeType = (typeof LINKEDIN_IMAGE_MIME_TYPES)[number]
+export const LINKEDIN_IMAGE_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+] as const;
+export type LinkedInImageMimeType = (typeof LINKEDIN_IMAGE_MIME_TYPES)[number];
 
 /* 3 MB of raw image. The binding constraint is the SERVERLESS REQUEST BODY
  * ceiling, not LinkedIn: the image crosses the wire base64-encoded inside the
@@ -38,12 +41,12 @@ export type LinkedInImageMimeType = (typeof LINKEDIN_IMAGE_MIME_TYPES)[number]
  * JSON. Vercel rejects request bodies over 4.5 MB, so a higher cap here passes
  * local dev (which has no limit) and then fails only in production. Raising
  * this REQUIRES moving the upload off the JSON payload first. */
-export const LINKEDIN_MAX_IMAGE_BYTES = 3 * 1024 * 1024
+export const LINKEDIN_MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 
 /* Derived so the ceiling is stated in exactly one place — the zod message and
  * the composer's pre-flight toast both read it rather than restating a number
  * that then drifts when the limit changes. */
-export const LINKEDIN_MAX_IMAGE_LABEL = `${LINKEDIN_MAX_IMAGE_BYTES / (1024 * 1024)} MB`
+export const LINKEDIN_MAX_IMAGE_LABEL = `${LINKEDIN_MAX_IMAGE_BYTES / (1024 * 1024)} MB`;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: postImageSchema, PostImageValues
@@ -58,13 +61,13 @@ export const postImageSchema = z.object({
   /* Bare base64 — the `data:` prefix is stripped client-side before submit. */
   data: z
     .string()
-    .min(1, 'Image data is empty')
+    .min(1, "Image data is empty")
     .refine(
       (value) => Math.floor((value.length * 3) / 4) <= LINKEDIN_MAX_IMAGE_BYTES,
-      `Image must be ${LINKEDIN_MAX_IMAGE_LABEL} or smaller`
+      `Image must be ${LINKEDIN_MAX_IMAGE_LABEL} or smaller`,
     ),
-})
-export type PostImageValues = z.infer<typeof postImageSchema>
+});
+export type PostImageValues = z.infer<typeof postImageSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_OAUTH_ERROR_CODES, LinkedInOAuthErrorCode,
@@ -85,32 +88,33 @@ export type PostImageValues = z.infer<typeof postImageSchema>
  *        union so a new code cannot ship without user-facing copy.
  */
 export const LINKEDIN_OAUTH_ERROR_CODES = [
-  'cancelled',
-  'denied',
-  'invalid_scope',
-  'unauthorized_client',
-  'server_error',
-  'invalid_state',
-  'exchange_failed',
-  'not_configured',
-] as const
-export type LinkedInOAuthErrorCode = (typeof LINKEDIN_OAUTH_ERROR_CODES)[number]
+  "cancelled",
+  "denied",
+  "invalid_scope",
+  "unauthorized_client",
+  "server_error",
+  "invalid_state",
+  "exchange_failed",
+  "not_configured",
+] as const;
+export type LinkedInOAuthErrorCode =
+  (typeof LINKEDIN_OAUTH_ERROR_CODES)[number];
 
 /* LinkedIn mixes standard OAuth 2.0 codes with its own `*_error` spellings, and
  * returns them on a page whose visible text is always the same generic failure —
  * so the raw code is the only signal distinguishing these causes. */
 const LINKEDIN_OAUTH_ERROR_MAP: Record<string, LinkedInOAuthErrorCode> = {
-  user_cancelled_login: 'cancelled',
-  user_cancelled_authorize: 'cancelled',
-  invalid_scope_error: 'invalid_scope',
-  unauthorized_scope_error: 'invalid_scope',
-  invalid_scope: 'invalid_scope',
-  unauthorized_client: 'unauthorized_client',
-  invalid_client: 'unauthorized_client',
-  access_denied: 'denied',
-  server_error: 'server_error',
-  temporarily_unavailable: 'server_error',
-}
+  user_cancelled_login: "cancelled",
+  user_cancelled_authorize: "cancelled",
+  invalid_scope_error: "invalid_scope",
+  unauthorized_scope_error: "invalid_scope",
+  invalid_scope: "invalid_scope",
+  unauthorized_client: "unauthorized_client",
+  invalid_client: "unauthorized_client",
+  access_denied: "denied",
+  server_error: "server_error",
+  temporarily_unavailable: "server_error",
+};
 
 /**
  * SOURCE OF TRUTH KEYWORDS: normalizeLinkedInOAuthError
@@ -120,8 +124,10 @@ const LINKEDIN_OAUTH_ERROR_MAP: Record<string, LinkedInOAuthErrorCode> = {
  *        so the union stays closed and the UI always has copy to render.
  * WHERE: Called by the LinkedIn callback route.
  */
-export function normalizeLinkedInOAuthError(raw: string): LinkedInOAuthErrorCode {
-  return LINKEDIN_OAUTH_ERROR_MAP[raw] ?? 'denied'
+export function normalizeLinkedInOAuthError(
+  raw: string,
+): LinkedInOAuthErrorCode {
+  return LINKEDIN_OAUTH_ERROR_MAP[raw] ?? "denied";
 }
 
 /**
@@ -137,11 +143,14 @@ export const publishPostSchema = z.object({
   commentary: z
     .string()
     .trim()
-    .min(1, 'Write something before publishing')
-    .max(LINKEDIN_MAX_COMMENTARY, `Posts are limited to ${LINKEDIN_MAX_COMMENTARY} characters`),
+    .min(1, "Write something before publishing")
+    .max(
+      LINKEDIN_MAX_COMMENTARY,
+      `Posts are limited to ${LINKEDIN_MAX_COMMENTARY} characters`,
+    ),
   image: postImageSchema.optional(),
-})
-export type PublishPostValues = z.infer<typeof publishPostSchema>
+});
+export type PublishPostValues = z.infer<typeof publishPostSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: listPostsSchema
@@ -150,7 +159,7 @@ export type PublishPostValues = z.infer<typeof publishPostSchema>
  */
 export const listPostsSchema = z.object({
   limit: z.number().int().min(1).max(50).default(10),
-})
+});
 
 /**
  * SOURCE OF TRUTH KEYWORDS: deletePostSchema
@@ -160,7 +169,7 @@ export const listPostsSchema = z.object({
  */
 export const deletePostSchema = z.object({
   postId: z.string().min(1),
-})
+});
 
 /**
  * SOURCE OF TRUTH KEYWORDS: disconnectIntegrationSchema
@@ -171,8 +180,8 @@ export const deletePostSchema = z.object({
  *        same endpoint serves the next provider without a schema change.
  */
 export const disconnectIntegrationSchema = z.object({
-  provider: z.literal('linkedin'),
-})
+  provider: z.literal("linkedin"),
+});
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LinkedInConnectionStatus
@@ -188,10 +197,10 @@ export const disconnectIntegrationSchema = z.object({
  * WHERE: Returned by integrations.read; consumed by the connect button.
  */
 export interface LinkedInConnectionStatus {
-  connected: boolean
-  configured: boolean
-  name: string | null
-  avatarUrl: string | null
-  expiresAt: Date | null
-  needsReconnect: boolean
+  connected: boolean;
+  configured: boolean;
+  name: string | null;
+  avatarUrl: string | null;
+  expiresAt: Date | null;
+  needsReconnect: boolean;
 }

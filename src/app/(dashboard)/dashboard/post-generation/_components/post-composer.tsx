@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PostComposer, CALLBACK_ERROR_MESSAGES,
@@ -23,13 +22,20 @@
  *        linkedinPosts.create, and integrations.linkedin.
  */
 
-import * as React from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { ImageIcon, LinkIcon, Loader2Icon, SendIcon, SparklesIcon, XIcon } from 'lucide-react'
-import { toast } from 'sonner'
+import * as React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  ImageIcon,
+  LinkIcon,
+  Loader2Icon,
+  SendIcon,
+  SparklesIcon,
+  XIcon,
+} from "lucide-react";
+import { toast } from "sonner";
 
-import { trpc } from '@/trpc/react-provider'
-import { useActiveOrganizationId } from '@/hooks/use-active-organization'
+import { trpc } from "@/trpc/react-provider";
+import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   LINKEDIN_IMAGE_MIME_TYPES,
   LINKEDIN_MAX_IMAGE_BYTES,
@@ -40,178 +46,201 @@ import {
   type PostImageValues,
   type PostLength,
   type PostTone,
-} from '@/lib/types'
-import { LINKEDIN_MAX_COMMENTARY } from '@/lib/config'
-import { ContentLayout } from '@/components/global/page-header'
-import { LinkedInConnectButton, LinkedInPostPreview } from '@/components/global/linkedin'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
-import { GenerateForm } from './generate-form'
+} from "@/lib/types";
+import { LINKEDIN_MAX_COMMENTARY } from "@/lib/config";
+import { ContentLayout } from "@/components/global/page-header";
+import {
+  LinkedInConnectButton,
+  LinkedInPostPreview,
+} from "@/components/global/linkedin";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { GenerateForm } from "./generate-form";
 
 /* The OAuth callback can only talk back through the URL, so each failure mode
  * gets a user-facing sentence here. Typed against LinkedInOAuthErrorCode rather
  * than `string` so adding a code without copy is a compile error instead of a
  * silent fallback to the generic message. */
 const CALLBACK_ERROR_MESSAGES: Record<LinkedInOAuthErrorCode, string> = {
-  cancelled: 'LinkedIn connection cancelled.',
-  denied: 'LinkedIn denied the connection request.',
+  cancelled: "LinkedIn connection cancelled.",
+  denied: "LinkedIn denied the connection request.",
   /* Names the actual remedy: this is what LinkedIn returns when the app has no
    * approved products, which looks nothing like a scope problem in its UI. */
   invalid_scope:
     'This LinkedIn app is missing required products. In the LinkedIn developer portal, add "Sign In with LinkedIn using OpenID Connect" and "Share on LinkedIn".',
   unauthorized_client:
-    'This LinkedIn app is not authorized. Check that LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET match the app.',
-  server_error: 'LinkedIn is temporarily unavailable. Please try again in a moment.',
-  invalid_state: 'That connection link expired. Please try connecting again.',
-  exchange_failed: 'Could not complete the LinkedIn connection. Please try again.',
-  not_configured: 'LinkedIn is not configured on this deployment.',
-}
+    "This LinkedIn app is not authorized. Check that LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET match the app.",
+  server_error:
+    "LinkedIn is temporarily unavailable. Please try again in a moment.",
+  invalid_state: "That connection link expired. Please try connecting again.",
+  exchange_failed:
+    "Could not complete the LinkedIn connection. Please try again.",
+  not_configured: "LinkedIn is not configured on this deployment.",
+};
 
 /* FileReader yields a `data:<mime>;base64,<payload>` URL; the API wants the
  * bare payload, so split on the first comma. */
 function readImageAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(new Error('Could not read the selected image.'))
+    const reader = new FileReader();
+    reader.onerror = () =>
+      reject(new Error("Could not read the selected image."));
     reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : ''
-      resolve(result.slice(result.indexOf(',') + 1))
-    }
-    reader.readAsDataURL(file)
-  })
+      const result = typeof reader.result === "string" ? reader.result : "";
+      resolve(result.slice(result.indexOf(",") + 1));
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export function PostComposer() {
-  const organizationId = useActiveOrganizationId()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const utils = trpc.useUtils()
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const organizationId = useActiveOrganizationId();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const utils = trpc.useUtils();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const [commentary, setCommentary] = React.useState('')
-  const [tone, setTone] = React.useState<PostTone>('professional')
-  const [length, setLength] = React.useState<PostLength>('medium')
-  const [image, setImage] = React.useState<PostImageValues | null>(null)
-  const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null)
+  const [commentary, setCommentary] = React.useState("");
+  const [tone, setTone] = React.useState<PostTone>("professional");
+  const [length, setLength] = React.useState<PostLength>("medium");
+  const [image, setImage] = React.useState<PostImageValues | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(
+    null,
+  );
 
-  const enabled = organizationId !== undefined
-  const orgId = organizationId ?? ''
+  const enabled = organizationId !== undefined;
+  const orgId = organizationId ?? "";
 
-  const connection = trpc.integrations.linkedin.useQuery({ organizationId: orgId }, { enabled })
+  const connection = trpc.integrations.linkedin.useQuery(
+    { organizationId: orgId },
+    { enabled },
+  );
   const recentPosts = trpc.linkedinPosts.list.useQuery(
     { organizationId: orgId, limit: 5 },
-    { enabled }
-  )
+    { enabled },
+  );
 
   /* The callback route redirects here with a result — surface it once, then
    * strip the params so a refresh doesn't replay the toast. */
   React.useEffect(() => {
-    const connected = searchParams.get('connected')
-    const error = searchParams.get('error')
-    if (!connected && !error) return
+    const connected = searchParams.get("connected");
+    const error = searchParams.get("error");
+    if (!connected && !error) return;
 
     if (connected) {
-      toast.success('LinkedIn connected.')
-      void utils.integrations.linkedin.invalidate()
+      toast.success("LinkedIn connected.");
+      void utils.integrations.linkedin.invalidate();
     } else if (error) {
       /* The param is attacker-controllable, so it is matched against the known
        * codes rather than used as a bare index — an unknown value falls through
        * to the generic message instead of rendering `undefined`. */
-      const code = LINKEDIN_OAUTH_ERROR_CODES.find((known) => known === error)
-      toast.error(code ? CALLBACK_ERROR_MESSAGES[code] : 'Could not connect to LinkedIn.')
+      const code = LINKEDIN_OAUTH_ERROR_CODES.find((known) => known === error);
+      toast.error(
+        code ? CALLBACK_ERROR_MESSAGES[code] : "Could not connect to LinkedIn.",
+      );
     }
-    router.replace('/dashboard/post-generation')
-  }, [searchParams, router, utils])
+    router.replace("/dashboard/post-generation");
+  }, [searchParams, router, utils]);
 
   const generate = trpc.aiGeneration.create.useMutation({
     onSuccess: (result) => {
-      setCommentary(result.commentary)
-      toast.success('Post generated.')
+      setCommentary(result.commentary);
+      toast.success("Post generated.");
     },
     onError: (error) => toast.error(error.message),
-  })
+  });
 
   const publish = trpc.linkedinPosts.create.useMutation({
     onSuccess: async () => {
-      toast.success('Published to LinkedIn.')
-      setCommentary('')
-      clearImage()
+      toast.success("Published to LinkedIn.");
+      setCommentary("");
+      clearImage();
       await Promise.all([
         utils.linkedinPosts.list.invalidate(),
         utils.usage.invalidate(),
-      ])
+      ]);
     },
     onError: (error) => toast.error(error.message),
-  })
+  });
 
   function clearImage() {
-    setImage(null)
+    setImage(null);
     setImagePreviewUrl((previous) => {
       /* Object URLs leak until revoked. */
-      if (previous) URL.revokeObjectURL(previous)
-      return null
-    })
-    if (fileInputRef.current) fileInputRef.current.value = ''
+      if (previous) URL.revokeObjectURL(previous);
+      return null;
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   /* Revoke on unmount too — clearImage only covers the interactive paths. */
   React.useEffect(
     () => () => {
-      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     },
-    [imagePreviewUrl]
-  )
+    [imagePreviewUrl],
+  );
 
-  async function handleImageSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
+  async function handleImageSelected(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
     /* Checked before reading: base64-encoding a huge file just to reject it
      * would block the main thread for no reason. */
     if (file.size > LINKEDIN_MAX_IMAGE_BYTES) {
-      toast.error(`Image must be ${LINKEDIN_MAX_IMAGE_LABEL} or smaller.`)
-      event.target.value = ''
-      return
+      toast.error(`Image must be ${LINKEDIN_MAX_IMAGE_LABEL} or smaller.`);
+      event.target.value = "";
+      return;
     }
 
-    const mimeType = LINKEDIN_IMAGE_MIME_TYPES.find((type) => type === file.type)
+    const mimeType = LINKEDIN_IMAGE_MIME_TYPES.find(
+      (type) => type === file.type,
+    );
     if (!mimeType) {
-      toast.error('LinkedIn accepts PNG, JPEG, or GIF images.')
-      event.target.value = ''
-      return
+      toast.error("LinkedIn accepts PNG, JPEG, or GIF images.");
+      event.target.value = "";
+      return;
     }
 
     try {
-      const data = await readImageAsBase64(file)
-      setImage({ mimeType, data })
-      setImagePreviewUrl(URL.createObjectURL(file))
+      const data = await readImageAsBase64(file);
+      setImage({ mimeType, data });
+      setImagePreviewUrl(URL.createObjectURL(file));
     } catch {
-      toast.error('Could not read the selected image.')
+      toast.error("Could not read the selected image.");
     }
   }
 
   function handleGenerate(values: GeneratePostValues) {
-    if (!enabled) return
-    generate.mutate({ ...values, organizationId: orgId })
+    if (!enabled) return;
+    generate.mutate({ ...values, organizationId: orgId });
   }
 
   function handlePublish() {
-    if (!enabled) return
+    if (!enabled) return;
     publish.mutate({
       organizationId: orgId,
       commentary,
       ...(image ? { image } : {}),
-    })
+    });
   }
 
-  const isConnected = Boolean(connection.data?.connected) && !connection.data?.needsReconnect
+  const isConnected =
+    Boolean(connection.data?.connected) && !connection.data?.needsReconnect;
   const canPublish =
-    isConnected && commentary.trim().length > 0 && commentary.length <= LINKEDIN_MAX_COMMENTARY
+    isConnected &&
+    commentary.trim().length > 0 &&
+    commentary.length <= LINKEDIN_MAX_COMMENTARY;
 
   return (
-    <ContentLayout title="Generate LinkedIn Post" actions={<LinkedInConnectButton />}>
+    <ContentLayout
+      title="Generate LinkedIn Post"
+      actions={<LinkedInConnectButton />}
+    >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader>
@@ -237,7 +266,7 @@ export function PostComposer() {
 
         <div className="flex flex-col gap-4">
           <LinkedInPostPreview
-            authorName={connection.data?.name ?? 'Your name'}
+            authorName={connection.data?.name ?? "Your name"}
             authorAvatarUrl={connection.data?.avatarUrl}
             commentary={commentary}
             imageUrl={imagePreviewUrl}
@@ -246,7 +275,7 @@ export function PostComposer() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept={LINKEDIN_IMAGE_MIME_TYPES.join(',')}
+                  accept={LINKEDIN_IMAGE_MIME_TYPES.join(",")}
                   className="hidden"
                   onChange={handleImageSelected}
                 />
@@ -258,7 +287,7 @@ export function PostComposer() {
                   disabled={publish.isPending}
                 >
                   <ImageIcon className="size-4" />
-                  {image ? 'Replace image' : 'Add image'}
+                  {image ? "Replace image" : "Add image"}
                 </Button>
                 {image ? (
                   <Button
@@ -291,8 +320,8 @@ export function PostComposer() {
             <p
               className={
                 commentary.length > LINKEDIN_MAX_COMMENTARY
-                  ? 'text-sm text-destructive'
-                  : 'text-sm text-muted-foreground'
+                  ? "text-sm text-destructive"
+                  : "text-sm text-muted-foreground"
               }
             >
               {commentary.length} / {LINKEDIN_MAX_COMMENTARY} characters
@@ -317,8 +346,8 @@ export function PostComposer() {
             <div className="flex items-start gap-2 rounded-lg border border-brand-border bg-brand-soft p-3">
               <LinkIcon className="mt-0.5 size-4 shrink-0 text-brand-soft-foreground" />
               <p className="text-sm text-brand-soft-foreground">
-                Connect your LinkedIn account to publish. You can still generate and edit copy
-                without one.
+                Connect your LinkedIn account to publish. You can still generate
+                and edit copy without one.
               </p>
             </div>
           ) : null}
@@ -346,5 +375,5 @@ export function PostComposer() {
         </div>
       </div>
     </ContentLayout>
-  )
+  );
 }

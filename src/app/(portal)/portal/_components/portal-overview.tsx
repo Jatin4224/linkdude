@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PortalOverview
@@ -15,18 +14,18 @@
  * WHERE: Rendered by the /portal page. Reads trpc.portal.getOverview.
  */
 
-import { trpc } from '@/trpc/react-provider'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { trpc } from "@/trpc/react-provider";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function PortalOverview() {
-  const { data, isLoading } = trpc.portal.getOverview.useQuery()
+  const { data, isLoading } = trpc.portal.getOverview.useQuery();
 
   const stats = [
-    { label: 'Organizations', value: data?.totalOrganizations },
-    { label: 'Users', value: data?.totalUsers },
-    { label: 'Active subscriptions', value: data?.activeSubscriptions },
-  ]
+    { label: "Organizations", value: data?.totalOrganizations },
+    { label: "Users", value: data?.totalUsers },
+    { label: "Active subscriptions", value: data?.activeSubscriptions },
+  ];
 
   return (
     <div className="grid gap-4 sm:grid-cols-3">
@@ -47,5 +46,5 @@ export function PortalOverview() {
         </Card>
       ))}
     </div>
-  )
+  );
 }

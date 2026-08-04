@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -13,14 +12,14 @@
  * WHERE: RESOURCES.profileAnalysis.nav.href.
  */
 
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
 
-import { ProfileAnalyzer } from './_components/profile-analyzer'
+import { ProfileAnalyzer } from "./_components/profile-analyzer";
 
 export const metadata: Metadata = {
-  title: 'Profile Analysis',
-}
+  title: "Profile Analysis",
+};
 
 export default function ProfileAnalysisPage() {
-  return <ProfileAnalyzer />
+  return <ProfileAnalyzer />;
 }

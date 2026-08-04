@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -19,81 +18,93 @@
  *        src/app/api/linkedin/connect/route.ts.
  */
 
-import { timingSafeEqual } from 'node:crypto'
-import { NextResponse, type NextRequest } from 'next/server'
+import { timingSafeEqual } from "node:crypto";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { getCachedSession } from '@/lib/better-auth/auth'
-import { createTRPCContext } from '@/trpc/init'
-import { prisma } from '@/lib/config/prisma'
-import { APP_URL, AUTH_ROUTES, ROUTES, LINKEDIN_OAUTH_STATE_COOKIE } from '@/lib/config'
-import { normalizeLinkedInOAuthError, type LinkedInOAuthErrorCode } from '@/lib/types'
-import * as linkedinService from '@/services/linkedin.service'
+import { getCachedSession } from "@/lib/better-auth/auth";
+import { createTRPCContext } from "@/trpc/init";
+import { prisma } from "@/lib/config/prisma";
+import {
+  APP_URL,
+  AUTH_ROUTES,
+  ROUTES,
+  LINKEDIN_OAUTH_STATE_COOKIE,
+} from "@/lib/config";
+import {
+  normalizeLinkedInOAuthError,
+  type LinkedInOAuthErrorCode,
+} from "@/lib/types";
+import * as linkedinService from "@/services/linkedin.service";
 
-const COMPOSER_PATH = `${ROUTES.dashboard}/post-generation`
+const COMPOSER_PATH = `${ROUTES.dashboard}/post-generation`;
 
 /* Narrowed to the known union rather than `string`: an unmapped code would
  * otherwise reach the composer with no copy and render the generic fallback. */
-function redirectToComposer(status: 'connected' | LinkedInOAuthErrorCode): NextResponse {
-  const url = new URL(COMPOSER_PATH, APP_URL)
-  if (status === 'connected') {
-    url.searchParams.set('connected', '1')
+function redirectToComposer(
+  status: "connected" | LinkedInOAuthErrorCode,
+): NextResponse {
+  const url = new URL(COMPOSER_PATH, APP_URL);
+  if (status === "connected") {
+    url.searchParams.set("connected", "1");
   } else {
-    url.searchParams.set('error', status)
+    url.searchParams.set("error", status);
   }
-  const response = NextResponse.redirect(url)
+  const response = NextResponse.redirect(url);
   /* Single-use by construction — clear on success and failure alike. */
-  response.cookies.delete(LINKEDIN_OAUTH_STATE_COOKIE)
-  return response
+  response.cookies.delete(LINKEDIN_OAUTH_STATE_COOKIE);
+  return response;
 }
 
 /* Constant-time compare so the state check can't be narrowed by timing. */
 function statesMatch(a: string, b: string): boolean {
-  const left = Buffer.from(a)
-  const right = Buffer.from(b)
-  return left.length === right.length && timingSafeEqual(left, right)
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const session = await getCachedSession()
+  const session = await getCachedSession();
   if (!session) {
-    return NextResponse.redirect(new URL(AUTH_ROUTES.signIn, APP_URL))
+    return NextResponse.redirect(new URL(AUTH_ROUTES.signIn, APP_URL));
   }
 
-  const params = request.nextUrl.searchParams
+  const params = request.nextUrl.searchParams;
 
   /* The user pressed Cancel on LinkedIn's consent screen, or LinkedIn refused
    * the app. Either way there's no code to exchange. Normalized (not collapsed)
    * so a misconfigured app — missing products, wrong client — is distinguishable
    * from a user declining, which are opposite fixes. Logged raw because the
    * browser only ever sees the normalized code. */
-  const oauthError = params.get('error')
+  const oauthError = params.get("error");
   if (oauthError) {
     console.error(
-      '[linkedin] authorization failed:',
+      "[linkedin] authorization failed:",
       oauthError,
-      params.get('error_description') ?? ''
-    )
-    return redirectToComposer(normalizeLinkedInOAuthError(oauthError))
+      params.get("error_description") ?? "",
+    );
+    return redirectToComposer(normalizeLinkedInOAuthError(oauthError));
   }
 
-  const code = params.get('code')
-  const state = params.get('state')
-  const expectedState = request.cookies.get(LINKEDIN_OAUTH_STATE_COOKIE)?.value
+  const code = params.get("code");
+  const state = params.get("state");
+  const expectedState = request.cookies.get(LINKEDIN_OAUTH_STATE_COOKIE)?.value;
 
   if (!code || !state || !expectedState || !statesMatch(state, expectedState)) {
-    return redirectToComposer('invalid_state')
+    return redirectToComposer("invalid_state");
   }
 
-  const ctx = await createTRPCContext()
-  await ctx.resolveAuth()
-  const activeOrganization = await ctx.getActiveOrganization()
+  const ctx = await createTRPCContext();
+  await ctx.resolveAuth();
+  const activeOrganization = await ctx.getActiveOrganization();
   if (!activeOrganization) {
-    return NextResponse.redirect(new URL(ROUTES.onboarding, APP_URL))
+    return NextResponse.redirect(new URL(ROUTES.onboarding, APP_URL));
   }
 
   try {
-    const token = await linkedinService.exchangeCodeForToken(code)
-    const profile = await linkedinService.fetchMemberProfile(token.access_token)
+    const token = await linkedinService.exchangeCodeForToken(code);
+    const profile = await linkedinService.fetchMemberProfile(
+      token.access_token,
+    );
 
     await linkedinService.upsertConnection(prisma, {
       organizationId: activeOrganization.id,
@@ -104,13 +115,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       name: profile.name ?? session.user.name,
       avatarUrl: profile.picture ?? null,
       token,
-    })
+    });
 
-    return redirectToComposer('connected')
+    return redirectToComposer("connected");
   } catch (error) {
     /* Log server-side (the message can carry LinkedIn response detail) but hand
      * the browser only an opaque code. */
-    console.error('[linkedin] callback failed:', error)
-    return redirectToComposer('exchange_failed')
+    console.error("[linkedin] callback failed:", error);
+    return redirectToComposer("exchange_failed");
   }
 }

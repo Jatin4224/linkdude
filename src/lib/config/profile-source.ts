@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -25,7 +24,10 @@
  *        vendor endpoint anywhere else.
  */
 
-import { profileSourceSchema, type ProfileSource } from '@/lib/types/profile-analysis'
+import {
+  profileSourceSchema,
+  type ProfileSource,
+} from "@/lib/types/profile-analysis";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: ProfileSourceDefinition
@@ -34,25 +36,26 @@ import { profileSourceSchema, type ProfileSource } from '@/lib/types/profile-ana
  * WHERE: Implemented by PROFILE_SOURCES below.
  */
 export interface ProfileSourceDefinition {
-  readonly label: string
-  readonly apiKeyEnvVar: string
-  readonly consoleUrl: string
+  readonly label: string;
+  readonly apiKeyEnvVar: string;
+  readonly consoleUrl: string;
   /** Absolute endpoint for ONE synchronous profile lookup. */
-  readonly endpoint: string
-  readonly buildHeaders: (apiKey: string) => Record<string, string>
+  readonly endpoint: string;
+  readonly buildHeaders: (apiKey: string) => Record<string, string>;
   /** Vendors disagree on the request shape, so each builds its own body. */
-  readonly buildBody: (profileUrl: string) => string
+  readonly buildBody: (profileUrl: string) => string;
 }
 
 /* Bright Data's "LinkedIn People Profile" collector. The id is static across
  * accounts, so it is pinned here rather than configured per install. */
-const BRIGHTDATA_DATASET_ID = 'gd_l1viktl72bvl7bjuj0'
+const BRIGHTDATA_DATASET_ID = "gd_l1viktl72bvl7bjuj0";
 
 /* Both vendors are called SYNCHRONOUSLY. Each also offers an async job API
  * (Bright Data /trigger, Apify /runs) that returns an id to poll — unusable
  * here, because polling inside the tRPC mutation transaction would hold a
  * Postgres connection for the entire job. */
-const BRIGHTDATA_SCRAPE_ENDPOINT = 'https://api.brightdata.com/datasets/v3/scrape'
+const BRIGHTDATA_SCRAPE_ENDPOINT =
+  "https://api.brightdata.com/datasets/v3/scrape";
 
 /* Cookie-free actor: it scrapes public profiles through its own proxies rather
  * than driving a logged-in session. Actors that ask for a `li_at` cookie are
@@ -65,7 +68,7 @@ const BRIGHTDATA_SCRAPE_ENDPOINT = 'https://api.brightdata.com/datasets/v3/scrap
  * `{ error: "Users on the free Apify plan can run the actor through the UI and
  * not via other methods." }`. Re-verify free-plan API access before swapping
  * this id — the actor page does not state the restriction. */
-const APIFY_ACTOR_ID = 'thirdwatch~linkedin-profile-scraper'
+const APIFY_ACTOR_ID = "thirdwatch~linkedin-profile-scraper";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PROFILE_FETCH_TIMEOUT_MS
@@ -84,7 +87,7 @@ const APIFY_ACTOR_ID = 'thirdwatch~linkedin-profile-scraper'
  * WHERE: Applied in src/services/profile-source.service.ts. Must stay safely
  *        under the fetch procedure's txTimeout in the profileAnalysis router.
  */
-export const PROFILE_FETCH_TIMEOUT_MS = 75_000
+export const PROFILE_FETCH_TIMEOUT_MS = 75_000;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PROFILE_SOURCES
@@ -95,16 +98,16 @@ export const PROFILE_FETCH_TIMEOUT_MS = 75_000
  */
 export const PROFILE_SOURCES: Record<ProfileSource, ProfileSourceDefinition> = {
   apify: {
-    label: 'Apify',
-    apiKeyEnvVar: 'APIFY_API_TOKEN',
-    consoleUrl: 'https://console.apify.com/settings/integrations',
+    label: "Apify",
+    apiKeyEnvVar: "APIFY_API_TOKEN",
+    consoleUrl: "https://console.apify.com/settings/integrations",
     /* run-sync-get-dataset-items runs the actor and returns its results in one
      * request. The token goes in the Authorization header rather than the `?token=`
      * query parameter both forms support, so it cannot leak through request logs. */
     endpoint: `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items`,
     buildHeaders: (apiKey) => ({
       Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     }),
     /* The deeper fallback tiers are OFF by default and a plain lookup returns an
      * EMPTY array — after ~26s — whenever LinkedIn authwalls the direct fetch,
@@ -128,17 +131,17 @@ export const PROFILE_SOURCES: Record<ProfileSource, ProfileSourceDefinition> = {
       }),
   },
   brightdata: {
-    label: 'Bright Data',
-    apiKeyEnvVar: 'BRIGHTDATA_API_KEY',
-    consoleUrl: 'https://brightdata.com/cp/api_tokens',
+    label: "Bright Data",
+    apiKeyEnvVar: "BRIGHTDATA_API_KEY",
+    consoleUrl: "https://brightdata.com/cp/api_tokens",
     endpoint: `${BRIGHTDATA_SCRAPE_ENDPOINT}?dataset_id=${BRIGHTDATA_DATASET_ID}&format=json`,
     buildHeaders: (apiKey) => ({
       Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     }),
     buildBody: (profileUrl) => JSON.stringify([{ url: profileUrl }]),
   },
-}
+};
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PROFILE_SOURCE
@@ -148,11 +151,11 @@ export const PROFILE_SOURCES: Record<ProfileSource, ProfileSourceDefinition> = {
  *        than taking the process down — the same fail-soft contract as ./ai.ts.
  */
 export const PROFILE_SOURCE: ProfileSource = profileSourceSchema
-  .catch('apify')
-  .parse(process.env['PROFILE_SOURCE'])
+  .catch("apify")
+  .parse(process.env["PROFILE_SOURCE"]);
 
 export function getProfileSource(): ProfileSourceDefinition {
-  return PROFILE_SOURCES[PROFILE_SOURCE]
+  return PROFILE_SOURCES[PROFILE_SOURCE];
 }
 
 /**
@@ -164,7 +167,7 @@ export function getProfileSource(): ProfileSourceDefinition {
  *        always errors. The paste path is unaffected.
  */
 export function isProfileFetchConfigured(): boolean {
-  return Boolean(process.env[getProfileSource().apiKeyEnvVar])
+  return Boolean(process.env[getProfileSource().apiKeyEnvVar]);
 }
 
 /**
@@ -174,12 +177,12 @@ export function isProfileFetchConfigured(): boolean {
  * WHERE: Called by src/services/profile-source.service.ts only.
  */
 export function getProfileSourceApiKey(): string {
-  const source = getProfileSource()
-  const key = process.env[source.apiKeyEnvVar]
+  const source = getProfileSource();
+  const key = process.env[source.apiKeyEnvVar];
   if (!key) {
     throw new Error(
-      `[profile-source] ${source.apiKeyEnvVar} is not set. URL lookups are unavailable until it is configured. Get a token at ${source.consoleUrl}.`
-    )
+      `[profile-source] ${source.apiKeyEnvVar} is not set. URL lookups are unavailable until it is configured. Get a token at ${source.consoleUrl}.`,
+    );
   }
-  return key
+  return key;
 }

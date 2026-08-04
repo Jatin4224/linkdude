@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LinkedInConnectButton, LINKEDIN_CONNECT_PATH
@@ -22,42 +21,42 @@
  *        via integrations.disconnect.
  */
 
-import * as React from 'react'
-import { Loader2Icon, LinkIcon, UnlinkIcon } from 'lucide-react'
+import * as React from "react";
+import { Loader2Icon, LinkIcon, UnlinkIcon } from "lucide-react";
 
-import { trpc } from '@/trpc/react-provider'
-import { useActiveOrganizationId } from '@/hooks/use-active-organization'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { trpc } from "@/trpc/react-provider";
+import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /* Starting the handshake is a navigation, not an API call — the connect route
  * needs to set an httpOnly cookie and 302 the browser to LinkedIn. */
-export const LINKEDIN_CONNECT_PATH = '/api/linkedin/connect'
+export const LINKEDIN_CONNECT_PATH = "/api/linkedin/connect";
 
 export function LinkedInConnectButton() {
-  const organizationId = useActiveOrganizationId()
-  const utils = trpc.useUtils()
-  const enabled = organizationId !== undefined
+  const organizationId = useActiveOrganizationId();
+  const utils = trpc.useUtils();
+  const enabled = organizationId !== undefined;
 
   const connection = trpc.integrations.linkedin.useQuery(
-    { organizationId: organizationId ?? '' },
-    { enabled }
-  )
+    { organizationId: organizationId ?? "" },
+    { enabled },
+  );
 
   const disconnect = trpc.integrations.disconnect.useMutation({
     onSuccess: async () => {
-      await utils.integrations.linkedin.invalidate()
+      await utils.integrations.linkedin.invalidate();
     },
-  })
+  });
 
   if (connection.isLoading || !enabled) {
-    return <Skeleton className="h-9 w-40" />
+    return <Skeleton className="h-9 w-40" />;
   }
 
-  const status = connection.data
-  if (!status) return null
+  const status = connection.data;
+  if (!status) return null;
 
   /* Operator hasn't set the OAuth credentials — a Connect button here would
    * bounce the user to a LinkedIn error page, so disable it and say why. */
@@ -66,7 +65,7 @@ export function LinkedInConnectButton() {
       <Badge variant="outline" className="text-muted-foreground">
         LinkedIn not configured
       </Badge>
-    )
+    );
   }
 
   if (!status.connected || status.needsReconnect) {
@@ -78,13 +77,13 @@ export function LinkedInConnectButton() {
          * httpOnly state cookie and 302s the browser to LinkedIn's consent
          * screen, neither of which survives a client-side transition. */
         onClick={() => {
-          window.location.href = LINKEDIN_CONNECT_PATH
+          window.location.href = LINKEDIN_CONNECT_PATH;
         }}
       >
         <LinkIcon className="size-4" />
-        {status.needsReconnect ? 'Reconnect LinkedIn' : 'Connect LinkedIn'}
+        {status.needsReconnect ? "Reconnect LinkedIn" : "Connect LinkedIn"}
       </Button>
-    )
+    );
   }
 
   return (
@@ -93,9 +92,11 @@ export function LinkedInConnectButton() {
           connected identity carries it rather than a separate status label. */}
       <div className="flex items-center gap-2 rounded-full border border-brand-border bg-brand-soft py-1 pr-3 pl-1">
         <Avatar className="size-6">
-          {status.avatarUrl ? <AvatarImage src={status.avatarUrl} alt={status.name ?? ''} /> : null}
+          {status.avatarUrl ? (
+            <AvatarImage src={status.avatarUrl} alt={status.name ?? ""} />
+          ) : null}
           <AvatarFallback className="bg-brand text-xs text-brand-foreground">
-            {status.name?.[0]?.toUpperCase() ?? '?'}
+            {status.name?.[0]?.toUpperCase() ?? "?"}
           </AvatarFallback>
         </Avatar>
         <span className="max-w-32 truncate text-sm font-medium text-brand-soft-foreground">
@@ -108,8 +109,8 @@ export function LinkedInConnectButton() {
         disabled={disconnect.isPending}
         onClick={() =>
           disconnect.mutate({
-            organizationId: organizationId ?? '',
-            provider: 'linkedin',
+            organizationId: organizationId ?? "",
+            provider: "linkedin",
           })
         }
       >
@@ -121,5 +122,5 @@ export function LinkedInConnectButton() {
         Disconnect
       </Button>
     </div>
-  )
+  );
 }

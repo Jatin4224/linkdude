@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -17,20 +16,20 @@
  *        src/trpc/routers/organization.ts. Re-exported via src/lib/types.
  */
 
-import { z } from 'zod'
+import { z } from "zod";
 
 export const createOrganizationSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(2, 'Organization name must be at least 2 characters.')
-    .max(120, 'Organization name is too long.'),
+    .min(2, "Organization name must be at least 2 characters.")
+    .max(120, "Organization name is too long."),
   /* Optional logo URL — the onboarding form doesn't collect it yet, but the
    * service and schema accept it so a logo step can be added without churn. */
-  logo: z.string().trim().url('Enter a valid URL.').optional(),
-})
+  logo: z.string().trim().url("Enter a valid URL.").optional(),
+});
 
-export type CreateOrganizationValues = z.infer<typeof createOrganizationSchema>
+export type CreateOrganizationValues = z.infer<typeof createOrganizationSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: updateOrganizationSettingsSchema,
@@ -46,11 +45,13 @@ export const updateOrganizationSettingsSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(2, 'Organization name must be at least 2 characters.')
-    .max(120, 'Organization name is too long.'),
+    .min(2, "Organization name must be at least 2 characters.")
+    .max(120, "Organization name is too long."),
   logo: z
-    .union([z.string().trim().url('Enter a valid URL.'), z.literal('')])
+    .union([z.string().trim().url("Enter a valid URL."), z.literal("")])
     .optional(),
-})
+});
 
-export type UpdateOrganizationSettingsValues = z.infer<typeof updateOrganizationSettingsSchema>
+export type UpdateOrganizationSettingsValues = z.infer<
+  typeof updateOrganizationSettingsSchema
+>;

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -38,7 +37,7 @@ export {
   authSchemaFor,
   forgotPasswordSchema,
   resetPasswordSchema,
-} from './auth'
+} from "./auth";
 export type {
   SignInValues,
   SignUpValues,
@@ -46,12 +45,15 @@ export type {
   AuthValuesByMode,
   ForgotPasswordValues,
   ResetPasswordValues,
-} from './auth'
-export { createOrganizationSchema, updateOrganizationSettingsSchema } from './organization'
+} from "./auth";
+export {
+  createOrganizationSchema,
+  updateOrganizationSettingsSchema,
+} from "./organization";
 export type {
   CreateOrganizationValues,
   UpdateOrganizationSettingsValues,
-} from './organization'
+} from "./organization";
 export {
   inviteMemberSchema,
   updateMemberSchema,
@@ -65,24 +67,24 @@ export {
   permissionStringSchema,
   RESERVED_ROLE_NAMES,
   VALID_PERMISSION_STRINGS,
-} from './team'
+} from "./team";
 export type {
   InviteMemberValues,
   UpdateMemberValues,
   CreateRoleValues,
   UpdateRoleValues,
-} from './team'
+} from "./team";
 export {
   billingIntervalSchema,
   planKeySchema,
   createSubscriptionSchema,
   upgradeSubscriptionSchema,
   paymentMethodIdSchema,
-} from './billing'
+} from "./billing";
 export type {
   CreateSubscriptionValues,
   UpgradeSubscriptionValues,
-} from './billing'
+} from "./billing";
 export {
   POST_TONES,
   POST_LENGTHS,
@@ -90,13 +92,13 @@ export {
   postLengthSchema,
   generatePostSchema,
   generatedPostSchema,
-} from './ai'
+} from "./ai";
 export type {
   PostTone,
   PostLength,
   GeneratePostValues,
   GeneratedPost,
-} from './ai'
+} from "./ai";
 export {
   LINKEDIN_IMAGE_MIME_TYPES,
   LINKEDIN_MAX_IMAGE_BYTES,
@@ -108,14 +110,14 @@ export {
   listPostsSchema,
   deletePostSchema,
   disconnectIntegrationSchema,
-} from './linkedin'
+} from "./linkedin";
 export type {
   LinkedInImageMimeType,
   LinkedInOAuthErrorCode,
   PostImageValues,
   PublishPostValues,
   LinkedInConnectionStatus,
-} from './linkedin'
+} from "./linkedin";
 export {
   analyzeProfileSchema,
   profileAnalysisSchema,
@@ -131,7 +133,7 @@ export {
   PROFILE_HEADLINE_MAX,
   PROFILE_ABOUT_MAX,
   PROFILE_EXPERIENCE_MAX,
-} from './profile-analysis'
+} from "./profile-analysis";
 export type {
   AnalyzeProfileValues,
   ProfileAnalysis,
@@ -142,4 +144,4 @@ export type {
   BrightDataProfile,
   ApifyProfile,
   ProfileSource,
-} from './profile-analysis'
+} from "./profile-analysis";
