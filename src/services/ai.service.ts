@@ -8,13 +8,15 @@
 import 'server-only'
 
 /**
- * SOURCE OF TRUTH KEYWORDS: generateText, generateLinkedInPost,
- *   GenerateTextArgs, TONE_DIRECTIVES, LENGTH_DIRECTIVES,
- *   LINKEDIN_POST_SYSTEM_PROMPT
+ * SOURCE OF TRUTH KEYWORDS: generateText, generateStructured,
+ *   generateLinkedInPost, analyzeLinkedInProfile, GenerateTextArgs,
+ *   GenerateStructuredArgs, TONE_DIRECTIVES, LENGTH_DIRECTIVES,
+ *   LINKEDIN_POST_SYSTEM_PROMPT, PROFILE_ANALYSIS_SYSTEM_PROMPT
  *
- * WHAT:  The app's single seat of model invocation. `generateText` is the
- *        provider-facing primitive (system prompt in, text out);
- *        `generateLinkedInPost` is the one task built on it today.
+ * WHAT:  The app's single seat of model invocation. `generateText` and
+ *        `generateStructured` are the provider-facing primitives (prose out and
+ *        schema-validated data out respectively); `generateLinkedInPost` and
+ *        `analyzeLinkedInProfile` are the tasks built on them.
  * WHY:   Every future AI feature — profile analysis, comment drafting, agents —
  *        calls `generateText` rather than constructing its own client, so
  *        retries, error mapping, provider tuning, and the empty-response guard
@@ -26,9 +28,16 @@ import 'server-only'
  *        the service convention.
  */
 
-import { generateText as generateWithModel } from 'ai'
+import { generateText as generateWithModel, generateObject } from 'ai'
+import type { z } from 'zod'
 
-import { getAiModel, getAiProvider, AI_MAX_TOKENS } from '@/lib/config/ai'
+import {
+  getAiModel,
+  getAiProvider,
+  AI_MAX_TOKENS,
+  AI_MAX_RETRIES,
+  AI_TIMEOUT_MS,
+} from '@/lib/config/ai'
 import {
   generatedPostSchema,
   type GeneratePostValues,
@@ -36,6 +45,11 @@ import {
   type PostTone,
   type PostLength,
 } from '@/lib/types/ai'
+import {
+  profileAnalysisSchema,
+  type AnalyzeProfileValues,
+  type ProfileAnalysis,
+} from '@/lib/types/profile-analysis'
 
 export interface GenerateTextArgs {
   system: string
@@ -66,6 +80,8 @@ export async function generateText({
     model: getAiModel(),
     maxOutputTokens: AI_MAX_TOKENS,
     providerOptions: provider.providerOptions,
+    maxRetries: AI_MAX_RETRIES,
+    timeout: AI_TIMEOUT_MS,
     system,
     /* Enabled only for the blog-repurpose path. Every vendor's tool here reaches
      * URLs already present in the prompt and nothing else, so the model reads
@@ -89,6 +105,46 @@ export async function generateText({
   }
 
   return text
+}
+
+export interface GenerateStructuredArgs<T> {
+  system: string
+  prompt: string
+  /** Doubles as the model's output contract and the validation boundary. */
+  schema: z.ZodType<T>
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateStructured
+ *
+ * WHAT:  Sends one prompt and returns a value already validated against `schema`.
+ * WHY:   The counterpart to `generateText` for features that need shape, not
+ *        prose. The provider is asked for structured output natively and the
+ *        SDK validates it, so there is no JSON to locate in a prose reply, no
+ *        parse to wrap in try/catch, and no drift between what the model was
+ *        told to return and what the UI reads — one schema declares both.
+ * WHERE: Used by analyzeLinkedInProfile; the primitive for any future feature
+ *        whose result is data rather than copy.
+ */
+export async function generateStructured<T>({
+  system,
+  prompt,
+  schema,
+}: GenerateStructuredArgs<T>): Promise<T> {
+  const provider = getAiProvider()
+
+  const { object } = await generateObject({
+    model: getAiModel(),
+    schema,
+    maxOutputTokens: AI_MAX_TOKENS,
+    providerOptions: provider.providerOptions,
+    maxRetries: AI_MAX_RETRIES,
+    timeout: AI_TIMEOUT_MS,
+    system,
+    prompt,
+  })
+
+  return object
 }
 
 /* Tone is the product in a personal-branding tool, so each value gets an
@@ -166,4 +222,53 @@ export async function generateLinkedInPost(input: GeneratePostValues): Promise<G
    * surfaces as a local validation error rather than a remote
    * FIELD_LENGTH_TOO_LONG from LinkedIn after the user hits Publish. */
   return generatedPostSchema.parse({ commentary })
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: PROFILE_ANALYSIS_SYSTEM_PROMPT
+ *
+ * WHAT:  The persona and hard rules for profile critique.
+ * WHY:   Generic profile advice ("add keywords", "tell your story") is the
+ *        default failure mode here — it reads as insight while being useless,
+ *        and the user cannot act on it. Every rule below exists to force output
+ *        the user can paste: rewrites instead of descriptions of rewrites,
+ *        quotes from their actual text instead of invented achievements, and a
+ *        score with stated reasoning so it isn't an arbitrary number.
+ */
+const PROFILE_ANALYSIS_SYSTEM_PROMPT = `You are a LinkedIn positioning strategist reviewing a real person's profile.
+
+Hard rules:
+- Every "fix" must be text the person can paste directly into their profile. Never describe what they should write — write it for them.
+- Never invent facts. If a claim needs a number, a client name, or a result you were not given, leave a clearly marked placeholder like [X%] or [company] for them to fill in.
+- Quote their actual words when explaining a problem, so the critique is verifiably about THEIR profile and not a template.
+- Ban generic advice: "add more keywords", "be more authentic", "tell your story", "engage with your network", "optimize for the algorithm". If a sentence would apply to any profile, delete it.
+- The headline rewrite must fit LinkedIn's 220-character limit and lead with the outcome the person delivers, not their job title alone.
+- The About rewrite opens with a first line that works as a standalone hook, because LinkedIn truncates the rest behind "see more".
+- Write in the person's own register. If their profile is plain and technical, do not return marketing copy.
+- Score honestly against what a strong profile in their field looks like. Most real profiles land between 30 and 60; reserve 80+ for genuinely exceptional positioning. A flattering score is useless feedback.`
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: analyzeLinkedInProfile
+ *
+ * WHAT:  Turns a pasted profile into a structured, actionable critique.
+ * WHY:   The profile is pasted rather than fetched because LinkedIn exposes
+ *        neither the headline nor the About text to this app — see the note on
+ *        analyzeProfileSchema. Sections are labelled in the prompt so feedback
+ *        can be attributed back to the field it belongs to, and the optional
+ *        experience block is omitted entirely rather than sent empty, so the
+ *        model never critiques a section the user did not provide.
+ * WHERE: Called by profileAnalysis.create.
+ */
+export async function analyzeLinkedInProfile(
+  input: AnalyzeProfileValues
+): Promise<ProfileAnalysis> {
+  const experienceSection = input.experience
+    ? `\n\nEXPERIENCE:\n${input.experience}`
+    : '\n\n(No experience section provided — judge only the headline and About, and do not comment on missing experience.)'
+
+  return generateStructured({
+    system: PROFILE_ANALYSIS_SYSTEM_PROMPT,
+    prompt: `Analyze this LinkedIn profile.\n\nHEADLINE:\n${input.headline}\n\nABOUT:\n${input.about}${experienceSection}`,
+    schema: profileAnalysisSchema,
+  })
 }

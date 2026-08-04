@@ -78,6 +78,8 @@ export {
   isAiConfigured,
   AI_MODEL,
   AI_MAX_TOKENS,
+  AI_MAX_RETRIES,
+  AI_TIMEOUT_MS,
 } from './ai'
 export {
   isLinkedInConfigured,

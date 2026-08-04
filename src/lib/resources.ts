@@ -254,6 +254,41 @@ export const RESOURCES = {
     },
   },
 
+  profileAnalysis: {
+    name: 'Profile Analysis',
+    description: 'Analyze a LinkedIn profile and suggest improvements',
+    permissions: ['create'],
+    /* Metered on its own budget rather than sharing aiGeneration's: an analysis
+     * sends a whole profile and asks for structured output, so it costs several
+     * times what a post draft does. Sharing a counter would let one analysis
+     * silently eat a handful of drafts. */
+    limit: {
+      perPlan: { free: 5, starter: 50, pro: 300, enterprise: 'unlimited', portal: 'unlimited' },
+      upgradeMessage: 'Upgrade to {nextPlan} to run more profile analyses',
+      availableOnFreeTrial: true,
+      unit: 'analyses',
+    },
+    rateLimit: {
+      /* Larger prompt than post generation, so a tighter burst cap. */
+      create: { count: 5, window: '1 m' },
+      /* URL lookups bill per call to a third-party vendor and do NOT increment
+       * the usage counter (only create/delete do), so this limiter is the only
+       * thing standing between a stuck client and a real invoice. */
+      fetch: { count: 5, window: '1 m' },
+    },
+    nav: {
+      label: 'Profile Analysis',
+      href: '/dashboard/profile-analysis',
+      icon: 'UserSearch',
+      section: 'main',
+      /* REQUIRED. Defaults to 'read', which this resource does not declare —
+       * omitting it yields `profileAnalysis:read`, a permission that exists
+       * nowhere. It is cast to Permission when the nav is built, so there is no
+       * compile error: the item would simply be invisible to every non-owner. */
+      requirePermission: 'create',
+    },
+  },
+
   linkedinPosts: {
     name: 'LinkedIn Posts',
     description: 'Generate, publish, and review LinkedIn posts',

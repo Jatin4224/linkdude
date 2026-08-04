@@ -37,13 +37,35 @@ import {
 /* Model ids are pinned here so an upgrade is a one-line diff. Gemini Flash is
  * the default because it is the capable tier of Google's free API allowance —
  * the whole app can be exercised end to end before any card is on file. */
-const GOOGLE_MODEL_ID = 'gemini-3.5-flash'
+/* An alias, not a pin, and deliberately so: the pinned `gemini-3.5-flash`
+ * returned HTTP 503 "high demand" repeatedly on the free tier while
+ * `gemini-flash-latest` answered in ~6s. An alias can shift under us on a
+ * Google release, but a pin that is regularly unavailable is worse. Revisit and
+ * pin a specific id once this runs on a paid tier with reserved capacity. */
+const GOOGLE_MODEL_ID = 'gemini-flash-latest'
 const ANTHROPIC_MODEL_ID = 'claude-opus-5'
 
 /* A LinkedIn post caps at 3000 characters, so generation never needs a large
  * budget. Kept well under the streaming threshold so non-streaming calls stay
  * inside the SDK's HTTP timeout. */
 export const AI_MAX_TOKENS = 4096
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: AI_MAX_RETRIES, AI_TIMEOUT_MS
+ *
+ * WHAT:  Hard ceiling on how long one model call may occupy the caller.
+ * WHY:   Model calls run inside the tRPC factory's mutation TRANSACTION, so a
+ *        slow call holds a Postgres connection for its whole duration. Free
+ *        capacity tiers answer 503 "high demand", which the SDK marks retryable
+ *        — at its default of 2 retries with exponential backoff, one overloaded
+ *        request was measured hanging past 180s, well beyond the 60s txTimeout.
+ *        The transaction then dies holding the connection, and the user waits
+ *        three minutes to learn nothing worked. One retry plus an explicit
+ *        timeout turns provider overload into a fast, legible failure.
+ * WHERE: Applied to every call in src/services/ai.service.ts.
+ */
+export const AI_MAX_RETRIES = 1
+export const AI_TIMEOUT_MS = 45_000
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AI_PROVIDERS

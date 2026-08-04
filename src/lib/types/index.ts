@@ -18,7 +18,9 @@
  *   generatePostSchema, GeneratePostValues, generatedPostSchema, GeneratedPost,
  *   publishPostSchema, PublishPostValues, postImageSchema, PostImageValues,
  *   listPostsSchema, deletePostSchema, disconnectIntegrationSchema,
- *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES, LINKEDIN_MAX_IMAGE_BYTES
+ *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES, LINKEDIN_MAX_IMAGE_BYTES,
+ *   analyzeProfileSchema, AnalyzeProfileValues, profileAnalysisSchema,
+ *   ProfileAnalysis, SectionFeedback, ProfileImprovement
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -114,3 +116,30 @@ export type {
   PublishPostValues,
   LinkedInConnectionStatus,
 } from './linkedin'
+export {
+  analyzeProfileSchema,
+  profileAnalysisSchema,
+  sectionFeedbackSchema,
+  profileImprovementSchema,
+  fetchProfileSchema,
+  brightDataProfileSchema,
+  apifyProfileSchema,
+  scrapedErrorItemSchema,
+  profileSourceSchema,
+  PROFILE_SOURCE_KEYS,
+  LINKEDIN_PROFILE_URL_PATTERN,
+  PROFILE_HEADLINE_MAX,
+  PROFILE_ABOUT_MAX,
+  PROFILE_EXPERIENCE_MAX,
+} from './profile-analysis'
+export type {
+  AnalyzeProfileValues,
+  ProfileAnalysis,
+  SectionFeedback,
+  ProfileImprovement,
+  FetchProfileValues,
+  FetchedProfile,
+  BrightDataProfile,
+  ApifyProfile,
+  ProfileSource,
+} from './profile-analysis'

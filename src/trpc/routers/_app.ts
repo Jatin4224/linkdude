@@ -29,6 +29,7 @@ import { portalRouter } from './portal'
 import { devRouter } from './dev'
 import { userRouter } from './user'
 import { aiGenerationRouter } from './ai-generation'
+import { profileAnalysisRouter } from './profile-analysis'
 import { linkedinPostsRouter } from './linkedin-posts'
 import { integrationsRouter } from './integrations'
 
@@ -56,6 +57,7 @@ export const appRouter = createTRPCRouter({
   /* Router keys MUST match their RESOURCES key — the `<resource>.<verb>` path
    * shape is what auto-wires quotas, counters, audit, and permissions. */
   aiGeneration: aiGenerationRouter,
+  profileAnalysis: profileAnalysisRouter,
   linkedinPosts: linkedinPostsRouter,
   integrations: integrationsRouter,
 })
