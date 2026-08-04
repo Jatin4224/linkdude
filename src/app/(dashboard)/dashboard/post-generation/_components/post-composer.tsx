@@ -33,7 +33,10 @@ import { useActiveOrganizationId } from '@/hooks/use-active-organization'
 import {
   LINKEDIN_IMAGE_MIME_TYPES,
   LINKEDIN_MAX_IMAGE_BYTES,
+  LINKEDIN_MAX_IMAGE_LABEL,
+  LINKEDIN_OAUTH_ERROR_CODES,
   type GeneratePostValues,
+  type LinkedInOAuthErrorCode,
   type PostImageValues,
   type PostLength,
   type PostTone,
@@ -48,10 +51,19 @@ import { Textarea } from '@/components/ui/textarea'
 import { GenerateForm } from './generate-form'
 
 /* The OAuth callback can only talk back through the URL, so each failure mode
- * gets a user-facing sentence here. */
-const CALLBACK_ERROR_MESSAGES: Record<string, string> = {
+ * gets a user-facing sentence here. Typed against LinkedInOAuthErrorCode rather
+ * than `string` so adding a code without copy is a compile error instead of a
+ * silent fallback to the generic message. */
+const CALLBACK_ERROR_MESSAGES: Record<LinkedInOAuthErrorCode, string> = {
   cancelled: 'LinkedIn connection cancelled.',
   denied: 'LinkedIn denied the connection request.',
+  /* Names the actual remedy: this is what LinkedIn returns when the app has no
+   * approved products, which looks nothing like a scope problem in its UI. */
+  invalid_scope:
+    'This LinkedIn app is missing required products. In the LinkedIn developer portal, add "Sign In with LinkedIn using OpenID Connect" and "Share on LinkedIn".',
+  unauthorized_client:
+    'This LinkedIn app is not authorized. Check that LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET match the app.',
+  server_error: 'LinkedIn is temporarily unavailable. Please try again in a moment.',
   invalid_state: 'That connection link expired. Please try connecting again.',
   exchange_failed: 'Could not complete the LinkedIn connection. Please try again.',
   not_configured: 'LinkedIn is not configured on this deployment.',
@@ -104,7 +116,11 @@ export function PostComposer() {
       toast.success('LinkedIn connected.')
       void utils.integrations.linkedin.invalidate()
     } else if (error) {
-      toast.error(CALLBACK_ERROR_MESSAGES[error] ?? 'Could not connect to LinkedIn.')
+      /* The param is attacker-controllable, so it is matched against the known
+       * codes rather than used as a bare index — an unknown value falls through
+       * to the generic message instead of rendering `undefined`. */
+      const code = LINKEDIN_OAUTH_ERROR_CODES.find((known) => known === error)
+      toast.error(code ? CALLBACK_ERROR_MESSAGES[code] : 'Could not connect to LinkedIn.')
     }
     router.replace('/dashboard/post-generation')
   }, [searchParams, router, utils])
@@ -155,7 +171,7 @@ export function PostComposer() {
     /* Checked before reading: base64-encoding a huge file just to reject it
      * would block the main thread for no reason. */
     if (file.size > LINKEDIN_MAX_IMAGE_BYTES) {
-      toast.error('Image must be 5 MB or smaller.')
+      toast.error(`Image must be ${LINKEDIN_MAX_IMAGE_LABEL} or smaller.`)
       event.target.value = ''
       return
     }

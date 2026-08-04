@@ -26,11 +26,14 @@ import { getCachedSession } from '@/lib/better-auth/auth'
 import { createTRPCContext } from '@/trpc/init'
 import { prisma } from '@/lib/config/prisma'
 import { APP_URL, AUTH_ROUTES, ROUTES, LINKEDIN_OAUTH_STATE_COOKIE } from '@/lib/config'
+import { normalizeLinkedInOAuthError, type LinkedInOAuthErrorCode } from '@/lib/types'
 import * as linkedinService from '@/services/linkedin.service'
 
 const COMPOSER_PATH = `${ROUTES.dashboard}/post-generation`
 
-function redirectToComposer(status: 'connected' | string): NextResponse {
+/* Narrowed to the known union rather than `string`: an unmapped code would
+ * otherwise reach the composer with no copy and render the generic fallback. */
+function redirectToComposer(status: 'connected' | LinkedInOAuthErrorCode): NextResponse {
   const url = new URL(COMPOSER_PATH, APP_URL)
   if (status === 'connected') {
     url.searchParams.set('connected', '1')
@@ -59,10 +62,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const params = request.nextUrl.searchParams
 
   /* The user pressed Cancel on LinkedIn's consent screen, or LinkedIn refused
-   * the app. Either way there's no code to exchange. */
+   * the app. Either way there's no code to exchange. Normalized (not collapsed)
+   * so a misconfigured app — missing products, wrong client — is distinguishable
+   * from a user declining, which are opposite fixes. Logged raw because the
+   * browser only ever sees the normalized code. */
   const oauthError = params.get('error')
   if (oauthError) {
-    return redirectToComposer(oauthError === 'user_cancelled_login' ? 'cancelled' : 'denied')
+    console.error(
+      '[linkedin] authorization failed:',
+      oauthError,
+      params.get('error_description') ?? ''
+    )
+    return redirectToComposer(normalizeLinkedInOAuthError(oauthError))
   }
 
   const code = params.get('code')

@@ -98,6 +98,9 @@ export type {
 export {
   LINKEDIN_IMAGE_MIME_TYPES,
   LINKEDIN_MAX_IMAGE_BYTES,
+  LINKEDIN_MAX_IMAGE_LABEL,
+  LINKEDIN_OAUTH_ERROR_CODES,
+  normalizeLinkedInOAuthError,
   postImageSchema,
   publishPostSchema,
   listPostsSchema,
@@ -106,6 +109,7 @@ export {
 } from './linkedin'
 export type {
   LinkedInImageMimeType,
+  LinkedInOAuthErrorCode,
   PostImageValues,
   PublishPostValues,
   LinkedInConnectionStatus,

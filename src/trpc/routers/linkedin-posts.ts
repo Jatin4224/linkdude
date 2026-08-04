@@ -43,7 +43,15 @@ export const linkedinPostsRouter = createTRPCRouter({
    *        a phantom post on a network error.
    * WHERE: Called by the composer's Publish button.
    */
-  create: protectedProcedure({ requirePermission: permissions.LINKEDIN_POSTS_CREATE })
+  create: protectedProcedure({
+    requirePermission: permissions.LINKEDIN_POSTS_CREATE,
+    /* Publishing runs inside the factory's mutation tx, and the image path adds
+     * two LinkedIn round trips plus a multi-megabyte binary upload on top of the
+     * post call. The 10s default expires mid-upload, which surfaces as a failed
+     * publish for large images while small ones slip in under the wire. Sized
+     * for a full-size upload (LINKEDIN_MAX_IMAGE_BYTES) on a slow connection. */
+    txTimeout: 60_000,
+  })
     .input(publishPostSchema.extend(withOrganization.shape))
     .mutation(async ({ ctx, input }) => {
       if (!isLinkedInConfigured()) {
