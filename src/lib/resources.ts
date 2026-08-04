@@ -227,7 +227,61 @@ export const RESOURCES = {
   integrations: {
     name: 'Integrations',
     description: 'Connect or disconnect third-party services',
-    permissions: ['read', 'update'],
+    permissions: ['read', 'update', 'disconnect'],
+    audit: {
+      entity: 'integration',
+      describe: { disconnect: 'Disconnected the {input.provider} account' },
+    },
+  },
+
+  aiGeneration: {
+    name: 'AI Generation',
+    description: 'Generate post copy with AI',
+    permissions: ['create'],
+    /* Metered separately from publishing: a user burns generations while
+     * iterating on copy without ever hitting Post, so charging those against
+     * the publish quota would price the drafting loop out of the free tier. */
+    limit: {
+      perPlan: { free: 25, starter: 300, pro: 2_000, enterprise: 'unlimited', portal: 'unlimited' },
+      upgradeMessage: 'Upgrade to {nextPlan} to generate more posts with AI',
+      availableOnFreeTrial: true,
+      unit: 'generations',
+    },
+    rateLimit: {
+      /* Each generation is a paid model call — cap bursts well under the
+       * global API limiter so a stuck client can't drain the AI budget. */
+      create: { count: 10, window: '1 m' },
+    },
+  },
+
+  linkedinPosts: {
+    name: 'LinkedIn Posts',
+    description: 'Generate, publish, and review LinkedIn posts',
+    permissions: ['create', 'read', 'delete'],
+    limit: {
+      perPlan: { free: 10, starter: 100, pro: 500, enterprise: 'unlimited', portal: 'unlimited' },
+      upgradeMessage: 'Upgrade to {nextPlan} to publish more posts',
+      availableOnFreeTrial: true,
+      unit: 'posts',
+    },
+    audit: {
+      entity: 'linkedinPost',
+      describe: {
+        create: 'Published a LinkedIn post',
+        delete: 'Removed a LinkedIn post record',
+      },
+    },
+    rateLimit: {
+      /* LinkedIn throttles member posting; staying under it here turns a
+       * remote 429 into a local, explainable error. */
+      create: { count: 5, window: '1 m' },
+    },
+    nav: {
+      label: 'Create Post',
+      href: '/dashboard/post-generation',
+      icon: 'Sparkles',
+      section: 'main',
+    },
   },
 } as const satisfies Record<string, ResourceDefinition>
 

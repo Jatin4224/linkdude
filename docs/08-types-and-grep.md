@@ -1,10 +1,3 @@
-<!--
-  Copyright (c) 2026 Web Prodigies LLC
-
-  This source code is licensed under the MIT license found in the
-  LICENSE file in the root directory of this source tree.
--->
-
 # Types and grep
 
 The codebase uses a strict type discipline and a search-first navigation pattern. This page covers both.
@@ -23,19 +16,21 @@ If Prisma defines a shape, don't write your own. The two will drift the first ti
 ### Prisma examples
 
 ```ts
-import type { User, Session, Organization, Prisma } from '@/generated/prisma'
+import type { User, Session, Organization, Prisma } from "@/generated/prisma";
 
 // Relation shapes:
-type ActivityLogWithUser = Prisma.ActivityLogGetPayload<{ include: { user: true } }>
+type ActivityLogWithUser = Prisma.ActivityLogGetPayload<{
+  include: { user: true };
+}>;
 
 // Input shapes:
-type CreateOrganizationInput = Prisma.OrganizationCreateInput
+type CreateOrganizationInput = Prisma.OrganizationCreateInput;
 ```
 
 ### Better Auth examples
 
 ```ts
-import type { Session, User } from '@/lib/better-auth/auth'
+import type { Session, User } from "@/lib/better-auth/auth";
 // = typeof auth.$Infer.Session, typeof auth.$Infer.Session.user
 ```
 
@@ -46,10 +41,11 @@ These adapt when you enable or disable Better Auth plugins.
 For client code that mirrors a server contract:
 
 ```ts
-import type { inferRouterOutputs } from '@trpc/server'
-import type { AppRouter } from '@/trpc/routers/_app'
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@/trpc/routers/_app";
 
-type FeatureGatesData = inferRouterOutputs<AppRouter>['usage']['getFeatureGates']
+type FeatureGatesData =
+  inferRouterOutputs<AppRouter>["usage"]["getFeatureGates"];
 ```
 
 Wire shape changes server-side and the client types follow.

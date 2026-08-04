@@ -1,10 +1,3 @@
-<!--
-  Copyright (c) 2026 Web Prodigies LLC
-
-  This source code is licensed under the MIT license found in the
-  LICENSE file in the root directory of this source tree.
--->
-
 # Audit and rate limit
 
 Two cross-cutting concerns sit at the edge of every request.
@@ -15,17 +8,17 @@ Every successful protected mutation writes exactly one row to `ActivityLog`. The
 
 ### What gets recorded
 
-| Column           | Source                                                                                 |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| `userId`         | `ctx.user.id`                                                                          |
-| `organizationId` | The `organizationId` field on the input.                                               |
-| `action`         | The verb from the procedure path (`create`, `delete`, …), or `audit.action`.           |
-| `entity`         | The resource from the procedure path, or `audit.entity`.                               |
-| `entityId`       | First match of: `audit.getEntityId(...)`, `output.id`, `input.id`. Optional.           |
-| `description`    | Interpolated from `RESOURCES[x].audit.describe[verb]` or `audit.describe`. Optional.   |
-| `metadata`       | Optional, narrow shape — zod-validated.                                                |
-| `ipAddress`      | From `getRequestForensics()`. **Forensic only.**                                       |
-| `userAgent`      | From `getRequestForensics()`. **Forensic only.**                                       |
+| Column           | Source                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| `userId`         | `ctx.user.id`                                                                        |
+| `organizationId` | The `organizationId` field on the input.                                             |
+| `action`         | The verb from the procedure path (`create`, `delete`, …), or `audit.action`.         |
+| `entity`         | The resource from the procedure path, or `audit.entity`.                             |
+| `entityId`       | First match of: `audit.getEntityId(...)`, `output.id`, `input.id`. Optional.         |
+| `description`    | Interpolated from `RESOURCES[x].audit.describe[verb]` or `audit.describe`. Optional. |
+| `metadata`       | Optional, narrow shape — zod-validated.                                              |
+| `ipAddress`      | From `getRequestForensics()`. **Forensic only.**                                     |
+| `userAgent`      | From `getRequestForensics()`. **Forensic only.**                                     |
 
 ### Description templates
 
@@ -48,8 +41,8 @@ For a one-off override without editing the registry:
 
 ```ts
 update: protectedProcedure({
-  audit: { describe: 'Renamed project {output.name}' },
-})
+  audit: { describe: "Renamed project {output.name}" },
+});
 ```
 
 ### Metadata is narrow on purpose
@@ -58,13 +51,13 @@ update: protectedProcedure({
 
 ### Opt-outs and overrides
 
-| Situation                                  | What to pass                                                   |
-| ------------------------------------------ | -------------------------------------------------------------- |
-| Token refresh, ping, no-op write           | `audit: false`                                                 |
-| Standard create / update / delete          | Nothing — automatic.                                           |
-| Custom entity name or verb                 | `audit: { entity: 'organization', action: 'transferOwnership' }` |
-| One-off description override               | `audit: { describe: '...' }`                                   |
-| Custom entity-id extraction                | `audit: { getEntityId: ({ input, output }) => ... }`           |
+| Situation                         | What to pass                                                     |
+| --------------------------------- | ---------------------------------------------------------------- |
+| Token refresh, ping, no-op write  | `audit: false`                                                   |
+| Standard create / update / delete | Nothing — automatic.                                             |
+| Custom entity name or verb        | `audit: { entity: 'organization', action: 'transferOwnership' }` |
+| One-off description override      | `audit: { describe: '...' }`                                     |
+| Custom entity-id extraction       | `audit: { getEntityId: ({ input, output }) => ... }`             |
 
 **Don't call `logActivity()` from a router.** Auto-audit will fire too and you'll get duplicate rows.
 

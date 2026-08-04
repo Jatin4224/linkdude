@@ -1,10 +1,3 @@
-<!--
-  Copyright (c) 2026 Web Prodigies LLC
-
-  This source code is licensed under the MIT license found in the
-  LICENSE file in the root directory of this source tree.
--->
-
 # Feature gates
 
 A feature gate decides whether the current org can use a given feature based on its plan. There are two kinds: **limits** (numeric quotas) and **flags** (booleans).
@@ -60,12 +53,12 @@ Decrements are clamped at zero. Batch deletes that return `{ count: 0 }` decreme
 `<FeatureGate>` wraps a single child element. It intercepts `onClick` and either calls through or opens the upgrade modal.
 
 ```tsx
-import { FeatureGate } from '@/components/feature-gate'
-import { Button } from '@/components/ui/button'
+import { FeatureGate } from "@/components/feature-gate";
+import { Button } from "@/components/ui/button";
 
 <FeatureGate resource="projects">
   <Button onClick={createProject}>New project</Button>
-</FeatureGate>
+</FeatureGate>;
 ```
 
 Works on any resource that declares `limit` or `flag` — no `nav` entry required.
@@ -80,7 +73,7 @@ Defaults worth knowing:
 The `useFeatureGate(resource)` hook gives you the snapshot directly:
 
 ```tsx
-const gate = useFeatureGate('projects')
+const gate = useFeatureGate("projects");
 // { usage, limit, atLimit, isUnlimited, featureName } | null
 ```
 

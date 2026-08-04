@@ -17,6 +17,8 @@
  *        explicitly want to bump a counter.
  */
 
+import 'server-only'
+
 import { cache } from 'react'
 import { prisma, type DbClient } from '@/lib/config/prisma'
 import type { LimitResourceKey } from '@/lib/resources'

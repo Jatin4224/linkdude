@@ -13,7 +13,11 @@
  *   AppRouteKey, PLAN_ORDER, BillingInterval, getPlanPriceId, getPlanByPriceId,
  *   getNextPlan, isPaidPlan, getStripeClient, isStripeConfigured,
  *   getStripeWebhookSecret, STRIPE_API_VERSION, portalConfig, isPortalEnabled,
- *   isPortalOwnerEmail, PORTAL_PATH
+ *   isPortalOwnerEmail, PORTAL_PATH, AI_PROVIDERS, AI_PROVIDER, getAiProvider,
+ *   getAiModel, isAiConfigured, AI_MODEL,
+ *   AI_MAX_TOKENS, isLinkedInConfigured, getLinkedInCredentials,
+ *   LINKEDIN_SCOPES, LINKEDIN_API_VERSION, LINKEDIN_ENDPOINTS,
+ *   LINKEDIN_MAX_COMMENTARY, getLinkedInRedirectUri
  *
  * WHAT:  Barrel re-export for the `src/lib/config/*` modules.
  * WHY:   Single import surface (`@/lib/config`) so consumers don't depend on
@@ -66,3 +70,24 @@ export {
   isPortalOwnerEmail,
   PORTAL_PATH,
 } from './portal'
+export {
+  AI_PROVIDERS,
+  AI_PROVIDER,
+  getAiProvider,
+  getAiModel,
+  isAiConfigured,
+  AI_MODEL,
+  AI_MAX_TOKENS,
+} from './ai'
+export {
+  isLinkedInConfigured,
+  getLinkedInCredentials,
+  getLinkedInRedirectUri,
+  LINKEDIN_SCOPES,
+  LINKEDIN_API_VERSION,
+  LINKEDIN_ENDPOINTS,
+  LINKEDIN_REDIRECT_PATH,
+  LINKEDIN_MAX_COMMENTARY,
+  LINKEDIN_OAUTH_STATE_COOKIE,
+} from './linkedin'
+export type { LinkedInCredentials } from './linkedin'

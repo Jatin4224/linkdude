@@ -1,10 +1,3 @@
-<!--
-  Copyright (c) 2026 Web Prodigies LLC
-
-  This source code is licensed under the MIT license found in the
-  LICENSE file in the root directory of this source tree.
--->
-
 # Procedures and routers
 
 Every protected tRPC procedure goes through one function: `protectedProcedure(options?)` in `src/trpc/procedures/protected.ts`. We call it the procedure builder. It handles every cross-cutting concern so your handler can be pure business logic.
@@ -13,12 +6,12 @@ Every protected tRPC procedure goes through one function: `protectedProcedure(op
 
 Name your procedure `<resource>.<verb>` where `<resource>` matches a key in the registry. The procedure builder reads the path and wires up:
 
-| Path           | What happens automatically                                       |
-| -------------- | ---------------------------------------------------------------- |
-| `x.create`     | Checks the plan limit. Increments the usage counter. Audits.     |
-| `x.delete`     | Decrements the usage counter (clamped at zero). Audits.          |
-| `x.update`     | Audits with `action='update'`.                                   |
-| `x.<anything>` | Audits with `action='<anything>'`. No counter, no limit gate.    |
+| Path           | What happens automatically                                    |
+| -------------- | ------------------------------------------------------------- |
+| `x.create`     | Checks the plan limit. Increments the usage counter. Audits.  |
+| `x.delete`     | Decrements the usage counter (clamped at zero). Audits.       |
+| `x.update`     | Audits with `action='update'`.                                |
+| `x.<anything>` | Audits with `action='<anything>'`. No counter, no limit gate. |
 
 You write the database call. The builder does the rest.
 
@@ -26,8 +19,10 @@ You write the database call. The builder does the rest.
 create: protectedProcedure({ requirePermission: permissions.PROJECTS_CREATE })
   .input(z.object({ organizationId: z.string(), name: z.string().min(1) }))
   .mutation(({ ctx, input }) =>
-    ctx.db.project.create({ data: { organizationId: input.organizationId, name: input.name } })
-  )
+    ctx.db.project.create({
+      data: { organizationId: input.organizationId, name: input.name },
+    }),
+  );
 ```
 
 Notice what isn't there: no auth check, no transaction, no `logActivity` call, no `incrementUsage`. All of that runs around your handler.
@@ -36,33 +31,40 @@ Notice what isn't there: no auth check, no transaction, no `logActivity` call, n
 
 Pass options when the convention doesn't fit or you want to declare a gate.
 
-| Option              | What it does                                                            |
-| ------------------- | ----------------------------------------------------------------------- |
-| `requireRole`       | Member must hold one of these roles.                                    |
-| `requirePermission` | Member must hold this permission. Owners bypass.                        |
-| `requireLimit`      | Force a limit check even when the path isn't `<x>.create`.              |
-| `requireFlag`       | Resource flag must be on for the org's plan.                            |
-| `paginate`          | Computes `ctx.pagination` from `page` / `pageSize` input.               |
-| `audit`             | `false` to skip; object to override entity, action, description.        |
-| `skipUsageBump`     | Don't bump the counter even if the path is `<x>.create` / `.delete`.    |
-| `skipLimitCheck`    | Don't check the limit on `<x>.create`.                                  |
-| `txTimeout`         | Override the transaction timeout (default 10s).                         |
+| Option              | What it does                                                         |
+| ------------------- | -------------------------------------------------------------------- |
+| `requireRole`       | Member must hold one of these roles.                                 |
+| `requirePermission` | Member must hold this permission. Owners bypass.                     |
+| `requireLimit`      | Force a limit check even when the path isn't `<x>.create`.           |
+| `requireFlag`       | Resource flag must be on for the org's plan.                         |
+| `paginate`          | Computes `ctx.pagination` from `page` / `pageSize` input.            |
+| `audit`             | `false` to skip; object to override entity, action, description.     |
+| `skipUsageBump`     | Don't bump the counter even if the path is `<x>.create` / `.delete`. |
+| `skipLimitCheck`    | Don't check the limit on `<x>.create`.                               |
+| `txTimeout`         | Override the transaction timeout (default 10s).                      |
 
 ## When the convention doesn't fit
 
 Sometimes a verb consumes a quota but isn't `create`. For example, a `forms.publish` action that should still count against the `forms` limit:
 
 ```ts
-publish: protectedProcedure({ requireLimit: 'forms' })
+publish: protectedProcedure({ requireLimit: "forms" })
   .input(z.object({ organizationId: z.string(), formId: z.string() }))
   .mutation(async ({ ctx, input }) => {
     const form = await ctx.db.form.findFirst({
       where: { id: input.formId, organizationId: input.organizationId },
-    })
-    if (!form) throw new TRPCError({ code: 'NOT_FOUND' })
-    if (form.publishedAt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Already published' })
-    return ctx.db.form.update({ where: { id: form.id }, data: { publishedAt: new Date() } })
-  })
+    });
+    if (!form) throw new TRPCError({ code: "NOT_FOUND" });
+    if (form.publishedAt)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Already published",
+      });
+    return ctx.db.form.update({
+      where: { id: form.id },
+      data: { publishedAt: new Date() },
+    });
+  });
 ```
 
 ## What ctx gives you
@@ -86,26 +88,26 @@ A router is a file under `src/trpc/routers/` that exports a `createTRPCRouter({.
 A service is a function that does one Prisma call. That's it.
 
 ```ts
-import 'server-only'
-import type { Prisma, PrismaClient } from '@/generated/prisma'
+import "server-only";
+import type { Prisma, PrismaClient } from "@/generated/prisma";
 
-type DbClient = PrismaClient | Prisma.TransactionClient
+type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export async function listDocuments(
   db: DbClient,
   organizationId: string,
-  pagination: { skip: number; take: number }
+  pagination: { skip: number; take: number },
 ) {
   const [items, total] = await Promise.all([
     db.document.findMany({
       where: { organizationId },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { updatedAt: "desc" },
       skip: pagination.skip,
       take: pagination.take,
     }),
     db.document.count({ where: { organizationId } }),
-  ])
-  return { items, total }
+  ]);
+  return { items, total };
 }
 ```
 
@@ -117,13 +119,13 @@ Services never call auth checks, never write audit rows, never open transactions
 
 ## Where things go
 
-| What                                                | Where                                  |
-| --------------------------------------------------- | -------------------------------------- |
-| Pure DB call, used once                             | Router (`ctx.db.X.method`)             |
-| Pure DB call, reused                                | Service (`src/services/*.service.ts`)  |
-| Business rule, validation, orchestration            | Router handler body                    |
-| Auth, audit, transactions, gates                    | Procedure options (or automatic)       |
-| Gate computation, audit infrastructure, rate limits | `src/lib/`                             |
+| What                                                | Where                                 |
+| --------------------------------------------------- | ------------------------------------- |
+| Pure DB call, used once                             | Router (`ctx.db.X.method`)            |
+| Pure DB call, reused                                | Service (`src/services/*.service.ts`) |
+| Business rule, validation, orchestration            | Router handler body                   |
+| Auth, audit, transactions, gates                    | Procedure options (or automatic)      |
+| Gate computation, audit infrastructure, rate limits | `src/lib/`                            |
 
 ## Things to never do in a handler
 
@@ -148,15 +150,15 @@ Anything that touches tenant data should use `protectedProcedure`. That's what g
 Service-layer reads that get called many times per request should wrap themselves in React's `cache()`:
 
 ```ts
-import { cache } from 'react'
+import { cache } from "react";
 
 export const getUserMemberships = cache(async (userId: string) => {
   return prisma.member.findMany({
     where: { userId },
     include: { organization: true },
-    orderBy: { createdAt: 'desc' },
-  })
-})
+    orderBy: { createdAt: "desc" },
+  });
+});
 ```
 
 Within one request — even if 12 server components ask for the same data — the function runs once. Across requests it runs fresh.

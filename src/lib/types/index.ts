@@ -13,7 +13,12 @@
  *   cancelInvitationSchema, resendInvitationSchema, createRoleSchema,
  *   updateRoleSchema, deleteRoleSchema, roleNameSchema, permissionStringSchema,
  *   createSubscriptionSchema, upgradeSubscriptionSchema, billingIntervalSchema,
- *   planKeySchema, CreateSubscriptionValues, UpgradeSubscriptionValues
+ *   planKeySchema, CreateSubscriptionValues, UpgradeSubscriptionValues,
+ *   POST_TONES, POST_LENGTHS, postToneSchema, postLengthSchema,
+ *   generatePostSchema, GeneratePostValues, generatedPostSchema, GeneratedPost,
+ *   publishPostSchema, PublishPostValues, postImageSchema, PostImageValues,
+ *   listPostsSchema, deletePostSchema, disconnectIntegrationSchema,
+ *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES, LINKEDIN_MAX_IMAGE_BYTES
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -76,3 +81,36 @@ export type {
   CreateSubscriptionValues,
   UpgradeSubscriptionValues,
 } from './billing'
+export {
+  POST_TONES,
+  POST_LENGTHS,
+  postToneSchema,
+  postLengthSchema,
+  generatePostSchema,
+  generatedPostSchema,
+} from './ai'
+export type {
+  PostTone,
+  PostLength,
+  GeneratePostValues,
+  GeneratedPost,
+} from './ai'
+export {
+  LINKEDIN_IMAGE_MIME_TYPES,
+  LINKEDIN_MAX_IMAGE_BYTES,
+  LINKEDIN_MAX_IMAGE_LABEL,
+  LINKEDIN_OAUTH_ERROR_CODES,
+  normalizeLinkedInOAuthError,
+  postImageSchema,
+  publishPostSchema,
+  listPostsSchema,
+  deletePostSchema,
+  disconnectIntegrationSchema,
+} from './linkedin'
+export type {
+  LinkedInImageMimeType,
+  LinkedInOAuthErrorCode,
+  PostImageValues,
+  PublishPostValues,
+  LinkedInConnectionStatus,
+} from './linkedin'

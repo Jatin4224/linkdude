@@ -1,10 +1,3 @@
-<!--
-  Copyright (c) 2026 Web Prodigies LLC
-
-  This source code is licensed under the MIT license found in the
-  LICENSE file in the root directory of this source tree.
--->
-
 # Adding a feature
 
 This walks through adding a `documents` feature end-to-end. CRUD entity, plan limit, sidebar nav, audit templates, a custom `publish` verb, and a per-action rate limit. After the main walkthrough, three smaller variations follow.
@@ -94,78 +87,103 @@ That one entry wires up: permission constants, owner grants, the limit gate on `
 Create `src/trpc/routers/documents.ts`. The CRUD verbs are trivial — `ctx.db.document.*` inline. The `publish` verb shows business logic in the handler:
 
 ```ts
-import { z } from 'zod'
-import { TRPCError } from '@trpc/server'
-import { createTRPCRouter } from '../init'
-import { protectedProcedure } from '../procedures'
-import { permissions } from '@/lib/better-auth/permissions'
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { createTRPCRouter } from "../init";
+import { protectedProcedure } from "../procedures";
+import { permissions } from "@/lib/better-auth/permissions";
 
-const MIN_PUBLISH_CONTENT = 10
+const MIN_PUBLISH_CONTENT = 10;
 
 export const documentsRouter = createTRPCRouter({
-  create: protectedProcedure({ requirePermission: permissions.DOCUMENTS_CREATE })
-    .input(z.object({
-      organizationId: z.string(),
-      title: z.string().min(1).max(200),
-      content: z.string().optional(),
-    }))
+  create: protectedProcedure({
+    requirePermission: permissions.DOCUMENTS_CREATE,
+  })
+    .input(
+      z.object({
+        organizationId: z.string(),
+        title: z.string().min(1).max(200),
+        content: z.string().optional(),
+      }),
+    )
     .mutation(({ ctx, input }) =>
       ctx.db.document.create({
         data: {
           organizationId: input.organizationId,
           title: input.title,
-          content: input.content ?? '',
+          content: input.content ?? "",
         },
-      })
+      }),
     ),
 
-  list: protectedProcedure({ requirePermission: permissions.DOCUMENTS_READ, paginate: true })
-    .input(z.object({
-      organizationId: z.string(),
-      page: z.number().int().positive().optional(),
-      pageSize: z.number().int().positive().max(100).optional(),
-    }))
+  list: protectedProcedure({
+    requirePermission: permissions.DOCUMENTS_READ,
+    paginate: true,
+  })
+    .input(
+      z.object({
+        organizationId: z.string(),
+        page: z.number().int().positive().optional(),
+        pageSize: z.number().int().positive().max(100).optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
-      const { skip, take } = ctx.pagination
+      const { skip, take } = ctx.pagination;
       const [items, total] = await Promise.all([
         ctx.db.document.findMany({
           where: { organizationId: input.organizationId },
-          orderBy: { updatedAt: 'desc' },
+          orderBy: { updatedAt: "desc" },
           skip,
           take,
         }),
-        ctx.db.document.count({ where: { organizationId: input.organizationId } }),
-      ])
-      return { items, total }
+        ctx.db.document.count({
+          where: { organizationId: input.organizationId },
+        }),
+      ]);
+      return { items, total };
     }),
 
-  delete: protectedProcedure({ requirePermission: permissions.DOCUMENTS_DELETE })
+  delete: protectedProcedure({
+    requirePermission: permissions.DOCUMENTS_DELETE,
+  })
     .input(z.object({ organizationId: z.string(), id: z.string() }))
     .mutation(({ ctx, input }) =>
-      ctx.db.document.delete({ where: { id: input.id } })
+      ctx.db.document.delete({ where: { id: input.id } }),
     ),
 
   // Load → validate state → mutate → return. The builder still handles
   // auth, audit, transactions, and the rate limit.
-  publish: protectedProcedure({ requirePermission: permissions.DOCUMENTS_PUBLISH })
+  publish: protectedProcedure({
+    requirePermission: permissions.DOCUMENTS_PUBLISH,
+  })
     .input(z.object({ organizationId: z.string(), id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const doc = await ctx.db.document.findFirst({
         where: { id: input.id, organizationId: input.organizationId },
-      })
-      if (!doc) throw new TRPCError({ code: 'NOT_FOUND', message: 'Document not found' })
+      });
+      if (!doc)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Document not found",
+        });
       if (doc.publishedAt) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Document is already published' })
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Document is already published",
+        });
       }
       if (doc.content.trim().length < MIN_PUBLISH_CONTENT) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Document is too short to publish' })
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Document is too short to publish",
+        });
       }
       return ctx.db.document.update({
         where: { id: doc.id },
         data: { publishedAt: new Date() },
-      })
+      });
     }),
-})
+});
 ```
 
 (An `update` procedure would follow the same shape as `create`.)
@@ -180,26 +198,26 @@ Add a service when the same query (with its filters and ordering) is called from
 
 ```ts
 // src/services/documents.service.ts
-import 'server-only'
-import type { Prisma, PrismaClient } from '@/generated/prisma'
+import "server-only";
+import type { Prisma, PrismaClient } from "@/generated/prisma";
 
-type DbClient = PrismaClient | Prisma.TransactionClient
+type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export async function listDocuments(
   db: DbClient,
   organizationId: string,
-  pagination: { skip: number; take: number }
+  pagination: { skip: number; take: number },
 ) {
   const [items, total] = await Promise.all([
     db.document.findMany({
       where: { organizationId },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { updatedAt: "desc" },
       skip: pagination.skip,
       take: pagination.take,
     }),
     db.document.count({ where: { organizationId } }),
-  ])
-  return { items, total }
+  ]);
+  return { items, total };
 }
 ```
 
@@ -210,14 +228,14 @@ Then the router's `list` calls `listDocuments(ctx.db, input.organizationId, ctx.
 In `src/trpc/routers/_app.ts`:
 
 ```ts
-import { documentsRouter } from './documents'
+import { documentsRouter } from "./documents";
 
 export const appRouter = createTRPCRouter({
   organization: organizationRouter,
   usage: usageRouter,
   auditLogs: auditLogsRouter,
   documents: documentsRouter, // ← new
-})
+});
 ```
 
 The router is now reachable at `trpc.documents.*` from any client.
@@ -227,25 +245,27 @@ The router is now reachable at `trpc.documents.*` from any client.
 Wrap the trigger button in `<FeatureGate>`:
 
 ```tsx
-'use client'
+"use client";
 
-import { FeatureGate } from '@/components/feature-gate'
-import { Button } from '@/components/ui/button'
-import { trpc } from '@/trpc/react-provider'
-import { useActiveOrganizationId } from '@/hooks/use-active-organization'
+import { FeatureGate } from "@/components/feature-gate";
+import { Button } from "@/components/ui/button";
+import { trpc } from "@/trpc/react-provider";
+import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 
 export function CreateDocumentButton() {
-  const organizationId = useActiveOrganizationId()
-  const create = trpc.documents.create.useMutation()
-  if (!organizationId) return null
+  const organizationId = useActiveOrganizationId();
+  const create = trpc.documents.create.useMutation();
+  if (!organizationId) return null;
 
   return (
     <FeatureGate resource="documents">
-      <Button onClick={() => create.mutate({ organizationId, title: 'Untitled' })}>
+      <Button
+        onClick={() => create.mutate({ organizationId, title: "Untitled" })}
+      >
         New document
       </Button>
     </FeatureGate>
-  )
+  );
 }
 ```
 
@@ -278,16 +298,18 @@ analytics: {
 ```ts
 overview: protectedProcedure({
   requirePermission: permissions.ANALYTICS_READ,
-  requireFlag: 'analytics',
+  requireFlag: "analytics",
 })
   .input(z.object({ organizationId: z.string() }))
   .query(async ({ ctx, input }) => {
     const [docs, members] = await Promise.all([
-      ctx.db.document.count({ where: { organizationId: input.organizationId } }),
+      ctx.db.document.count({
+        where: { organizationId: input.organizationId },
+      }),
       ctx.db.member.count({ where: { organizationId: input.organizationId } }),
-    ])
-    return { documents: docs, members }
-  })
+    ]);
+    return { documents: docs, members };
+  });
 ```
 
 No mutations means no audit rows. No limit means no counter.
@@ -305,20 +327,22 @@ bulkExport: {
 ```
 
 ```ts
-exportCsv: protectedProcedure({ requireFlag: 'bulkExport' })
+exportCsv: protectedProcedure({ requireFlag: "bulkExport" })
   .input(z.object({ organizationId: z.string() }))
   .mutation(async ({ ctx, input }) => {
     const docs = await ctx.db.document.findMany({
       where: { organizationId: input.organizationId },
       select: { id: true, title: true, createdAt: true },
-    })
-    return buildCsv(docs)
-  })
+    });
+    return buildCsv(docs);
+  });
 ```
 
 ```tsx
 <FeatureGate resource="bulkExport">
-  <Button onClick={() => exportCsv.mutate({ organizationId })}>Export all (.csv)</Button>
+  <Button onClick={() => exportCsv.mutate({ organizationId })}>
+    Export all (.csv)
+  </Button>
 </FeatureGate>
 ```
 
@@ -334,28 +358,35 @@ ownershipTransfer: {
 
 ```ts
 transfer: protectedProcedure({
-  requireRole: ['owner'],
+  requireRole: ["owner"],
   requirePermission: permissions.OWNERSHIP_TRANSFER_EXECUTE,
-  audit: { entity: 'organization', action: 'transferOwnership' },
+  audit: { entity: "organization", action: "transferOwnership" },
 })
   .input(z.object({ organizationId: z.string(), newOwnerId: z.string() }))
   .mutation(async ({ ctx, input }) => {
     const target = await ctx.db.member.findFirst({
       where: { organizationId: input.organizationId, userId: input.newOwnerId },
-    })
-    if (!target) throw new TRPCError({ code: 'NOT_FOUND', message: 'Target is not a member' })
-    if (target.role === 'owner') {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Target is already owner' })
+    });
+    if (!target)
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Target is not a member",
+      });
+    if (target.role === "owner") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Target is already owner",
+      });
     }
     await ctx.db.member.updateMany({
-      where: { organizationId: input.organizationId, role: 'owner' },
-      data: { role: 'member' },
-    })
+      where: { organizationId: input.organizationId, role: "owner" },
+      data: { role: "member" },
+    });
     return ctx.db.member.update({
       where: { id: target.id },
-      data: { role: 'owner' },
-    })
-  })
+      data: { role: "owner" },
+    });
+  });
 ```
 
 Both gates apply, and the audit row uses entity `organization` and action `transferOwnership` instead of the path-derived defaults.

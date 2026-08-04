@@ -1,10 +1,3 @@
-<!--
-  Copyright (c) 2026 Web Prodigies LLC
-
-  This source code is licensed under the MIT license found in the
-  LICENSE file in the root directory of this source tree.
--->
-
 # The registry
 
 `src/lib/resources.ts` is the one place every feature in your app gets declared. Permissions, plan limits, plan flags, sidebar items, audit templates, rate-limit overrides — all of it lives here.
@@ -52,7 +45,7 @@ A resource declares either `limit` or `flag`, never both.
 A list of verbs the resource exposes. Each verb becomes a permission string like `<resource>:<verb>`. The owner role auto-grants all of them.
 
 ```ts
-permissions: ['create', 'read', 'update', 'delete']
+permissions: ["create", "read", "update", "delete"];
 // produces: 'projects:create', 'projects:read', ...
 // also produces typed constants: permissions.PROJECTS_CREATE
 ```

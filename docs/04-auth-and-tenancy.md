@@ -1,10 +1,3 @@
-<!--
-  Copyright (c) 2026 Web Prodigies LLC
-
-  This source code is licensed under the MIT license found in the
-  LICENSE file in the root directory of this source tree.
--->
-
 # Auth and tenancy
 
 Better Auth handles identity. Its organization plugin handles tenancy. Custom roles live as rows in the database. This page covers how those pieces fit together.
@@ -34,8 +27,8 @@ Other things worth knowing:
 Never write your own `User` or `Session` interface. Use these:
 
 ```ts
-export type Session = typeof auth.$Infer.Session
-export type User = typeof auth.$Infer.Session.user
+export type Session = typeof auth.$Infer.Session;
+export type User = typeof auth.$Infer.Session.user;
 ```
 
 They regenerate from the Better Auth config, so they stay in sync with the schema and the enabled plugins.
@@ -67,11 +60,11 @@ This is what makes the role-builder UI possible: new roles get created at runtim
 The convention is `<resource>:<verb>`. Every legal string is in the typed `Permission` union, and there are ergonomic constants on the `permissions` object:
 
 ```ts
-import { permissions } from '@/lib/better-auth/permissions'
+import { permissions } from "@/lib/better-auth/permissions";
 
-permissions.PROJECTS_CREATE     // 'projects:create'
-permissions.MEMBER_DELETE       // 'member:delete'
-permissions.AUDIT_LOGS_READ     // 'auditLogs:read'
+permissions.PROJECTS_CREATE; // 'projects:create'
+permissions.MEMBER_DELETE; // 'member:delete'
+permissions.AUDIT_LOGS_READ; // 'auditLogs:read'
 ```
 
 Use the constants. Typos become compile errors.

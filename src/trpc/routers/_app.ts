@@ -28,6 +28,9 @@ import { organizationSettingsRouter } from './organization-settings'
 import { portalRouter } from './portal'
 import { devRouter } from './dev'
 import { userRouter } from './user'
+import { aiGenerationRouter } from './ai-generation'
+import { linkedinPostsRouter } from './linkedin-posts'
+import { integrationsRouter } from './integrations'
 
 /**
  * SOURCE OF TRUTH KEYWORDS: appRouter, AppRouter
@@ -50,6 +53,11 @@ export const appRouter = createTRPCRouter({
   portal: portalRouter,
   dev: devRouter,
   user: userRouter,
+  /* Router keys MUST match their RESOURCES key — the `<resource>.<verb>` path
+   * shape is what auto-wires quotas, counters, audit, and permissions. */
+  aiGeneration: aiGenerationRouter,
+  linkedinPosts: linkedinPostsRouter,
+  integrations: integrationsRouter,
 })
 
 export type AppRouter = typeof appRouter
