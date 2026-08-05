@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -14,14 +13,14 @@
  * WHERE: AUTH_ROUTES.resetPassword; the reset-link email lands here.
  */
 
-import { Suspense } from 'react'
-import type { Metadata } from 'next'
+import { Suspense } from "react";
+import type { Metadata } from "next";
 
-import { AuthShell, ResetPasswordForm } from '@/components/global/auth'
+import { AuthShell, ResetPasswordForm } from "@/components/global/auth";
 
 export const metadata: Metadata = {
-  title: 'Reset password',
-}
+  title: "Reset password",
+};
 
 export default function ResetPasswordPage() {
   return (
@@ -30,5 +29,5 @@ export default function ResetPasswordPage() {
         <ResetPasswordForm />
       </Suspense>
     </AuthShell>
-  )
+  );
 }

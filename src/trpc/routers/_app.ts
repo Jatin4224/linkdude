@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -16,21 +15,23 @@
  *        src/app/api/trpc/[trpc]/route.ts. Mounts routers from src/trpc/routers/*.
  */
 
-import { createTRPCRouter } from '../init'
-import { organizationRouter } from './organization'
-import { usageRouter } from './usage'
-import { auditLogsRouter } from './audit-logs'
-import { memberRouter } from './member'
-import { invitationRouter } from './invitation'
-import { organizationRolesRouter } from './organization-roles'
-import { billingRouter } from './billing'
-import { organizationSettingsRouter } from './organization-settings'
-import { portalRouter } from './portal'
-import { devRouter } from './dev'
-import { userRouter } from './user'
-import { aiGenerationRouter } from './ai-generation'
-import { linkedinPostsRouter } from './linkedin-posts'
-import { integrationsRouter } from './integrations'
+import { createTRPCRouter } from "../init";
+import { organizationRouter } from "./organization";
+import { usageRouter } from "./usage";
+import { auditLogsRouter } from "./audit-logs";
+import { memberRouter } from "./member";
+import { invitationRouter } from "./invitation";
+import { organizationRolesRouter } from "./organization-roles";
+import { billingRouter } from "./billing";
+import { organizationSettingsRouter } from "./organization-settings";
+import { portalRouter } from "./portal";
+import { devRouter } from "./dev";
+import { userRouter } from "./user";
+import { aiGenerationRouter } from "./ai-generation";
+import { profileAnalysisRouter } from "./profile-analysis";
+import { profileLookupRouter } from "./profile-lookup";
+import { linkedinPostsRouter } from "./linkedin-posts";
+import { integrationsRouter } from "./integrations";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: appRouter, AppRouter
@@ -56,8 +57,10 @@ export const appRouter = createTRPCRouter({
   /* Router keys MUST match their RESOURCES key — the `<resource>.<verb>` path
    * shape is what auto-wires quotas, counters, audit, and permissions. */
   aiGeneration: aiGenerationRouter,
+  profileAnalysis: profileAnalysisRouter,
+  profileLookup: profileLookupRouter,
   linkedinPosts: linkedinPostsRouter,
   integrations: integrationsRouter,
-})
+});
 
-export type AppRouter = typeof appRouter
+export type AppRouter = typeof appRouter;

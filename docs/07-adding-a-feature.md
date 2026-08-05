@@ -36,15 +36,41 @@ model Organization {
 }
 ```
 
-## Step 2 — Migration
+## Step 2 — Push the schema
 
 Ask the developer to run:
 
 ```bash
-npx prisma migrate dev --name add_documents
+npx prisma db push
 ```
 
-(AI agents don't run prisma migrate, prisma generate, or git.)
+(AI agents don't run prisma db push, prisma generate, or git.)
+
+> **Do NOT run `prisma migrate dev` in this project.** There is no
+> `prisma/migrations/` directory — this codebase has always used `db push`. Given
+> an empty migration history and a full database, `migrate dev` reports every
+> existing table as drift and offers to fix it by **dropping the database**:
+>
+> ```
+> Drift detected: Your database schema is not in sync with your migration history.
+> [+] Added tables
+>   - account, activity_log, invitation, linkedin_account, ... (15 tables)
+> We need to reset the "public" schema ... All data will be lost.
+> ```
+>
+> The database is fine; the command is wrong for this repo. `ls prisma/migrations`
+> tells you which workflow a project uses in one second.
+>
+> To see exactly what a push will change before running it (read-only, safe):
+>
+> ```bash
+> npx prisma migrate diff \
+>   --from-schema-datasource prisma/schema.prisma \
+>   --to-schema-datamodel   prisma/schema.prisma \
+>   --script
+> ```
+>
+> Full write-up in [docs/10 — Two incidents](./10-profile-analyzer.md#two-incidents-and-what-they-taught-us-about-the-database).
 
 ## Step 3 — Registry entry
 

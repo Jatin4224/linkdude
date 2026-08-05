@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -20,13 +19,13 @@
  *        src/trpc/routers/_app.ts; delegates to src/lib/feature-gate.ts.
  */
 
-import { z } from 'zod'
-import { createTRPCRouter } from '../init'
-import { protectedProcedure } from '../procedures'
-import { getFeatureGates } from '@/lib/feature-gate'
+import { z } from "zod";
+import { createTRPCRouter } from "../init";
+import { protectedProcedure } from "../procedures";
+import { getFeatureGates } from "@/lib/feature-gate";
 
 export const usageRouter = createTRPCRouter({
   getFeatureGates: protectedProcedure()
     .input(z.object({ organizationId: z.string() }))
     .query(async ({ input }) => getFeatureGates(input.organizationId)),
-})
+});

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -21,21 +20,21 @@
  *        src/trpc/routers/_app.
  */
 
-import { createTRPCRouter } from '../init'
-import { authProcedure } from '../procedures'
-import { createOrganizationSchema } from '@/lib/types'
-import { createOrganizationWithOwner } from '@/services/organization.service'
+import { createTRPCRouter } from "../init";
+import { authProcedure } from "../procedures";
+import { createOrganizationSchema } from "@/lib/types";
+import { createOrganizationWithOwner } from "@/services/organization.service";
 
 // authProcedure, not protectedProcedure: this is how the client discovers
 // which org to use before it can pass organizationId in inputs — and how a
 // brand-new user (zero memberships) creates their first org during onboarding.
 export const organizationRouter = createTRPCRouter({
   getActiveOrganization: authProcedure.query(async ({ ctx }) =>
-    ctx.getActiveOrganization()
+    ctx.getActiveOrganization(),
   ),
 
   getUserOrganizations: authProcedure.query(async ({ ctx }) =>
-    ctx.getUserOrganizations()
+    ctx.getUserOrganizations(),
   ),
 
   /**
@@ -58,12 +57,12 @@ export const organizationRouter = createTRPCRouter({
           userId: ctx.user.id,
           name: input.name,
           logo: input.logo,
-        })
+        });
         await tx.user.update({
           where: { id: ctx.user.id },
           data: { onboardingComplete: true },
-        })
-        return result
-      })
+        });
+        return result;
+      });
     }),
-})
+});

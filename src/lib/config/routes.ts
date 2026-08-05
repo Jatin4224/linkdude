@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -23,8 +22,8 @@
  */
 
 export const ROUTES = {
-  dashboard: '/dashboard',
-  onboarding: '/onboarding',
-} as const
+  dashboard: "/dashboard",
+  onboarding: "/onboarding",
+} as const;
 
-export type AppRouteKey = keyof typeof ROUTES
+export type AppRouteKey = keyof typeof ROUTES;

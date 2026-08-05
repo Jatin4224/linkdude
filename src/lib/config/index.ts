@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -27,8 +26,8 @@
  * WHERE: Imported broadly across the app and by src/lib/better-auth/auth.ts.
  */
 
-export { prisma } from './prisma'
-export type { DbClient } from './prisma'
+export { prisma } from "./prisma";
+export type { DbClient } from "./prisma";
 export {
   APP_NAME,
   APP_URL,
@@ -36,12 +35,12 @@ export {
   APP_DESCRIPTION,
   APP_METADATA_BASE,
   BRANDING,
-} from './branding'
-export { AUTH_ROUTES } from './auth-routes'
-export type { AuthRouteKey } from './auth-routes'
-export { ROUTES } from './routes'
-export type { AppRouteKey } from './routes'
-export { REGISTRATION_OPEN } from './registration'
+} from "./branding";
+export { AUTH_ROUTES } from "./auth-routes";
+export type { AuthRouteKey } from "./auth-routes";
+export { ROUTES } from "./routes";
+export type { AppRouteKey } from "./routes";
+export { REGISTRATION_OPEN } from "./registration";
 export {
   PLAN_KEYS,
   PLANS,
@@ -50,26 +49,26 @@ export {
   getPlanPriceId,
   getPlanByPriceId,
   getNextPlan,
-} from './plans'
-export type { PlanKey, PlanDefinition, BillingInterval } from './plans'
+} from "./plans";
+export type { PlanKey, PlanDefinition, BillingInterval } from "./plans";
 export {
   getResendClient,
   RESEND_DEFAULT_FROM,
   isResendConfigured,
   isDevEmailFallbackActive,
-} from './resend'
+} from "./resend";
 export {
   getStripeClient,
   isStripeConfigured,
   getStripeWebhookSecret,
   STRIPE_API_VERSION,
-} from './stripe'
+} from "./stripe";
 export {
   portalConfig,
   isPortalEnabled,
   isPortalOwnerEmail,
   PORTAL_PATH,
-} from './portal'
+} from "./portal";
 export {
   AI_PROVIDERS,
   AI_PROVIDER,
@@ -78,7 +77,9 @@ export {
   isAiConfigured,
   AI_MODEL,
   AI_MAX_TOKENS,
-} from './ai'
+  AI_MAX_RETRIES,
+  AI_TIMEOUT_MS,
+} from "./ai";
 export {
   isLinkedInConfigured,
   getLinkedInCredentials,
@@ -89,5 +90,5 @@ export {
   LINKEDIN_REDIRECT_PATH,
   LINKEDIN_MAX_COMMENTARY,
   LINKEDIN_OAUTH_STATE_COOKIE,
-} from './linkedin'
-export type { LinkedInCredentials } from './linkedin'
+} from "./linkedin";
+export type { LinkedInCredentials } from "./linkedin";

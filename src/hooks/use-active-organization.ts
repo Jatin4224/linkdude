@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -17,12 +16,12 @@
  *        the dashboard UI and by src/components/feature-gate.tsx.
  */
 
-'use client'
+"use client";
 
-import { trpc } from '@/trpc/react-provider'
-import type { Permission } from '@/lib/better-auth/permissions'
-import type { inferRouterOutputs } from '@trpc/server'
-import type { AppRouter } from '@/trpc/routers/_app'
+import { trpc } from "@/trpc/react-provider";
+import type { Permission } from "@/lib/better-auth/permissions";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@/trpc/routers/_app";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: ActiveOrganization
@@ -33,20 +32,20 @@ import type { AppRouter } from '@/trpc/routers/_app'
  * WHERE: Returned inside ActiveOrganizationData by useActiveOrganization.
  */
 export type ActiveOrganization = NonNullable<
-  inferRouterOutputs<AppRouter>['organization']['getActiveOrganization']
->
+  inferRouterOutputs<AppRouter>["organization"]["getActiveOrganization"]
+>;
 
 export interface ActiveOrganizationData {
-  activeOrganization: ActiveOrganization | null | undefined
-  isOwner: boolean
-  isLoading: boolean
-  hasPermission: (permission: Permission) => boolean
+  activeOrganization: ActiveOrganization | null | undefined;
+  isOwner: boolean;
+  isLoading: boolean;
+  hasPermission: (permission: Permission) => boolean;
 }
 
 const ACTIVE_ORG_QUERY_OPTIONS = {
   gcTime: 1000 * 60 * 30,
   refetchOnWindowFocus: true,
-} as const
+} as const;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: useActiveOrganization
@@ -59,19 +58,22 @@ const ACTIVE_ORG_QUERY_OPTIONS = {
  */
 export function useActiveOrganization(): ActiveOrganizationData {
   const { data: activeOrganization, isLoading } =
-    trpc.organization.getActiveOrganization.useQuery(undefined, ACTIVE_ORG_QUERY_OPTIONS)
+    trpc.organization.getActiveOrganization.useQuery(
+      undefined,
+      ACTIVE_ORG_QUERY_OPTIONS,
+    );
 
-  const isOwner = activeOrganization?.role === 'owner'
+  const isOwner = activeOrganization?.role === "owner";
 
   // Owners pass every check — the procedure layer treats their empty
   // permissions array as a sentinel meaning "all access".
   const hasPermission = (permission: Permission): boolean => {
-    if (!activeOrganization) return false
-    if (isOwner) return true
-    return activeOrganization.permissions.includes(permission)
-  }
+    if (!activeOrganization) return false;
+    if (isOwner) return true;
+    return activeOrganization.permissions.includes(permission);
+  };
 
-  return { activeOrganization, isOwner, isLoading, hasPermission }
+  return { activeOrganization, isOwner, isLoading, hasPermission };
 }
 
 /**
@@ -86,6 +88,6 @@ export function useActiveOrganizationId(): string | undefined {
   const { data } = trpc.organization.getActiveOrganization.useQuery(undefined, {
     ...ACTIVE_ORG_QUERY_OPTIONS,
     select: (org) => org?.id,
-  })
-  return data ?? undefined
+  });
+  return data ?? undefined;
 }

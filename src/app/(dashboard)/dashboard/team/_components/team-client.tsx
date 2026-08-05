@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: TeamClient
@@ -16,17 +15,18 @@
  * WHERE: Rendered by the team page.
  */
 
-import { useActiveOrganization } from '@/hooks/use-active-organization'
-import { permissions } from '@/lib/better-auth/permissions'
-import { ContentLayout } from '@/components/global/page-header'
-import { Skeleton } from '@/components/ui/skeleton'
-import { MemberManager } from './member-manager'
-import { InviteMemberButton } from './invite-member-button'
+import { useActiveOrganization } from "@/hooks/use-active-organization";
+import { permissions } from "@/lib/better-auth/permissions";
+import { ContentLayout } from "@/components/global/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MemberManager } from "./member-manager";
+import { InviteMemberButton } from "./invite-member-button";
 
 export function TeamClient() {
-  const { activeOrganization, isLoading, hasPermission } = useActiveOrganization()
-  const organizationId = activeOrganization?.id
-  const hasAccess = hasPermission(permissions.MEMBER_READ)
+  const { activeOrganization, isLoading, hasPermission } =
+    useActiveOrganization();
+  const organizationId = activeOrganization?.id;
+  const hasAccess = hasPermission(permissions.MEMBER_READ);
 
   if (isLoading && !activeOrganization) {
     return (
@@ -39,17 +39,19 @@ export function TeamClient() {
           <Skeleton className="h-16 w-full md:col-span-1" />
         </div>
       </ContentLayout>
-    )
+    );
   }
 
   if (!organizationId) {
     return (
       <ContentLayout title="Team">
         <div className="flex items-center justify-center p-12">
-          <p className="text-sm text-muted-foreground">No active organization found.</p>
+          <p className="text-sm text-muted-foreground">
+            No active organization found.
+          </p>
         </div>
       </ContentLayout>
-    )
+    );
   }
 
   if (!hasAccess) {
@@ -61,18 +63,21 @@ export function TeamClient() {
               You don&apos;t have permission to view team members
             </p>
             <p className="text-xs text-muted-foreground">
-              Contact your organization owner to grant you the{' '}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">member:read</code> permission.
+              Contact your organization owner to grant you the{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                member:read
+              </code>{" "}
+              permission.
             </p>
           </div>
         </div>
       </ContentLayout>
-    )
+    );
   }
 
   return (
     <ContentLayout title="Team" actions={<InviteMemberButton />}>
       <MemberManager organizationId={organizationId} />
     </ContentLayout>
-  )
+  );
 }

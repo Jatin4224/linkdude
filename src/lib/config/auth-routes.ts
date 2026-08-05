@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -27,10 +26,10 @@
  */
 
 export const AUTH_ROUTES = {
-  signIn: '/sign-in',
-  signUp: '/sign-up',
-  forgotPassword: '/forgot-password',
-  resetPassword: '/reset-password',
-} as const
+  signIn: "/sign-in",
+  signUp: "/sign-up",
+  forgotPassword: "/forgot-password",
+  resetPassword: "/reset-password",
+} as const;
 
-export type AuthRouteKey = keyof typeof AUTH_ROUTES
+export type AuthRouteKey = keyof typeof AUTH_ROUTES;

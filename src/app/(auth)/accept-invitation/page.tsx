@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -14,22 +13,27 @@
  *        (AcceptInvitation) drives the accept flow.
  */
 
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
 
-import { AuthShell } from '@/components/global/auth'
-import { AcceptInvitation } from './_components/accept-invitation'
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AuthShell } from "@/components/global/auth";
+import { AcceptInvitation } from "./_components/accept-invitation";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: 'Accept invitation',
-}
+  title: "Accept invitation",
+};
 
 export default async function AcceptInvitationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ id?: string }>
+  searchParams: Promise<{ id?: string }>;
 }) {
-  const { id } = await searchParams
+  const { id } = await searchParams;
 
   return (
     <AuthShell>
@@ -39,10 +43,12 @@ export default async function AcceptInvitationPage({
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-xl">Invitation unavailable</CardTitle>
-            <CardDescription>This link is missing its invitation reference.</CardDescription>
+            <CardDescription>
+              This link is missing its invitation reference.
+            </CardDescription>
           </CardHeader>
         </Card>
       )}
     </AuthShell>
-  )
+  );
 }

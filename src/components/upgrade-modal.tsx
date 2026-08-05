@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: UpgradeModal, UpgradeModalProps
@@ -20,8 +19,8 @@
  *        src/lib/config and resource metadata from src/lib/resources.
  */
 
-import * as React from 'react'
-import Link from 'next/link'
+import * as React from "react";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -29,10 +28,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { BRANDING } from '@/lib/config'
-import { RESOURCES, type ResourceKey } from '@/lib/resources'
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { BRANDING } from "@/lib/config";
+import { RESOURCES, type ResourceKey } from "@/lib/resources";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: UpgradeModalProps
@@ -44,10 +43,10 @@ import { RESOURCES, type ResourceKey } from '@/lib/resources'
  * WHERE: Passed by FeatureGate; consumed only by UpgradeModal.
  */
 export interface UpgradeModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  organizationId: string
-  resource?: ResourceKey
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  organizationId: string;
+  resource?: ResourceKey;
 }
 
 export function UpgradeModal({
@@ -56,12 +55,12 @@ export function UpgradeModal({
   organizationId,
   resource,
 }: UpgradeModalProps) {
-  const resourceName = resource ? RESOURCES[resource].name : null
+  const resourceName = resource ? RESOURCES[resource].name : null;
   const body = resourceName
-    ? BRANDING.upgradeModal.bodyTemplate.replace('{resourceName}', resourceName)
-    : BRANDING.upgradeModal.genericBody
+    ? BRANDING.upgradeModal.bodyTemplate.replace("{resourceName}", resourceName)
+    : BRANDING.upgradeModal.genericBody;
 
-  const billingHref = `${RESOURCES.billing.nav.href}?org=${organizationId}`
+  const billingHref = `${RESOURCES.billing.nav.href}?org=${organizationId}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -80,5 +79,5 @@ export function UpgradeModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

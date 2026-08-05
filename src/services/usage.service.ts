@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -17,11 +16,11 @@
  *        explicitly want to bump a counter.
  */
 
-import 'server-only'
+import "server-only";
 
-import { cache } from 'react'
-import { prisma, type DbClient } from '@/lib/config/prisma'
-import type { LimitResourceKey } from '@/lib/resources'
+import { cache } from "react";
+import { prisma, type DbClient } from "@/lib/config/prisma";
+import type { LimitResourceKey } from "@/lib/resources";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getUsageMetrics
@@ -38,9 +37,9 @@ export const getUsageMetrics = cache(
       where: {
         organizationId_featureKey: { organizationId, featureKey: resourceKey },
       },
-    })
-  }
-)
+    });
+  },
+);
 
 /**
  * SOURCE OF TRUTH KEYWORDS: incrementUsage
@@ -55,15 +54,19 @@ export async function incrementUsage(
   organizationId: string,
   resourceKey: LimitResourceKey,
   incrementBy: number = 1,
-  db: DbClient = prisma
+  db: DbClient = prisma,
 ): Promise<void> {
   await db.usageMetrics.upsert({
     where: {
       organizationId_featureKey: { organizationId, featureKey: resourceKey },
     },
     update: { currentUsage: { increment: incrementBy }, updatedAt: new Date() },
-    create: { organizationId, featureKey: resourceKey, currentUsage: incrementBy },
-  })
+    create: {
+      organizationId,
+      featureKey: resourceKey,
+      currentUsage: incrementBy,
+    },
+  });
 }
 
 /**
@@ -78,7 +81,7 @@ export async function decrementUsage(
   organizationId: string,
   resourceKey: LimitResourceKey,
   decrementBy: number = 1,
-  db: DbClient = prisma
+  db: DbClient = prisma,
 ): Promise<void> {
   // Read via the same client we'll write to — cached getUsageMetrics would
   // bypass the active tx and break atomicity.
@@ -86,8 +89,8 @@ export async function decrementUsage(
     where: {
       organizationId_featureKey: { organizationId, featureKey: resourceKey },
     },
-  })
-  if (!metrics) return
+  });
+  if (!metrics) return;
 
   await db.usageMetrics.update({
     where: {
@@ -99,5 +102,5 @@ export async function decrementUsage(
       currentUsage: Math.max(0, metrics.currentUsage - decrementBy),
       updatedAt: new Date(),
     },
-  })
+  });
 }

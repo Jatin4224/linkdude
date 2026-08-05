@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PageHeader, ContentLayout
@@ -21,14 +20,14 @@
  *        the sidebar from src/components/global/sidebar.
  */
 
-import * as React from 'react'
+import * as React from "react";
 
-import { Separator } from '@/components/ui/separator'
-import { SidebarTrigger } from '@/components/ui/sidebar'
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export interface PageHeaderProps {
-  title: string
-  actions?: React.ReactNode
+  title: string;
+  actions?: React.ReactNode;
 }
 
 export function PageHeader({ title, actions }: PageHeaderProps) {
@@ -37,22 +36,28 @@ export function PageHeader({ title, actions }: PageHeaderProps) {
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
       <h1 className="text-base font-medium">{title}</h1>
-      {actions ? <div className="ml-auto flex items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="ml-auto flex items-center gap-2">{actions}</div>
+      ) : null}
     </header>
-  )
+  );
 }
 
 export interface ContentLayoutProps {
-  title: string
-  actions?: React.ReactNode
-  children: React.ReactNode
+  title: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
 }
 
-export function ContentLayout({ title, actions, children }: ContentLayoutProps) {
+export function ContentLayout({
+  title,
+  actions,
+  children,
+}: ContentLayoutProps) {
   return (
     <>
       <PageHeader title={title} actions={actions} />
       <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">{children}</div>
     </>
-  )
+  );
 }

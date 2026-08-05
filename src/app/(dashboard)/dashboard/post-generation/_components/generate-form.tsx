@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: GenerateForm, GenerateFormProps, TONE_LABELS,
@@ -23,10 +22,10 @@
  * WHERE: Rendered by post-composer.tsx.
  */
 
-import * as React from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2Icon, SparklesIcon } from 'lucide-react'
+import * as React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2Icon, SparklesIcon } from "lucide-react";
 
 import {
   generatePostSchema,
@@ -35,8 +34,8 @@ import {
   type GeneratePostValues,
   type PostTone,
   type PostLength,
-} from '@/lib/types'
-import { Button } from '@/components/ui/button'
+} from "@/lib/types";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -44,47 +43,47 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
-type TopicValues = Extract<GeneratePostValues, { source: 'topic' }>
-type BlogValues = Extract<GeneratePostValues, { source: 'blog' }>
+type TopicValues = Extract<GeneratePostValues, { source: "topic" }>;
+type BlogValues = Extract<GeneratePostValues, { source: "blog" }>;
 
 /* Human labels for the enum values. Derived from the schema's const tuples, so
  * adding a tone in lib/types surfaces here as a type error rather than a
  * silently missing option. */
 const TONE_LABELS: Record<PostTone, string> = {
-  professional: 'Professional',
-  conversational: 'Conversational',
-  storytelling: 'Storytelling',
-  contrarian: 'Contrarian',
-  educational: 'Educational',
-}
+  professional: "Professional",
+  conversational: "Conversational",
+  storytelling: "Storytelling",
+  contrarian: "Contrarian",
+  educational: "Educational",
+};
 
 const LENGTH_LABELS: Record<PostLength, string> = {
-  short: 'Short',
-  medium: 'Medium',
-  long: 'Long',
-}
+  short: "Short",
+  medium: "Medium",
+  long: "Long",
+};
 
 export interface GenerateFormProps {
-  tone: PostTone
-  length: PostLength
-  onToneChange: (tone: PostTone) => void
-  onLengthChange: (length: PostLength) => void
-  onGenerate: (values: GeneratePostValues) => void
-  isGenerating: boolean
-  disabled?: boolean
+  tone: PostTone;
+  length: PostLength;
+  onToneChange: (tone: PostTone) => void;
+  onLengthChange: (length: PostLength) => void;
+  onGenerate: (values: GeneratePostValues) => void;
+  isGenerating: boolean;
+  disabled?: boolean;
 }
 
 export function GenerateForm({
@@ -98,24 +97,24 @@ export function GenerateForm({
 }: GenerateFormProps) {
   const topicForm = useForm<TopicValues>({
     resolver: zodResolver(generatePostSchema.options[0]),
-    defaultValues: { source: 'topic', topic: '', tone, length },
-  })
+    defaultValues: { source: "topic", topic: "", tone, length },
+  });
 
   const blogForm = useForm<BlogValues>({
     resolver: zodResolver(generatePostSchema.options[1]),
-    defaultValues: { source: 'blog', blogUrl: '', tone, length },
-  })
+    defaultValues: { source: "blog", blogUrl: "", tone, length },
+  });
 
   /* Tone/length live in the parent so they survive a tab switch; mirror them
    * into whichever form is about to be submitted. */
   React.useEffect(() => {
-    topicForm.setValue('tone', tone)
-    blogForm.setValue('tone', tone)
-    topicForm.setValue('length', length)
-    blogForm.setValue('length', length)
-  }, [tone, length, topicForm, blogForm])
+    topicForm.setValue("tone", tone);
+    blogForm.setValue("tone", tone);
+    topicForm.setValue("length", length);
+    blogForm.setValue("length", length);
+  }, [tone, length, topicForm, blogForm]);
 
-  const busy = isGenerating || disabled
+  const busy = isGenerating || disabled;
 
   return (
     <div className="flex flex-col gap-6">
@@ -167,7 +166,12 @@ export function GenerateForm({
                   </FormItem>
                 )}
               />
-              <Button type="submit" variant="brand" disabled={busy} className="w-full">
+              <Button
+                type="submit"
+                variant="brand"
+                disabled={busy}
+                className="w-full"
+              >
                 {isGenerating ? (
                   <Loader2Icon className="size-4 animate-spin" />
                 ) : (
@@ -204,7 +208,12 @@ export function GenerateForm({
                   </FormItem>
                 )}
               />
-              <Button type="submit" variant="brand" disabled={busy} className="w-full">
+              <Button
+                type="submit"
+                variant="brand"
+                disabled={busy}
+                className="w-full"
+              >
                 {isGenerating ? (
                   <Loader2Icon className="size-4 animate-spin" />
                 ) : (
@@ -221,7 +230,10 @@ export function GenerateForm({
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="tone-select">Tone</Label>
-          <Select value={tone} onValueChange={(value) => onToneChange(value as PostTone)}>
+          <Select
+            value={tone}
+            onValueChange={(value) => onToneChange(value as PostTone)}
+          >
             <SelectTrigger id="tone-select" disabled={busy}>
               <SelectValue />
             </SelectTrigger>
@@ -237,7 +249,10 @@ export function GenerateForm({
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="length-select">Length</Label>
-          <Select value={length} onValueChange={(value) => onLengthChange(value as PostLength)}>
+          <Select
+            value={length}
+            onValueChange={(value) => onLengthChange(value as PostLength)}
+          >
             <SelectTrigger id="length-select" disabled={busy}>
               <SelectValue />
             </SelectTrigger>
@@ -252,5 +267,5 @@ export function GenerateForm({
         </div>
       </div>
     </div>
-  )
+  );
 }

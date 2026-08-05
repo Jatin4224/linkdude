@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AppSidebar, SECTION_LABELS
@@ -22,10 +21,10 @@
  *        (trpc.usage.getFeatureGates), and active-org permissions.
  */
 
-import * as React from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { LayoutDashboard } from 'lucide-react'
+import * as React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard } from "lucide-react";
 
 import {
   Sidebar,
@@ -37,46 +36,49 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '@/components/ui/sidebar'
-import { getSidebarNav, type SidebarNavItem } from '@/lib/resources'
-import { useActiveOrganization, useActiveOrganizationId } from '@/hooks/use-active-organization'
-import { trpc } from '@/trpc/react-provider'
-import { ROUTES } from '@/lib/config'
-import { getNavIcon } from './nav-icons'
-import { TeamSwitcher } from './team-switcher'
-import { NavUser } from './nav-user'
+} from "@/components/ui/sidebar";
+import { getSidebarNav, type SidebarNavItem } from "@/lib/resources";
+import {
+  useActiveOrganization,
+  useActiveOrganizationId,
+} from "@/hooks/use-active-organization";
+import { trpc } from "@/trpc/react-provider";
+import { ROUTES } from "@/lib/config";
+import { getNavIcon } from "./nav-icons";
+import { TeamSwitcher } from "./team-switcher";
+import { NavUser } from "./nav-user";
 
 /* Human labels for the known section keys. */
 const SECTION_LABELS: Record<string, string> = {
-  main: 'General',
-  settings: 'Settings',
-}
+  main: "General",
+  settings: "Settings",
+};
 
-const NAV_SECTIONS = getSidebarNav()
+const NAV_SECTIONS = getSidebarNav();
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const pathname = usePathname()
-  const { hasPermission, isLoading } = useActiveOrganization()
-  const organizationId = useActiveOrganizationId()
+  const pathname = usePathname();
+  const { hasPermission, isLoading } = useActiveOrganization();
+  const organizationId = useActiveOrganizationId();
 
   /* One read of the full gate map; used to hide flag-locked items. */
   const { data: gateData } = trpc.usage.getFeatureGates.useQuery(
-    { organizationId: organizationId ?? '' },
-    { enabled: organizationId !== undefined, staleTime: 5 * 60 * 1000 }
-  )
+    { organizationId: organizationId ?? "" },
+    { enabled: organizationId !== undefined, staleTime: 5 * 60 * 1000 },
+  );
 
   const isActive = (href: string): boolean =>
-    pathname === href || pathname.startsWith(`${href}/`)
+    pathname === href || pathname.startsWith(`${href}/`);
 
   const isVisible = (item: SidebarNavItem): boolean => {
-    if (!hasPermission(item.requirePermission)) return false
+    if (!hasPermission(item.requirePermission)) return false;
     if (item.requireFlag) {
-      const gate = gateData?.gates[item.key]
+      const gate = gateData?.gates[item.key];
       /* Hide until the gate resolves, and when the plan locks the feature. */
-      if (!gate || gate.atLimit) return false
+      if (!gate || gate.atLimit) return false;
     }
-    return true
-  }
+    return true;
+  };
 
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
@@ -86,7 +88,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>{SECTION_LABELS['main']}</SidebarGroupLabel>
+          <SidebarGroupLabel>{SECTION_LABELS["main"]}</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -100,10 +102,10 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenuItem>
 
             {!isLoading &&
-              (NAV_SECTIONS.find((s) => s.section === 'main')?.items ?? [])
+              (NAV_SECTIONS.find((s) => s.section === "main")?.items ?? [])
                 .filter(isVisible)
                 .map((item) => {
-                  const Icon = getNavIcon(item.icon)
+                  const Icon = getNavIcon(item.icon);
                   return (
                     <SidebarMenuItem key={item.key}>
                       <SidebarMenuButton
@@ -115,14 +117,14 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                         <span>{item.label}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
-                  )
+                  );
                 })}
           </SidebarMenu>
         </SidebarGroup>
 
-        {NAV_SECTIONS.filter((s) => s.section !== 'main').map((section) => {
-          const visibleItems = isLoading ? [] : section.items.filter(isVisible)
-          if (visibleItems.length === 0) return null
+        {NAV_SECTIONS.filter((s) => s.section !== "main").map((section) => {
+          const visibleItems = isLoading ? [] : section.items.filter(isVisible);
+          if (visibleItems.length === 0) return null;
           return (
             <SidebarGroup key={section.section}>
               <SidebarGroupLabel>
@@ -130,7 +132,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
               </SidebarGroupLabel>
               <SidebarMenu>
                 {visibleItems.map((item) => {
-                  const Icon = getNavIcon(item.icon)
+                  const Icon = getNavIcon(item.icon);
                   return (
                     <SidebarMenuItem key={item.key}>
                       <SidebarMenuButton
@@ -142,11 +144,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                         <span>{item.label}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
-                  )
+                  );
                 })}
               </SidebarMenu>
             </SidebarGroup>
-          )
+          );
         })}
       </SidebarContent>
 
@@ -154,5 +156,5 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <NavUser />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

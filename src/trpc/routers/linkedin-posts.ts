@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -19,17 +18,21 @@
  *        src/services/linkedin.service.ts. Consumed by the composer.
  */
 
-import { TRPCError } from '@trpc/server'
-import { z } from 'zod'
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 
-import { createTRPCRouter } from '../init'
-import { protectedProcedure } from '../procedures'
-import { permissions } from '@/lib/better-auth/permissions'
-import { publishPostSchema, listPostsSchema, deletePostSchema } from '@/lib/types'
-import { isLinkedInConfigured } from '@/lib/config'
-import * as linkedinService from '@/services/linkedin.service'
+import { createTRPCRouter } from "../init";
+import { protectedProcedure } from "../procedures";
+import { permissions } from "@/lib/better-auth/permissions";
+import {
+  publishPostSchema,
+  listPostsSchema,
+  deletePostSchema,
+} from "@/lib/types";
+import { isLinkedInConfigured } from "@/lib/config";
+import * as linkedinService from "@/services/linkedin.service";
 
-const withOrganization = z.object({ organizationId: z.string().min(1) })
+const withOrganization = z.object({ organizationId: z.string().min(1) });
 
 export const linkedinPostsRouter = createTRPCRouter({
   /**
@@ -56,39 +59,48 @@ export const linkedinPostsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       if (!isLinkedInConfigured()) {
         throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
+          code: "PRECONDITION_FAILED",
           message:
-            'LinkedIn is not configured. Add LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET to enable publishing.',
-        })
+            "LinkedIn is not configured. Add LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET to enable publishing.",
+        });
       }
 
-      let token: Awaited<ReturnType<typeof linkedinService.getValidAccessToken>>
+      let token: Awaited<
+        ReturnType<typeof linkedinService.getValidAccessToken>
+      >;
       try {
-        token = await linkedinService.getValidAccessToken(ctx.db, input.organizationId)
+        token = await linkedinService.getValidAccessToken(
+          ctx.db,
+          input.organizationId,
+        );
       } catch (error) {
         /* Missing or expired-without-refresh connection is a user-actionable
          * state, not a server fault — surfaced so the UI can offer Reconnect. */
         throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
+          code: "PRECONDITION_FAILED",
           message:
-            error instanceof Error ? error.message : 'Connect a LinkedIn account to publish.',
-        })
+            error instanceof Error
+              ? error.message
+              : "Connect a LinkedIn account to publish.",
+        });
       }
 
-      let published: Awaited<ReturnType<typeof linkedinService.publishPost>>
+      let published: Awaited<ReturnType<typeof linkedinService.publishPost>>;
       try {
         published = await linkedinService.publishPost({
           accessToken: token.accessToken,
           personUrn: token.personUrn,
           commentary: input.commentary,
           image: input.image,
-        })
+        });
       } catch (error) {
         throw new TRPCError({
-          code: 'BAD_GATEWAY',
+          code: "BAD_GATEWAY",
           message:
-            error instanceof Error ? error.message : 'LinkedIn rejected the post. Please try again.',
-        })
+            error instanceof Error
+              ? error.message
+              : "LinkedIn rejected the post. Please try again.",
+        });
       }
 
       return linkedinService.recordPublishedPost(ctx.db, {
@@ -98,7 +110,7 @@ export const linkedinPostsRouter = createTRPCRouter({
         commentary: input.commentary,
         postUrn: published.postUrn,
         imageUrn: published.imageUrn,
-      })
+      });
     }),
 
   /**
@@ -109,10 +121,16 @@ export const linkedinPostsRouter = createTRPCRouter({
    *        posts behind `r_member_social`, which it grants to approved partners
    *        only — there is no feed to sync.
    */
-  list: protectedProcedure({ requirePermission: permissions.LINKEDIN_POSTS_READ })
+  list: protectedProcedure({
+    requirePermission: permissions.LINKEDIN_POSTS_READ,
+  })
     .input(listPostsSchema.extend(withOrganization.shape))
     .query(async ({ ctx, input }) =>
-      linkedinService.listPublishedPosts(ctx.db, input.organizationId, input.limit)
+      linkedinService.listPublishedPosts(
+        ctx.db,
+        input.organizationId,
+        input.limit,
+      ),
     ),
 
   /**
@@ -121,11 +139,30 @@ export const linkedinPostsRouter = createTRPCRouter({
    * WHAT:  Removes our local record of a post.
    * WHY:   Explicitly does NOT delete from LinkedIn — the post stays live on the
    *        member's feed. Named `delete` so the auto-wired counter decrements.
+   *
+   *        Returns the `count` from the delete, NOT `{ id }`. The counter math
+   *        in protectedProcedure reads a `count` field off the result and falls
+   *        back to decrementing by 1 for anything else — so returning the id
+   *        meant deleting a row that did not exist (a stale list entry, another
+   *        tenant's id) still handed back a post slot. That is the DELETE NO-OP
+   *        rule; `count: 0` correctly moves nothing.
    */
-  delete: protectedProcedure({ requirePermission: permissions.LINKEDIN_POSTS_DELETE })
+  delete: protectedProcedure({
+    requirePermission: permissions.LINKEDIN_POSTS_DELETE,
+  })
     .input(deletePostSchema.extend(withOrganization.shape))
     .mutation(async ({ ctx, input }) => {
-      await linkedinService.deletePublishedPost(ctx.db, input.organizationId, input.postId)
-      return { id: input.postId }
+      const { count } = await linkedinService.deletePublishedPost(
+        ctx.db,
+        input.organizationId,
+        input.postId,
+      );
+      if (count === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That post record no longer exists.",
+        });
+      }
+      return { id: input.postId, count };
     }),
-})
+});

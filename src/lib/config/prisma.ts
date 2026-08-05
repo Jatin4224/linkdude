@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -18,17 +17,17 @@
  *        every service, and the tRPC context.
  */
 
-import { PrismaClient, type Prisma } from '@/generated/prisma'
+import { PrismaClient, type Prisma } from "@/generated/prisma";
 
 type GlobalWithPrisma = typeof globalThis & {
-  __prisma?: PrismaClient
-}
+  __prisma?: PrismaClient;
+};
 
-const globalForPrisma = globalThis as GlobalWithPrisma
+const globalForPrisma = globalThis as GlobalWithPrisma;
 
-export const prisma = globalForPrisma.__prisma ?? new PrismaClient()
+export const prisma = globalForPrisma.__prisma ?? new PrismaClient();
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.__prisma = prisma
+if (process.env.NODE_ENV !== "production") globalForPrisma.__prisma = prisma;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: DbClient
@@ -38,4 +37,4 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.__prisma = prisma
  *        so callers can pass `tx` and the write enlists in the active tx.
  * WHERE: Used by every service that takes a `db` parameter.
  */
-export type DbClient = PrismaClient | Prisma.TransactionClient
+export type DbClient = PrismaClient | Prisma.TransactionClient;

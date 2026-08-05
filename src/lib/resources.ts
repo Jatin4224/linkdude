@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -25,45 +24,48 @@
  *        (src/trpc/react-provider.tsx); depends on src/lib/config/plans.ts.
  */
 
-import { PLAN_KEYS, type PlanKey } from '@/lib/config/plans'
+import { PLAN_KEYS, type PlanKey } from "@/lib/config/plans";
 
 /* PLAN_KEYS / PlanKey are the single source of truth in plans.ts (RESOURCES only
  * consumes them for perPlan exhaustiveness). Re-exported here so existing
  * importers of `@/lib/resources` keep resolving without a second declaration. */
-export { PLAN_KEYS }
+export { PLAN_KEYS };
 
-type PerPlan<T> = Record<PlanKey, T>
+type PerPlan<T> = Record<PlanKey, T>;
 
 export interface ResourceLimit {
-  perPlan: PerPlan<number | 'unlimited'>
-  upgradeMessage: string
-  availableOnFreeTrial: boolean
-  unit?: string
+  perPlan: PerPlan<number | "unlimited">;
+  upgradeMessage: string;
+  availableOnFreeTrial: boolean;
+  unit?: string;
 }
 
 export interface ResourceFlag {
-  perPlan: PerPlan<boolean>
-  availableOnFreeTrial: boolean
+  perPlan: PerPlan<boolean>;
+  availableOnFreeTrial: boolean;
 }
 
 export interface ResourceNav {
-  label: string
-  href: string
-  icon: string
-  section?: 'main' | 'settings' | (string & {})
+  label: string;
+  href: string;
+  icon: string;
+  section?: "main" | "settings" | (string & {});
   /** Defaults to 'read' when omitted. */
-  requirePermission?: string
-  requireFlag?: boolean
+  requirePermission?: string;
+  requireFlag?: boolean;
 }
 
 export interface ResourceAudit {
-  entity?: string
+  entity?: string;
   /** Templates support {input.field} and {output.field} interpolation. */
-  describe?: Record<string, string>
+  describe?: Record<string, string>;
 }
 
 export interface ResourceRateLimit {
-  [action: string]: { count: number; window: `${number} ${'s' | 'm' | 'h' | 'd'}` }
+  [action: string]: {
+    count: number;
+    window: `${number} ${"s" | "m" | "h" | "d"}`;
+  };
 }
 
 /**
@@ -79,15 +81,15 @@ export interface ResourceRateLimit {
  * that declares `limit` or `flag`, regardless of whether `nav` is present.
  */
 export interface ResourceDefinition {
-  name: string
-  description?: string
-  permissions?: readonly string[]
+  name: string;
+  description?: string;
+  permissions?: readonly string[];
   /** limit and flag are mutually exclusive — pick at most one. */
-  limit?: ResourceLimit
-  flag?: ResourceFlag
-  nav?: ResourceNav
-  audit?: ResourceAudit
-  rateLimit?: ResourceRateLimit
+  limit?: ResourceLimit;
+  flag?: ResourceFlag;
+  nav?: ResourceNav;
+  audit?: ResourceAudit;
+  rateLimit?: ResourceRateLimit;
 }
 
 /**
@@ -107,206 +109,350 @@ export interface ResourceDefinition {
  */
 export const RESOURCES = {
   member: {
-    name: 'Team Members',
-    description: 'Add, remove, and modify organization members',
-    permissions: ['create', 'read', 'update', 'delete'],
+    name: "Team Members",
+    description: "Add, remove, and modify organization members",
+    permissions: ["create", "read", "update", "delete"],
     limit: {
-      perPlan: { free: 1, starter: 3, pro: 10, enterprise: 'unlimited', portal: 'unlimited' },
-      upgradeMessage: 'Upgrade to {nextPlan} to invite more teammates',
+      perPlan: {
+        free: 1,
+        starter: 3,
+        pro: 10,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to invite more teammates",
       availableOnFreeTrial: true,
-      unit: 'seats',
+      unit: "seats",
     },
     nav: {
-      label: 'Team',
-      href: '/dashboard/team',
-      icon: 'Users',
-      section: 'main',
+      label: "Team",
+      href: "/dashboard/team",
+      icon: "Users",
+      section: "main",
     },
   },
 
   invitation: {
-    name: 'Invitations',
-    description: 'Send invites and cancel pending invitations',
-    permissions: ['create', 'cancel'],
+    name: "Invitations",
+    description: "Send invites and cancel pending invitations",
+    permissions: ["create", "cancel"],
   },
 
   organizationRoles: {
-    name: 'Organization Roles',
-    description: 'Create and manage custom roles and their permissions',
-    permissions: ['create', 'read', 'update', 'delete'],
+    name: "Organization Roles",
+    description: "Create and manage custom roles and their permissions",
+    permissions: ["create", "read", "update", "delete"],
   },
 
   storage: {
-    name: 'Storage',
-    description: 'File storage capacity',
+    name: "Storage",
+    description: "File storage capacity",
     limit: {
       perPlan: {
         free: 100 * 1024 * 1024,
         starter: 5 * 1024 * 1024 * 1024,
         pro: 25 * 1024 * 1024 * 1024,
-        enterprise: 'unlimited',
-        portal: 'unlimited',
+        enterprise: "unlimited",
+        portal: "unlimited",
       },
-      upgradeMessage: 'Upgrade to {nextPlan} to expand your storage',
+      upgradeMessage: "Upgrade to {nextPlan} to expand your storage",
       availableOnFreeTrial: true,
-      unit: 'bytes',
+      unit: "bytes",
     },
   },
 
   apiCalls: {
-    name: 'API Calls',
-    description: 'Total API calls per month',
+    name: "API Calls",
+    description: "Total API calls per month",
     limit: {
-      perPlan: { free: 1_000, starter: 50_000, pro: 500_000, enterprise: 'unlimited', portal: 'unlimited' },
-      upgradeMessage: 'Upgrade to {nextPlan} for more API calls',
+      perPlan: {
+        free: 1_000,
+        starter: 50_000,
+        pro: 500_000,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} for more API calls",
       availableOnFreeTrial: true,
-      unit: 'calls',
+      unit: "calls",
     },
   },
 
   customDomain: {
-    name: 'Custom Domain',
-    description: 'Map your own domain to your workspace',
+    name: "Custom Domain",
+    description: "Map your own domain to your workspace",
     flag: {
-      perPlan: { free: false, starter: true, pro: true, enterprise: true, portal: true },
+      perPlan: {
+        free: false,
+        starter: true,
+        pro: true,
+        enterprise: true,
+        portal: true,
+      },
       availableOnFreeTrial: false,
     },
   },
 
   customBranding: {
-    name: 'Custom Branding',
-    description: 'Remove or customize platform branding',
+    name: "Custom Branding",
+    description: "Remove or customize platform branding",
     flag: {
-      perPlan: { free: false, starter: true, pro: true, enterprise: true, portal: true },
+      perPlan: {
+        free: false,
+        starter: true,
+        pro: true,
+        enterprise: true,
+        portal: true,
+      },
       availableOnFreeTrial: false,
     },
   },
 
   auditLogs: {
-    name: 'Audit Logs',
-    description: 'Access full audit log history with forensic detail',
-    permissions: ['read'],
+    name: "Audit Logs",
+    description: "Access full audit log history with forensic detail",
+    permissions: ["read"],
     flag: {
-      perPlan: { free: false, starter: false, pro: true, enterprise: true, portal: true },
+      perPlan: {
+        free: false,
+        starter: false,
+        pro: true,
+        enterprise: true,
+        portal: true,
+      },
       availableOnFreeTrial: false,
     },
     nav: {
-      label: 'Audit Logs',
-      href: '/dashboard/audit-logs',
-      icon: 'ScrollText',
-      section: 'settings',
+      label: "Audit Logs",
+      href: "/dashboard/audit-logs",
+      icon: "ScrollText",
+      section: "settings",
       requireFlag: true,
     },
   },
 
   billing: {
-    name: 'Billing & Payments',
-    description: 'Manage subscriptions, invoices, and payment methods',
-    permissions: ['create', 'read', 'update', 'delete'],
+    name: "Billing & Payments",
+    description: "Manage subscriptions, invoices, and payment methods",
+    permissions: ["create", "read", "update", "delete"],
     nav: {
-      label: 'Billing',
-      href: '/dashboard/settings/billing',
-      icon: 'CreditCard',
-      section: 'settings',
+      label: "Billing",
+      href: "/dashboard/settings/billing",
+      icon: "CreditCard",
+      section: "settings",
     },
   },
 
   organizationSettings: {
-    name: 'Organization Settings',
-    description: 'Update organization name, logo, and other org-wide settings',
-    permissions: ['read', 'update'],
-    audit: { entity: 'organization' },
+    name: "Organization Settings",
+    description: "Update organization name, logo, and other org-wide settings",
+    permissions: ["read", "update"],
+    audit: { entity: "organization" },
     nav: {
-      label: 'Organization',
-      href: '/dashboard/settings/organization',
-      icon: 'Settings',
-      section: 'settings',
+      label: "Organization",
+      href: "/dashboard/settings/organization",
+      icon: "Settings",
+      section: "settings",
     },
   },
 
   integrations: {
-    name: 'Integrations',
-    description: 'Connect or disconnect third-party services',
-    permissions: ['read', 'update', 'disconnect'],
+    name: "Integrations",
+    description: "Connect or disconnect third-party services",
+    permissions: ["read", "update", "disconnect"],
     audit: {
-      entity: 'integration',
-      describe: { disconnect: 'Disconnected the {input.provider} account' },
+      entity: "integration",
+      describe: { disconnect: "Disconnected the {input.provider} account" },
     },
   },
 
   aiGeneration: {
-    name: 'AI Generation',
-    description: 'Generate post copy with AI',
-    permissions: ['create'],
+    name: "AI Generation",
+    description: "Generate post copy with AI",
+    permissions: ["create"],
     /* Metered separately from publishing: a user burns generations while
      * iterating on copy without ever hitting Post, so charging those against
      * the publish quota would price the drafting loop out of the free tier. */
     limit: {
-      perPlan: { free: 25, starter: 300, pro: 2_000, enterprise: 'unlimited', portal: 'unlimited' },
-      upgradeMessage: 'Upgrade to {nextPlan} to generate more posts with AI',
+      perPlan: {
+        free: 25,
+        starter: 300,
+        pro: 2_000,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to generate more posts with AI",
       availableOnFreeTrial: true,
-      unit: 'generations',
+      unit: "generations",
     },
     rateLimit: {
       /* Each generation is a paid model call — cap bursts well under the
        * global API limiter so a stuck client can't drain the AI budget. */
-      create: { count: 10, window: '1 m' },
+      create: { count: 10, window: "1 m" },
+    },
+  },
+
+  profileAnalysis: {
+    name: "Profile Analysis",
+    description: "Analyze a LinkedIn profile and suggest improvements",
+    /* `discard` rather than `delete` is LOAD-BEARING. The counter-bump wiring in
+     * protectedProcedure keys off the path verb: `<resource>.delete` decrements
+     * the usage counter. That is correct for a quota counting THINGS HELD, and
+     * wrong for this one, which counts MODEL SPEND — the API call is already
+     * paid for, and removing the saved row does not un-spend it. Naming the verb
+     * `delete` would make analyze → delete → analyze an unlimited free tier.
+     * Renaming the verb is the documented way out (see getMutationFeatureMap). */
+    permissions: ["create", "read", "discard"],
+    /* Metered on its own budget rather than sharing aiGeneration's: an analysis
+     * sends a whole profile and asks for structured output, so it costs several
+     * times what a post draft does. Sharing a counter would let one analysis
+     * silently eat a handful of drafts. */
+    limit: {
+      perPlan: {
+        /* 3, not 5: a free analysis costs a model call, and the URL path that
+         * usually precedes it costs a paid vendor lookup on top. Free users
+         * generate no revenue against either. */
+        free: 3,
+        starter: 50,
+        pro: 300,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to run more profile analyses",
+      availableOnFreeTrial: true,
+      unit: "analyses",
+    },
+    rateLimit: {
+      /* Larger prompt than post generation, so a tighter burst cap. */
+      create: { count: 5, window: "1 m" },
+    },
+    audit: {
+      entity: "profileAnalysis",
+      describe: {
+        create: "Analyzed a LinkedIn profile (score {output.score})",
+        discard: "Discarded a saved profile analysis",
+      },
+    },
+    nav: {
+      label: "Profile Analysis",
+      href: "/dashboard/profile-analysis",
+      icon: "UserSearch",
+      section: "main",
+      /* REQUIRED, and deliberately 'create' rather than the more natural 'read'.
+       *
+       * Custom roles store one OrganizationRole row per literal
+       * `resource:permission` string, and nothing backfills them when a new
+       * permission is added to this registry. `profileAnalysis:read` did not
+       * exist when any current role was created, so gating the nav on it would
+       * remove this page from every existing custom-role member — silently,
+       * exactly like the `as Permission` trap this comment used to describe.
+       *
+       * Switch this to 'read' only alongside a backfill that grants
+       * profileAnalysis:read to the roles that already hold :create. */
+      requirePermission: "create",
+    },
+  },
+
+  profileLookup: {
+    name: "Profile Lookups",
+    description: "Fetch a LinkedIn profile by URL through a data vendor",
+    /* Its OWN resource rather than a verb on profileAnalysis, because fetching a
+     * profile is a capability several features want (analysis today, outreach
+     * drafting next) and none of them should need `profileAnalysis:create` to
+     * use it. */
+    permissions: ["create", "read"],
+    /* The only real control on vendor spend. Each lookup is a billed call to
+     * Apify/Bright Data, and a rate limit cannot express "3 for free users, 300
+     * for pro" — ResourceRateLimit has no perPlan. A quota can, which is why the
+     * cap lives here and the limiter below is only burst protection. */
+    limit: {
+      perPlan: {
+        free: 3,
+        starter: 50,
+        pro: 300,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} for more profile lookups",
+      availableOnFreeTrial: true,
+      unit: "lookups",
+    },
+    rateLimit: {
+      /* Burst protection on top of the quota: a stuck client should not be able
+       * to spend a month's lookups in a minute. */
+      create: { count: 5, window: "1 m" },
+    },
+    audit: {
+      entity: "profileLookup",
+      describe: { create: "Looked up a LinkedIn profile" },
     },
   },
 
   linkedinPosts: {
-    name: 'LinkedIn Posts',
-    description: 'Generate, publish, and review LinkedIn posts',
-    permissions: ['create', 'read', 'delete'],
+    name: "LinkedIn Posts",
+    description: "Generate, publish, and review LinkedIn posts",
+    permissions: ["create", "read", "delete"],
     limit: {
-      perPlan: { free: 10, starter: 100, pro: 500, enterprise: 'unlimited', portal: 'unlimited' },
-      upgradeMessage: 'Upgrade to {nextPlan} to publish more posts',
+      perPlan: {
+        free: 10,
+        starter: 100,
+        pro: 500,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to publish more posts",
       availableOnFreeTrial: true,
-      unit: 'posts',
+      unit: "posts",
     },
     audit: {
-      entity: 'linkedinPost',
+      entity: "linkedinPost",
       describe: {
-        create: 'Published a LinkedIn post',
-        delete: 'Removed a LinkedIn post record',
+        create: "Published a LinkedIn post",
+        delete: "Removed a LinkedIn post record",
       },
     },
     rateLimit: {
       /* LinkedIn throttles member posting; staying under it here turns a
        * remote 429 into a local, explainable error. */
-      create: { count: 5, window: '1 m' },
+      create: { count: 5, window: "1 m" },
     },
     nav: {
-      label: 'Create Post',
-      href: '/dashboard/post-generation',
-      icon: 'Sparkles',
-      section: 'main',
+      label: "Create Post",
+      href: "/dashboard/post-generation",
+      icon: "Sparkles",
+      section: "main",
     },
   },
-} as const satisfies Record<string, ResourceDefinition>
+} as const satisfies Record<string, ResourceDefinition>;
 
-export type ResourceKey = keyof typeof RESOURCES
+export type ResourceKey = keyof typeof RESOURCES;
 
 export type LimitResourceKey = {
-  [K in ResourceKey]: (typeof RESOURCES)[K] extends { limit: ResourceLimit } ? K : never
-}[ResourceKey]
+  [K in ResourceKey]: (typeof RESOURCES)[K] extends { limit: ResourceLimit }
+    ? K
+    : never;
+}[ResourceKey];
 
 export type FlagResourceKey = {
-  [K in ResourceKey]: (typeof RESOURCES)[K] extends { flag: ResourceFlag } ? K : never
-}[ResourceKey]
+  [K in ResourceKey]: (typeof RESOURCES)[K] extends { flag: ResourceFlag }
+    ? K
+    : never;
+}[ResourceKey];
 
 export type PermissionedResourceKey = {
-  [K in ResourceKey]: (typeof RESOURCES)[K] extends { permissions: readonly string[] }
+  [K in ResourceKey]: (typeof RESOURCES)[K] extends {
+    permissions: readonly string[];
+  }
     ? K
-    : never
-}[ResourceKey]
+    : never;
+}[ResourceKey];
 
 export type PermissionAction<R extends PermissionedResourceKey> =
   (typeof RESOURCES)[R] extends { permissions: infer A }
     ? A extends readonly (infer T)[]
       ? T
       : never
-    : never
+    : never;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: Permission
@@ -319,9 +465,11 @@ export type PermissionAction<R extends PermissionedResourceKey> =
  */
 export type Permission =
   | {
-      [R in PermissionedResourceKey]: `${R & string}:${PermissionAction<R> & string}`
+      [
+        R in PermissionedResourceKey
+      ]: `${R & string}:${PermissionAction<R> & string}`;
     }[PermissionedResourceKey]
-  | '*:*'
+  | "*:*";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: isResourceKey
@@ -331,22 +479,23 @@ export type Permission =
  * WHERE: Used by getResourceFromPath and the RESOURCE_ENTRIES builder below.
  */
 export function isResourceKey(value: string): value is ResourceKey {
-  return Object.prototype.hasOwnProperty.call(RESOURCES, value)
+  return Object.prototype.hasOwnProperty.call(RESOURCES, value);
 }
 
 /* Single widening point for iterating RESOURCES as [key, def] tuples — the
  * `as const satisfies` literal types refuse to see optional fields on the
  * union when iterated directly, so we widen here once. */
-export const RESOURCE_ENTRIES: ReadonlyArray<readonly [ResourceKey, ResourceDefinition]> =
-  (() => {
-    const out: Array<readonly [ResourceKey, ResourceDefinition]> = []
-    for (const key of Object.keys(RESOURCES)) {
-      if (isResourceKey(key)) {
-        out.push([key, RESOURCES[key]])
-      }
+export const RESOURCE_ENTRIES: ReadonlyArray<
+  readonly [ResourceKey, ResourceDefinition]
+> = (() => {
+  const out: Array<readonly [ResourceKey, ResourceDefinition]> = [];
+  for (const key of Object.keys(RESOURCES)) {
+    if (isResourceKey(key)) {
+      out.push([key, RESOURCES[key]]);
     }
-    return out
-  })()
+  }
+  return out;
+})();
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getOrganizationStatement
@@ -357,13 +506,13 @@ export const RESOURCE_ENTRIES: ReadonlyArray<readonly [ResourceKey, ResourceDefi
  * WHERE: Used by src/lib/better-auth/permissions.ts to build organizationStatement.
  */
 export function getOrganizationStatement(): Record<string, readonly string[]> {
-  const statement: Record<string, readonly string[]> = {}
+  const statement: Record<string, readonly string[]> = {};
   for (const [key, def] of RESOURCE_ENTRIES) {
     if (def.permissions && def.permissions.length > 0) {
-      statement[key] = def.permissions
+      statement[key] = def.permissions;
     }
   }
-  return statement
+  return statement;
 }
 
 /**
@@ -379,23 +528,23 @@ export function getOrganizationStatement(): Record<string, readonly string[]> {
  *        src/components/global/sidebar/app-sidebar.tsx.
  */
 export interface SidebarNavItem {
-  key: ResourceKey
-  label: string
-  href: string
-  icon: string
+  key: ResourceKey;
+  label: string;
+  href: string;
+  icon: string;
   /** Full `resource:action` the member must hold; owners always pass. */
-  requirePermission: Permission
+  requirePermission: Permission;
   /** When true, the item is hidden unless the resource's plan flag is on. */
-  requireFlag: boolean
+  requireFlag: boolean;
 }
 
 export interface SidebarNavSection {
-  section: string
-  items: SidebarNavItem[]
+  section: string;
+  items: SidebarNavItem[];
 }
 
 /* Render order for the known sections; unknown sections append after. */
-const NAV_SECTION_ORDER: readonly string[] = ['main', 'settings']
+const NAV_SECTION_ORDER: readonly string[] = ["main", "settings"];
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getSidebarNav
@@ -408,16 +557,16 @@ const NAV_SECTION_ORDER: readonly string[] = ['main', 'settings']
  * WHERE: Called by app-sidebar.tsx (client) to render sections.
  */
 export function getSidebarNav(): SidebarNavSection[] {
-  const bySection = new Map<string, SidebarNavItem[]>()
+  const bySection = new Map<string, SidebarNavItem[]>();
 
   for (const [key, def] of RESOURCE_ENTRIES) {
-    if (!def.nav) continue
-    const action = def.nav.requirePermission ?? 'read'
+    if (!def.nav) continue;
+    const action = def.nav.requirePermission ?? "read";
     /* `${key}:${action}` is a Permission by construction, but RESOURCE_ENTRIES
      * is typed against the widened ResourceDefinition so TS sees `string`. This
      * is the same documented boundary the permission-constants builder uses. */
-    const requirePermission = `${key}:${action}` as Permission
-    const section = def.nav.section ?? 'main'
+    const requirePermission = `${key}:${action}` as Permission;
+    const section = def.nav.section ?? "main";
     const item: SidebarNavItem = {
       key,
       label: def.nav.label,
@@ -425,20 +574,20 @@ export function getSidebarNav(): SidebarNavSection[] {
       icon: def.nav.icon,
       requirePermission,
       requireFlag: def.nav.requireFlag ?? false,
-    }
-    const existing = bySection.get(section)
-    if (existing) existing.push(item)
-    else bySection.set(section, [item])
+    };
+    const existing = bySection.get(section);
+    if (existing) existing.push(item);
+    else bySection.set(section, [item]);
   }
 
   const orderedKeys = [
     ...NAV_SECTION_ORDER.filter((s) => bySection.has(s)),
     ...[...bySection.keys()].filter((s) => !NAV_SECTION_ORDER.includes(s)),
-  ]
+  ];
   return orderedKeys.map((section) => ({
     section,
     items: bySection.get(section) ?? [],
-  }))
+  }));
 }
 
 /**
@@ -451,22 +600,28 @@ export function getSidebarNav(): SidebarNavSection[] {
  * WHERE: Used by protectedProcedure (src/trpc/procedures/protected.ts).
  */
 export function getResourceFromPath(path: string): ResourceKey | null {
-  if (!path) return null
-  const first = path.split('.')[0]
-  if (first === undefined) return null
-  return isResourceKey(first) ? first : null
+  if (!path) return null;
+  const first = path.split(".")[0];
+  if (first === undefined) return null;
+  return isResourceKey(first) ? first : null;
 }
 
 function isLimitEntry(
-  entry: readonly [ResourceKey, ResourceDefinition]
-): entry is readonly [LimitResourceKey, ResourceDefinition & { limit: ResourceLimit }] {
-  return entry[1].limit !== undefined
+  entry: readonly [ResourceKey, ResourceDefinition],
+): entry is readonly [
+  LimitResourceKey,
+  ResourceDefinition & { limit: ResourceLimit },
+] {
+  return entry[1].limit !== undefined;
 }
 
 function isFlagEntry(
-  entry: readonly [ResourceKey, ResourceDefinition]
-): entry is readonly [FlagResourceKey, ResourceDefinition & { flag: ResourceFlag }] {
-  return entry[1].flag !== undefined
+  entry: readonly [ResourceKey, ResourceDefinition],
+): entry is readonly [
+  FlagResourceKey,
+  ResourceDefinition & { flag: ResourceFlag },
+] {
+  return entry[1].flag !== undefined;
 }
 
 /**
@@ -484,23 +639,23 @@ function isFlagEntry(
  */
 export function getMutationFeatureMap(): Record<
   string,
-  { resource: LimitResourceKey; operation: 'increment' | 'decrement' }
+  { resource: LimitResourceKey; operation: "increment" | "decrement" }
 > {
   const map: Record<
     string,
-    { resource: LimitResourceKey; operation: 'increment' | 'decrement' }
-  > = {}
+    { resource: LimitResourceKey; operation: "increment" | "decrement" }
+  > = {};
   for (const entry of RESOURCE_ENTRIES) {
-    if (!isLimitEntry(entry)) continue
-    const [key] = entry
-    map[`${key}.create`] = { resource: key, operation: 'increment' }
-    map[`${key}.delete`] = { resource: key, operation: 'decrement' }
+    if (!isLimitEntry(entry)) continue;
+    const [key] = entry;
+    map[`${key}.create`] = { resource: key, operation: "increment" };
+    map[`${key}.delete`] = { resource: key, operation: "decrement" };
   }
-  return map
+  return map;
 }
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -515,17 +670,20 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
  */
 export function interpolateAuditDescribe(
   template: string,
-  params: { input: unknown; output: unknown }
+  params: { input: unknown; output: unknown },
 ): string {
-  return template.replace(/\{(input|output)\.([a-zA-Z0-9_]+)\}/g, (_, source, field) => {
-    const obj = source === 'input' ? params.input : params.output
-    if (!isJsonObject(obj) || !(field in obj)) {
-      return `{${source}.${field}}`
-    }
-    const value = obj[field]
-    if (value === null || value === undefined) return `{${source}.${field}}`
-    return String(value)
-  })
+  return template.replace(
+    /\{(input|output)\.([a-zA-Z0-9_]+)\}/g,
+    (_, source, field) => {
+      const obj = source === "input" ? params.input : params.output;
+      if (!isJsonObject(obj) || !(field in obj)) {
+        return `{${source}.${field}}`;
+      }
+      const value = obj[field];
+      if (value === null || value === undefined) return `{${source}.${field}}`;
+      return String(value);
+    },
+  );
 }
 
 /**
@@ -539,10 +697,10 @@ export function interpolateAuditDescribe(
  */
 export function getResourceLimitForPlan(
   resource: LimitResourceKey,
-  plan: PlanKey
+  plan: PlanKey,
 ): number {
-  const value = RESOURCES[resource].limit.perPlan[plan]
-  return value === 'unlimited' ? Infinity : value
+  const value = RESOURCES[resource].limit.perPlan[plan];
+  return value === "unlimited" ? Infinity : value;
 }
 
 /**
@@ -555,17 +713,17 @@ export function getResourceLimitForPlan(
  */
 export function getResourceFlagForPlan(
   resource: FlagResourceKey,
-  plan: PlanKey
+  plan: PlanKey,
 ): boolean {
-  return RESOURCES[resource].flag.perPlan[plan]
+  return RESOURCES[resource].flag.perPlan[plan];
 }
 
 /* `satisfies` is load-bearing: if a new limit/flag resource gets added and
  * the tuple isn't updated, TS fails to compile. */
-export const LIMIT_RESOURCE_KEYS = RESOURCE_ENTRIES
-  .filter(isLimitEntry)
-  .map(([k]) => k) satisfies readonly LimitResourceKey[]
+export const LIMIT_RESOURCE_KEYS = RESOURCE_ENTRIES.filter(isLimitEntry).map(
+  ([k]) => k,
+) satisfies readonly LimitResourceKey[];
 
-export const FLAG_RESOURCE_KEYS = RESOURCE_ENTRIES
-  .filter(isFlagEntry)
-  .map(([k]) => k) satisfies readonly FlagResourceKey[]
+export const FLAG_RESOURCE_KEYS = RESOURCE_ENTRIES.filter(isFlagEntry).map(
+  ([k]) => k,
+) satisfies readonly FlagResourceKey[];

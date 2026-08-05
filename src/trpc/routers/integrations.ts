@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -18,16 +17,16 @@
  *        src/services/linkedin.service.ts. Consumed by the connect button.
  */
 
-import { z } from 'zod'
+import { z } from "zod";
 
-import { createTRPCRouter } from '../init'
-import { protectedProcedure } from '../procedures'
-import { permissions } from '@/lib/better-auth/permissions'
-import { disconnectIntegrationSchema } from '@/lib/types'
-import type { LinkedInConnectionStatus } from '@/lib/types'
-import * as linkedinService from '@/services/linkedin.service'
+import { createTRPCRouter } from "../init";
+import { protectedProcedure } from "../procedures";
+import { permissions } from "@/lib/better-auth/permissions";
+import { disconnectIntegrationSchema } from "@/lib/types";
+import type { LinkedInConnectionStatus } from "@/lib/types";
+import * as linkedinService from "@/services/linkedin.service";
 
-const withOrganization = z.object({ organizationId: z.string().min(1) })
+const withOrganization = z.object({ organizationId: z.string().min(1) });
 
 export const integrationsRouter = createTRPCRouter({
   /**
@@ -39,10 +38,12 @@ export const integrationsRouter = createTRPCRouter({
    *        the same row, so the model is never returned directly.
    * WHERE: Drives the connect/reconnect button and gates the Publish action.
    */
-  linkedin: protectedProcedure({ requirePermission: permissions.INTEGRATIONS_READ })
+  linkedin: protectedProcedure({
+    requirePermission: permissions.INTEGRATIONS_READ,
+  })
     .input(withOrganization)
     .query(async ({ ctx, input }): Promise<LinkedInConnectionStatus> =>
-      linkedinService.getConnectionStatus(ctx.db, input.organizationId)
+      linkedinService.getConnectionStatus(ctx.db, input.organizationId),
     ),
 
   /**
@@ -53,10 +54,12 @@ export const integrationsRouter = createTRPCRouter({
    *        ("Disconnected the {input.provider} account") interpolates, and so
    *        adding the next provider needs no new endpoint.
    */
-  disconnect: protectedProcedure({ requirePermission: permissions.INTEGRATIONS_DISCONNECT })
+  disconnect: protectedProcedure({
+    requirePermission: permissions.INTEGRATIONS_DISCONNECT,
+  })
     .input(disconnectIntegrationSchema.extend(withOrganization.shape))
     .mutation(async ({ ctx, input }) => {
-      await linkedinService.disconnectAccount(ctx.db, input.organizationId)
-      return { provider: input.provider }
+      await linkedinService.disconnectAccount(ctx.db, input.organizationId);
+      return { provider: input.provider };
     }),
-})
+});

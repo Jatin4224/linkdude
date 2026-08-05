@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -16,15 +15,15 @@
  *        src/services/email.service.ts.
  */
 
-import * as React from 'react'
-import { Text } from '@react-email/components'
-import { BaseLayout, EmailButton, emailStyles } from '../base-layout'
+import * as React from "react";
+import { Text } from "@react-email/components";
+import { BaseLayout, EmailButton, emailStyles } from "../base-layout";
 
 export interface TeamInvitationEmailProps {
-  inviterName: string
-  organizationName: string
-  invitationLink: string
-  role?: string
+  inviterName: string;
+  organizationName: string;
+  invitationLink: string;
+  role?: string;
 }
 
 export function TeamInvitationEmail({
@@ -40,7 +39,7 @@ export function TeamInvitationEmail({
         {inviterName} invited you to join <strong>{organizationName}</strong>
         {role ? (
           <>
-            {' '}
+            {" "}
             as <strong>{role}</strong>
           </>
         ) : null}
@@ -51,7 +50,7 @@ export function TeamInvitationEmail({
         Or paste this link into your browser: {invitationLink}
       </Text>
     </BaseLayout>
-  )
+  );
 }
 
-export default TeamInvitationEmail
+export default TeamInvitationEmail;

@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AuditLogsTable
@@ -17,37 +16,38 @@
  * WHERE: Rendered by settings/audit-logs page.
  */
 
-import * as React from 'react'
+import * as React from "react";
 
-import { trpc } from '@/trpc/react-provider'
-import { useActiveOrganizationId } from '@/hooks/use-active-organization'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { trpc } from "@/trpc/react-provider";
+import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 20;
 
 export function AuditLogsTable() {
-  const organizationId = useActiveOrganizationId()
-  const [page, setPage] = React.useState(1)
-  const enabled = organizationId !== undefined
+  const organizationId = useActiveOrganizationId();
+  const [page, setPage] = React.useState(1);
+  const enabled = organizationId !== undefined;
 
   const query = trpc.auditLogs.list.useQuery(
-    { organizationId: organizationId ?? '', page, pageSize: PAGE_SIZE },
-    { enabled, retry: false }
-  )
+    { organizationId: organizationId ?? "", page, pageSize: PAGE_SIZE },
+    { enabled, retry: false },
+  );
 
-  if (!organizationId) return null
+  if (!organizationId) return null;
 
   if (query.error) {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          Audit logs aren’t available on your current plan. Upgrade to view them.
+          Audit logs aren’t available on your current plan. Upgrade to view
+          them.
         </CardContent>
       </Card>
-    )
+    );
   }
 
   if (query.isLoading) {
@@ -57,10 +57,10 @@ export function AuditLogsTable() {
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
       </div>
-    )
+    );
   }
 
-  const data = query.data
+  const data = query.data;
   if (!data || data.logs.length === 0) {
     return (
       <Card>
@@ -68,7 +68,7 @@ export function AuditLogsTable() {
           No activity recorded yet.
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -76,13 +76,17 @@ export function AuditLogsTable() {
       <Card>
         <CardContent className="flex flex-col divide-y p-0">
           {data.logs.map((log) => (
-            <div key={log.id} className="flex items-center justify-between gap-4 px-4 py-3">
+            <div
+              key={log.id}
+              className="flex items-center justify-between gap-4 px-4 py-3"
+            >
               <div className="min-w-0">
                 <p className="truncate text-sm">
                   {log.description ?? `${log.action} ${log.entity}`}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {log.user?.name ?? 'Someone'} · {new Date(log.createdAt).toLocaleString()}
+                  {log.user?.name ?? "Someone"} ·{" "}
+                  {new Date(log.createdAt).toLocaleString()}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
@@ -120,5 +124,5 @@ export function AuditLogsTable() {
         </div>
       </div>
     </div>
-  )
+  );
 }

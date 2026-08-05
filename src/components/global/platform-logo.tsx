@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -15,20 +14,24 @@
  * WHERE: Rendered by src/components/global/auth/auth-shell.tsx.
  */
 
-import Link from 'next/link'
+import Link from "next/link";
 
-import { APP_NAME } from '@/lib/config/branding'
-import { cn } from '@/lib/utils'
+import { APP_NAME } from "@/lib/config/branding";
+import { cn } from "@/lib/utils";
 
 export interface PlatformLogoProps {
-  href?: string
-  className?: string
-  showName?: boolean
+  href?: string;
+  className?: string;
+  showName?: boolean;
 }
 
-export function PlatformLogo({ href = '/', className, showName = true }: PlatformLogoProps) {
+export function PlatformLogo({
+  href = "/",
+  className,
+  showName = true,
+}: PlatformLogoProps) {
   const content = (
-    <div className={cn('flex items-center gap-2 font-medium', className)}>
+    <div className={cn("flex items-center gap-2 font-medium", className)}>
       <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -46,14 +49,14 @@ export function PlatformLogo({ href = '/', className, showName = true }: Platfor
       </div>
       {showName ? <span>{APP_NAME}</span> : null}
     </div>
-  )
+  );
 
   if (href) {
     return (
       <Link href={href} className="inline-flex">
         {content}
       </Link>
-    )
+    );
   }
-  return content
+  return content;
 }

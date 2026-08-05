@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -21,35 +20,39 @@
  *        src/services/email.service; gate via src/lib/feature-gate.
  */
 
-import { TRPCError } from '@trpc/server'
-import { nanoid } from 'nanoid'
+import { TRPCError } from "@trpc/server";
+import { nanoid } from "nanoid";
 
-import { createTRPCRouter, createStructuredError } from '../init'
-import { protectedProcedure, baseProcedure, authProcedure } from '../procedures'
-import { permissions } from '@/lib/better-auth/permissions'
+import { createTRPCRouter, createStructuredError } from "../init";
+import {
+  protectedProcedure,
+  baseProcedure,
+  authProcedure,
+} from "../procedures";
+import { permissions } from "@/lib/better-auth/permissions";
 import {
   inviteMemberSchema,
   cancelInvitationSchema,
   resendInvitationSchema,
-} from '@/lib/types'
-import { z } from 'zod'
-import { checkFeatureGate } from '@/lib/feature-gate'
-import { incrementUsage, decrementUsage } from '@/services/usage.service'
-import { processRole } from '@/services/role.service'
-import { sendOrganizationInvitationEmail } from '@/services/email.service'
-import { APP_URL } from '@/lib/config'
-import { ERROR_CODES } from '@/lib/errors'
+} from "@/lib/types";
+import { z } from "zod";
+import { checkFeatureGate } from "@/lib/feature-gate";
+import { incrementUsage, decrementUsage } from "@/services/usage.service";
+import { processRole } from "@/services/role.service";
+import { sendOrganizationInvitationEmail } from "@/services/email.service";
+import { APP_URL } from "@/lib/config";
+import { ERROR_CODES } from "@/lib/errors";
 
-const INVITATION_TTL_DAYS = 7
+const INVITATION_TTL_DAYS = 7;
 
 function invitationExpiry(): Date {
-  const expires = new Date()
-  expires.setDate(expires.getDate() + INVITATION_TTL_DAYS)
-  return expires
+  const expires = new Date();
+  expires.setDate(expires.getDate() + INVITATION_TTL_DAYS);
+  return expires;
 }
 
 function acceptUrl(invitationId: string): string {
-  return `${APP_URL}/accept-invitation?id=${invitationId}`
+  return `${APP_URL}/accept-invitation?id=${invitationId}`;
 }
 
 export const invitationRouter = createTRPCRouter({
@@ -61,8 +64,8 @@ export const invitationRouter = createTRPCRouter({
       const invitation = await ctx.prisma.invitation.findUnique({
         where: { id: input.invitationId },
         include: { organization: { select: { name: true } } },
-      })
-      if (!invitation) return null
+      });
+      if (!invitation) return null;
       return {
         id: invitation.id,
         email: invitation.email,
@@ -70,52 +73,73 @@ export const invitationRouter = createTRPCRouter({
         organizationName: invitation.organization.name,
         expiresAt: invitation.expiresAt,
         expired: invitation.expiresAt.getTime() < Date.now(),
-      }
+      };
     }),
 
-  create: protectedProcedure({ requirePermission: permissions.INVITATION_CREATE })
+  create: protectedProcedure({
+    requirePermission: permissions.INVITATION_CREATE,
+  })
     .input(inviteMemberSchema)
     .mutation(async ({ ctx, input }) => {
-      const email = input.email.toLowerCase()
+      const email = input.email.toLowerCase();
       if (email === ctx.user.email.toLowerCase()) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'You are already in this organization' })
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You are already in this organization",
+        });
       }
 
       /* Reject if the email already belongs to a member or a pending invite. */
-      const existingUser = await ctx.db.user.findUnique({ where: { email }, select: { id: true } })
+      const existingUser = await ctx.db.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
       if (existingUser) {
         const existingMember = await ctx.db.member.findFirst({
-          where: { organizationId: input.organizationId, userId: existingUser.id },
+          where: {
+            organizationId: input.organizationId,
+            userId: existingUser.id,
+          },
           select: { id: true },
-        })
+        });
         if (existingMember) {
-          throw new TRPCError({ code: 'BAD_REQUEST', message: 'That person is already a member' })
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "That person is already a member",
+          });
         }
       }
       const existingInvite = await ctx.db.invitation.findFirst({
         where: { organizationId: input.organizationId, email },
         select: { id: true },
-      })
+      });
       if (existingInvite) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'An invitation is already pending for that email' })
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "An invitation is already pending for that email",
+        });
       }
 
       /* Seat cap — invitation consumes a `member` seat (see file header). */
-      const gate = await checkFeatureGate(input.organizationId, 'member', 1)
+      const gate = await checkFeatureGate(input.organizationId, "member", 1);
       if (!gate.allowed) {
-        throw createStructuredError('FORBIDDEN', gate.reason ?? 'Seat limit reached', {
-          errorCode: ERROR_CODES.USAGE_LIMIT_REACHED,
-          resource: 'member',
-          limit: gate.limit ?? 0,
-          current: gate.currentUsage ?? 0,
-          upgradeRequired: true,
-          message: gate.reason ?? 'You have reached your plan seat limit',
-        })
+        throw createStructuredError(
+          "FORBIDDEN",
+          gate.reason ?? "Seat limit reached",
+          {
+            errorCode: ERROR_CODES.USAGE_LIMIT_REACHED,
+            resource: "member",
+            limit: gate.limit ?? 0,
+            current: gate.currentUsage ?? 0,
+            upgradeRequired: true,
+            message: gate.reason ?? "You have reached your plan seat limit",
+          },
+        );
       }
 
       /* Decode the encoded role (creating the role row if needed) so the
        * invitation stores a concrete role name the accepted member resolves to. */
-      const role = await processRole(ctx.db, input.organizationId, input.role)
+      const role = await processRole(ctx.db, input.organizationId, input.role);
 
       const invitation = await ctx.db.invitation.create({
         data: {
@@ -126,20 +150,20 @@ export const invitationRouter = createTRPCRouter({
           inviterId: ctx.user.id,
           expiresAt: invitationExpiry(),
         },
-      })
+      });
 
-      await incrementUsage(input.organizationId, 'member', 1, ctx.db)
+      await incrementUsage(input.organizationId, "member", 1, ctx.db);
 
-      const invitationLink = acceptUrl(invitation.id)
+      const invitationLink = acceptUrl(invitation.id);
       await sendOrganizationInvitationEmail({
         to: email,
         inviterName: ctx.user.name,
         organizationName: ctx.organization.name,
         invitationLink,
         role,
-      })
+      });
 
-      return { invitation, invitationLink }
+      return { invitation, invitationLink };
     }),
 
   /* Accept — runs on authProcedure because the user is NOT yet a member of the
@@ -152,28 +176,37 @@ export const invitationRouter = createTRPCRouter({
       const invitation = await ctx.prisma.invitation.findUnique({
         where: { id: input.invitationId },
         include: { organization: { select: { id: true, slug: true } } },
-      })
-      if (!invitation) throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' })
+      });
+      if (!invitation)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invitation not found",
+        });
       if (invitation.expiresAt.getTime() < Date.now()) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'This invitation has expired' })
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This invitation has expired",
+        });
       }
       if (invitation.email.toLowerCase() !== ctx.user.email.toLowerCase()) {
         throw new TRPCError({
-          code: 'FORBIDDEN',
+          code: "FORBIDDEN",
           message: `This invitation was sent to ${invitation.email}`,
-        })
+        });
       }
 
-      const organizationId = invitation.organization.id
+      const organizationId = invitation.organization.id;
 
       const alreadyMember = await ctx.prisma.member.findFirst({
         where: { organizationId, userId: ctx.user.id },
         select: { id: true },
-      })
+      });
       if (alreadyMember) {
         /* Idempotent — clean up the dangling invite and proceed. */
-        await ctx.prisma.invitation.delete({ where: { id: invitation.id } }).catch(() => {})
-        return { organizationId, slug: invitation.organization.slug }
+        await ctx.prisma.invitation
+          .delete({ where: { id: invitation.id } })
+          .catch(() => {});
+        return { organizationId, slug: invitation.organization.slug };
       }
 
       await ctx.prisma.$transaction(async (tx) => {
@@ -182,56 +215,68 @@ export const invitationRouter = createTRPCRouter({
             id: crypto.randomUUID(),
             organizationId,
             userId: ctx.user.id,
-            role: invitation.role ?? 'member',
+            role: invitation.role ?? "member",
             createdAt: new Date(),
           },
-        })
-        await tx.invitation.delete({ where: { id: invitation.id } })
-      })
+        });
+        await tx.invitation.delete({ where: { id: invitation.id } });
+      });
 
-      return { organizationId, slug: invitation.organization.slug }
+      return { organizationId, slug: invitation.organization.slug };
     }),
 
-  cancel: protectedProcedure({ requirePermission: permissions.INVITATION_CANCEL })
+  cancel: protectedProcedure({
+    requirePermission: permissions.INVITATION_CANCEL,
+  })
     .input(cancelInvitationSchema)
     .mutation(async ({ ctx, input }) => {
       const invitation = await ctx.db.invitation.findFirst({
         where: { id: input.invitationId, organizationId: input.organizationId },
         select: { id: true },
-      })
-      if (!invitation) throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' })
+      });
+      if (!invitation)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invitation not found",
+        });
 
-      const deleted = await ctx.db.invitation.delete({ where: { id: invitation.id } })
+      const deleted = await ctx.db.invitation.delete({
+        where: { id: invitation.id },
+      });
       /* Release the seat the pending invite was holding. */
-      await decrementUsage(input.organizationId, 'member', 1, ctx.db)
-      return deleted
+      await decrementUsage(input.organizationId, "member", 1, ctx.db);
+      return deleted;
     }),
 
   resend: protectedProcedure({
     requirePermission: permissions.INVITATION_CREATE,
-    audit: { entity: 'invitation', action: 'resend' },
+    audit: { entity: "invitation", action: "resend" },
   })
     .input(resendInvitationSchema)
     .mutation(async ({ ctx, input }) => {
       const invitation = await ctx.db.invitation.findFirst({
         where: { id: input.invitationId, organizationId: input.organizationId },
-      })
-      if (!invitation) throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' })
+      });
+      if (!invitation)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invitation not found",
+        });
 
       const updated = await ctx.db.invitation.update({
         where: { id: invitation.id },
         data: { expiresAt: invitationExpiry() },
-      })
+      });
 
-      const invitationLink = acceptUrl(updated.id)
+      const invitationLink = acceptUrl(updated.id);
       await sendOrganizationInvitationEmail({
         to: updated.email,
         inviterName: ctx.user.name,
         organizationName: ctx.organization.name,
         invitationLink,
-        role: updated.role ?? 'member',
-      })
+        role: updated.role ?? "member",
+      });
 
-      return { invitation: updated, invitationLink }
+      return { invitation: updated, invitationLink };
     }),
-})
+});

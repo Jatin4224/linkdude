@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -21,9 +20,9 @@
  *        getFeatureGates; FeatureGate component consumes the result.
  */
 
-import { cache } from 'react'
-import { prisma } from '@/lib/config/prisma'
-import { PLANS, type PlanKey } from '@/lib/config/plans'
+import { cache } from "react";
+import { prisma } from "@/lib/config/prisma";
+import { PLANS, type PlanKey } from "@/lib/config/plans";
 import {
   RESOURCES,
   getResourceLimitForPlan,
@@ -34,56 +33,56 @@ import {
   type LimitResourceKey,
   type FlagResourceKey,
   type ResourceKey,
-} from '@/lib/resources'
-import { getUsageMetrics } from '@/services/usage.service'
+} from "@/lib/resources";
+import { getUsageMetrics } from "@/services/usage.service";
 
 type FeatureGateCheckResult = {
-  allowed: boolean
-  reason?: string
-  currentUsage?: number
-  limit?: number
-}
+  allowed: boolean;
+  reason?: string;
+  currentUsage?: number;
+  limit?: number;
+};
 
 type UsageMetricsData = {
-  resourceKey: LimitResourceKey
-  currentUsage: number
-  limit: number | null
-  available: number | null
-  percentage: number | null
-}
+  resourceKey: LimitResourceKey;
+  currentUsage: number;
+  limit: number | null;
+  available: number | null;
+  percentage: number | null;
+};
 
 export type FeatureGateData = {
-  usage: number
-  limit: number | null
-  atLimit: boolean
-  isUnlimited: boolean
-  featureName: string
-}
+  usage: number;
+  limit: number | null;
+  atLimit: boolean;
+  isUnlimited: boolean;
+  featureName: string;
+};
 
 export type OrganizationTier =
   | {
       /* `free` (no/lapsed subscription) and `portal` (platform-admin org) both
        * have no billing subscription attached. */
-      tier: 'free' | 'portal'
-      planName: string
-      isOnTrial: boolean
-      subscription: null
+      tier: "free" | "portal";
+      planName: string;
+      isOnTrial: boolean;
+      subscription: null;
     }
   | {
-      tier: Exclude<PlanKey, 'free' | 'portal'>
-      planName: string
-      isOnTrial: boolean
+      tier: Exclude<PlanKey, "free" | "portal">;
+      planName: string;
+      isOnTrial: boolean;
       subscription: {
-        id: string
-        status: string
-        periodEnd: Date | null
-        cancelAtPeriodEnd: boolean | null
-        stripeSubscriptionId: string | null
-      }
-    }
+        id: string;
+        status: string;
+        periodEnd: Date | null;
+        cancelAtPeriodEnd: boolean | null;
+        stripeSubscriptionId: string | null;
+      };
+    };
 
 const isPlanKey = (value: string): value is PlanKey =>
-  (PLAN_KEYS as readonly string[]).includes(value)
+  (PLAN_KEYS as readonly string[]).includes(value);
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getOrganizationTier, OrganizationTier
@@ -99,56 +98,56 @@ const isPlanKey = (value: string): value is PlanKey =>
 export const getOrganizationTier = cache(
   async (organizationId: string): Promise<OrganizationTier> => {
     const freeTier: OrganizationTier = {
-      tier: 'free',
+      tier: "free",
       planName: PLANS.free.name,
       isOnTrial: false,
       subscription: null,
-    }
+    };
 
     /* Platform-admin bypass FIRST: a portal org gets the hidden unlimited
      * `portal` tier regardless of any subscription row. */
     const organization = await prisma.organization.findUnique({
       where: { id: organizationId },
       select: { isPortalOrganization: true },
-    })
+    });
     if (organization?.isPortalOrganization) {
       return {
-        tier: 'portal',
+        tier: "portal",
         planName: PLANS.portal.name,
         isOnTrial: false,
         subscription: null,
-      }
+      };
     }
 
     const subscription = await prisma.subscription.findFirst({
       where: { referenceId: organizationId },
-      orderBy: { createdAt: 'desc' },
-    })
+      orderBy: { createdAt: "desc" },
+    });
 
-    if (!subscription) return freeTier
+    if (!subscription) return freeTier;
 
-    const rawPlan = subscription.plan.toLowerCase()
+    const rawPlan = subscription.plan.toLowerCase();
     if (!isPlanKey(rawPlan)) {
       console.warn(
-        `[feature-gate] subscription ${subscription.id} references unknown plan "${subscription.plan}" — defaulting to 'free'`
-      )
-      return freeTier
+        `[feature-gate] subscription ${subscription.id} references unknown plan "${subscription.plan}" — defaulting to 'free'`,
+      );
+      return freeTier;
     }
 
-    if (rawPlan === 'free') return freeTier
+    if (rawPlan === "free") return freeTier;
     /* `portal` is granted via the isPortalOrganization bypass above, never via a
      * subscription row — a subscription claiming it is treated as free. */
-    if (rawPlan === 'portal') return freeTier
+    if (rawPlan === "portal") return freeTier;
 
-    const now = new Date()
-    if (subscription.periodEnd && subscription.periodEnd < now) return freeTier
+    const now = new Date();
+    if (subscription.periodEnd && subscription.periodEnd < now) return freeTier;
 
     const isOnTrial: boolean =
-      subscription.status === 'trialing' &&
+      subscription.status === "trialing" &&
       subscription.trialEnd !== null &&
-      subscription.trialEnd > now
+      subscription.trialEnd > now;
 
-    if (subscription.status === 'trialing' && !isOnTrial) return freeTier
+    if (subscription.status === "trialing" && !isOnTrial) return freeTier;
 
     return {
       tier: rawPlan,
@@ -161,39 +160,45 @@ export const getOrganizationTier = cache(
         cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
         stripeSubscriptionId: subscription.stripeSubscriptionId,
       },
-    }
-  }
-)
+    };
+  },
+);
 
 const getAllUsageMetrics = cache(async (organizationId: string) => {
-  const tier = await getOrganizationTier(organizationId)
+  const tier = await getOrganizationTier(organizationId);
   const metrics = await prisma.usageMetrics.findMany({
     where: { organizationId },
-  })
+  });
 
-  const entries = LIMIT_RESOURCE_KEYS.map((resourceKey): [LimitResourceKey, UsageMetricsData] => {
-    const metric = metrics.find((m) => m.featureKey === resourceKey)
-    const currentUsage = metric?.currentUsage ?? 0
-    const limit = getResourceLimitForPlan(resourceKey, tier.tier)
-    const isUnlimited = !Number.isFinite(limit)
+  const entries = LIMIT_RESOURCE_KEYS.map(
+    (resourceKey): [LimitResourceKey, UsageMetricsData] => {
+      const metric = metrics.find((m) => m.featureKey === resourceKey);
+      const currentUsage = metric?.currentUsage ?? 0;
+      const limit = getResourceLimitForPlan(resourceKey, tier.tier);
+      const isUnlimited = !Number.isFinite(limit);
 
-    return [
-      resourceKey,
-      {
+      return [
         resourceKey,
-        currentUsage,
-        limit: isUnlimited ? null : limit,
-        available: isUnlimited ? null : Math.max(0, limit - currentUsage),
-        percentage: isUnlimited || limit === 0 ? null : (currentUsage / limit) * 100,
-      },
-    ]
-  })
+        {
+          resourceKey,
+          currentUsage,
+          limit: isUnlimited ? null : limit,
+          available: isUnlimited ? null : Math.max(0, limit - currentUsage),
+          percentage:
+            isUnlimited || limit === 0 ? null : (currentUsage / limit) * 100,
+        },
+      ];
+    },
+  );
   /* `Object.fromEntries` returns `Record<string, UsageMetricsData>` — TS can't
    * narrow the key union from the input tuple type. The cast forges the key
    * back to LimitResourceKey, which is sound here because `entries` is built
    * from LIMIT_RESOURCE_KEYS (every key in the union, no extras). */
-  return Object.fromEntries(entries) as Record<LimitResourceKey, UsageMetricsData>
-})
+  return Object.fromEntries(entries) as Record<
+    LimitResourceKey,
+    UsageMetricsData
+  >;
+});
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getFeatureGates, FeatureGateData
@@ -207,18 +212,19 @@ export const getFeatureGates = cache(async (organizationId: string) => {
   const [tierData, usageMetrics] = await Promise.all([
     getOrganizationTier(organizationId),
     getAllUsageMetrics(organizationId),
-  ])
+  ]);
 
-  const gates: Partial<Record<ResourceKey, FeatureGateData>> = {}
+  const gates: Partial<Record<ResourceKey, FeatureGateData>> = {};
 
   for (const resourceKey of LIMIT_RESOURCE_KEYS) {
-    const def = RESOURCES[resourceKey]
-    const metrics = usageMetrics[resourceKey]
-    const limit = getResourceLimitForPlan(resourceKey, tierData.tier)
-    const isUnlimited = !Number.isFinite(limit)
-    const usage = metrics?.currentUsage ?? 0
-    const blockedByTrial = tierData.isOnTrial && !def.limit.availableOnFreeTrial
-    const atLimit = blockedByTrial || (!isUnlimited && usage >= limit)
+    const def = RESOURCES[resourceKey];
+    const metrics = usageMetrics[resourceKey];
+    const limit = getResourceLimitForPlan(resourceKey, tierData.tier);
+    const isUnlimited = !Number.isFinite(limit);
+    const usage = metrics?.currentUsage ?? 0;
+    const blockedByTrial =
+      tierData.isOnTrial && !def.limit.availableOnFreeTrial;
+    const atLimit = blockedByTrial || (!isUnlimited && usage >= limit);
 
     gates[resourceKey] = {
       usage,
@@ -226,13 +232,13 @@ export const getFeatureGates = cache(async (organizationId: string) => {
       atLimit,
       isUnlimited,
       featureName: def.name,
-    }
+    };
   }
 
   for (const resourceKey of FLAG_RESOURCE_KEYS) {
-    const def = RESOURCES[resourceKey]
-    const enabled = getResourceFlagForPlan(resourceKey, tierData.tier)
-    const blockedByTrial = tierData.isOnTrial && !def.flag.availableOnFreeTrial
+    const def = RESOURCES[resourceKey];
+    const enabled = getResourceFlagForPlan(resourceKey, tierData.tier);
+    const blockedByTrial = tierData.isOnTrial && !def.flag.availableOnFreeTrial;
 
     gates[resourceKey] = {
       usage: 0,
@@ -240,7 +246,7 @@ export const getFeatureGates = cache(async (organizationId: string) => {
       atLimit: blockedByTrial || !enabled,
       isUnlimited: false,
       featureName: def.name,
-    }
+    };
   }
 
   return {
@@ -248,8 +254,8 @@ export const getFeatureGates = cache(async (organizationId: string) => {
     planName: tierData.planName,
     isOnTrial: tierData.isOnTrial,
     gates,
-  }
-})
+  };
+});
 
 /**
  * SOURCE OF TRUTH KEYWORDS: checkFeatureGate
@@ -266,23 +272,23 @@ export const getFeatureGates = cache(async (organizationId: string) => {
 export async function checkFeatureGate(
   organizationId: string,
   resourceKey: LimitResourceKey,
-  incrementBy: number = 1
+  incrementBy: number = 1,
 ): Promise<FeatureGateCheckResult> {
-  const def = RESOURCES[resourceKey]
-  const tier = await getOrganizationTier(organizationId)
+  const def = RESOURCES[resourceKey];
+  const tier = await getOrganizationTier(organizationId);
 
   if (tier.isOnTrial && !def.limit.availableOnFreeTrial) {
     return {
       allowed: false,
       reason: `${def.name} is not available during your free trial. Upgrade to a paid plan to access it.`,
-    }
+    };
   }
 
-  const limit = getResourceLimitForPlan(resourceKey, tier.tier)
-  if (!Number.isFinite(limit)) return { allowed: true }
+  const limit = getResourceLimitForPlan(resourceKey, tier.tier);
+  if (!Number.isFinite(limit)) return { allowed: true };
 
-  const metrics = await getUsageMetrics(organizationId, resourceKey)
-  const currentUsage = metrics?.currentUsage ?? 0
+  const metrics = await getUsageMetrics(organizationId, resourceKey);
+  const currentUsage = metrics?.currentUsage ?? 0;
 
   if (currentUsage + incrementBy > limit) {
     return {
@@ -290,10 +296,10 @@ export async function checkFeatureGate(
       reason: `You have reached your plan limit for ${def.name}. Current usage: ${currentUsage}/${limit}. Upgrade your plan to continue.`,
       currentUsage,
       limit,
-    }
+    };
   }
 
-  return { allowed: true, currentUsage, limit }
+  return { allowed: true, currentUsage, limit };
 }
 
 /**
@@ -309,10 +315,10 @@ export async function checkFeatureGate(
  */
 export async function checkBooleanFeature(
   organizationId: string,
-  resourceKey: FlagResourceKey
+  resourceKey: FlagResourceKey,
 ): Promise<boolean> {
-  const def = RESOURCES[resourceKey]
-  const tier = await getOrganizationTier(organizationId)
-  if (tier.isOnTrial && !def.flag.availableOnFreeTrial) return false
-  return getResourceFlagForPlan(resourceKey, tier.tier)
+  const def = RESOURCES[resourceKey];
+  const tier = await getOrganizationTier(organizationId);
+  if (tier.isOnTrial && !def.flag.availableOnFreeTrial) return false;
+  return getResourceFlagForPlan(resourceKey, tier.tier);
 }

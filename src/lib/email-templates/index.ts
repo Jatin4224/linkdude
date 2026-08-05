@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -15,16 +14,16 @@
  * WHERE: Imported by src/services/email.service.ts.
  */
 
-export { BaseLayout, emailStyles, EmailButton } from './base-layout'
+export { BaseLayout, emailStyles, EmailButton } from "./base-layout";
 export {
   EmailVerificationEmail,
   type EmailVerificationEmailProps,
-} from './transactional/email-verification'
+} from "./transactional/email-verification";
 export {
   PasswordResetEmail,
   type PasswordResetEmailProps,
-} from './transactional/password-reset'
+} from "./transactional/password-reset";
 export {
   TeamInvitationEmail,
   type TeamInvitationEmailProps,
-} from './transactional/team-invitation'
+} from "./transactional/team-invitation";

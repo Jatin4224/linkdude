@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -25,9 +24,9 @@
  *        src/app/(dashboard)/dashboard/post-generation/_components.
  */
 
-import { z } from 'zod'
-import type { generateText, LanguageModel, ToolSet } from 'ai'
-import { LINKEDIN_MAX_COMMENTARY } from '@/lib/config/linkedin'
+import { z } from "zod";
+import type { generateText, LanguageModel, ToolSet } from "ai";
+import { LINKEDIN_MAX_COMMENTARY } from "@/lib/config/linkedin";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AI_PROVIDER_KEYS, AiProvider, aiProviderSchema
@@ -39,9 +38,9 @@ import { LINKEDIN_MAX_COMMENTARY } from '@/lib/config/linkedin'
  *        Adding a vendor is a new key here plus one entry in AI_PROVIDERS.
  * WHERE: Drives the AI_PROVIDERS registry in src/lib/config/ai.ts.
  */
-export const AI_PROVIDER_KEYS = ['google', 'anthropic'] as const
-export const aiProviderSchema = z.enum(AI_PROVIDER_KEYS)
-export type AiProvider = z.infer<typeof aiProviderSchema>
+export const AI_PROVIDER_KEYS = ["google", "anthropic"] as const;
+export const aiProviderSchema = z.enum(AI_PROVIDER_KEYS);
+export type AiProvider = z.infer<typeof aiProviderSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AiProviderOptions
@@ -51,7 +50,9 @@ export type AiProvider = z.infer<typeof aiProviderSchema>
  *        does not export the type by name and a hand-written copy would silently
  *        drift on the next SDK upgrade.
  */
-export type AiProviderOptions = NonNullable<Parameters<typeof generateText>[0]['providerOptions']>
+export type AiProviderOptions = NonNullable<
+  Parameters<typeof generateText>[0]["providerOptions"]
+>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AiProviderDefinition
@@ -68,17 +69,17 @@ export type AiProviderOptions = NonNullable<Parameters<typeof generateText>[0]['
  */
 export interface AiProviderDefinition {
   /** Human-readable vendor name, used in operator-facing error copy. */
-  readonly label: string
+  readonly label: string;
   /** Env var holding this vendor's key. The SDK reads it by this exact name. */
-  readonly apiKeyEnvVar: string
+  readonly apiKeyEnvVar: string;
   /** Pinned model id — one line to upgrade. */
-  readonly modelId: string
+  readonly modelId: string;
   /** Where an operator goes to mint a key, surfaced in the "not configured" error. */
-  readonly consoleUrl: string
-  readonly createModel: () => LanguageModel
-  readonly providerOptions: AiProviderOptions
+  readonly consoleUrl: string;
+  readonly createModel: () => LanguageModel;
+  readonly providerOptions: AiProviderOptions;
   /** Vendor tool that lets the model read a URL already present in the prompt. */
-  readonly createWebFetchTools: () => ToolSet
+  readonly createWebFetchTools: () => ToolSet;
 }
 
 /**
@@ -90,14 +91,14 @@ export interface AiProviderDefinition {
  *        per value rather than passing free text straight through.
  */
 export const POST_TONES = [
-  'professional',
-  'conversational',
-  'storytelling',
-  'contrarian',
-  'educational',
-] as const
-export const postToneSchema = z.enum(POST_TONES)
-export type PostTone = z.infer<typeof postToneSchema>
+  "professional",
+  "conversational",
+  "storytelling",
+  "contrarian",
+  "educational",
+] as const;
+export const postToneSchema = z.enum(POST_TONES);
+export type PostTone = z.infer<typeof postToneSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: POST_LENGTHS, PostLength, postLengthSchema
@@ -107,9 +108,9 @@ export type PostTone = z.infer<typeof postToneSchema>
  *        shape ("a short hook-driven post") far more reliably than a numeric
  *        target, and it keeps the UI to one select.
  */
-export const POST_LENGTHS = ['short', 'medium', 'long'] as const
-export const postLengthSchema = z.enum(POST_LENGTHS)
-export type PostLength = z.infer<typeof postLengthSchema>
+export const POST_LENGTHS = ["short", "medium", "long"] as const;
+export const postLengthSchema = z.enum(POST_LENGTHS);
+export type PostLength = z.infer<typeof postLengthSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: generatePostSchema, GeneratePostValues
@@ -120,25 +121,25 @@ export type PostLength = z.infer<typeof postLengthSchema>
  *        this one schema, so a new mode is added in one place.
  * WHERE: Router input for aiGeneration.create; resolver for the composer form.
  */
-export const generatePostSchema = z.discriminatedUnion('source', [
+export const generatePostSchema = z.discriminatedUnion("source", [
   z.object({
-    source: z.literal('topic'),
+    source: z.literal("topic"),
     topic: z
       .string()
       .trim()
-      .min(10, 'Describe your topic in at least 10 characters')
-      .max(1000, 'Keep the topic under 1000 characters'),
+      .min(10, "Describe your topic in at least 10 characters")
+      .max(1000, "Keep the topic under 1000 characters"),
     tone: postToneSchema,
     length: postLengthSchema,
   }),
   z.object({
-    source: z.literal('blog'),
-    blogUrl: z.url('Enter a valid blog URL'),
+    source: z.literal("blog"),
+    blogUrl: z.url("Enter a valid blog URL"),
     tone: postToneSchema,
     length: postLengthSchema,
   }),
-])
-export type GeneratePostValues = z.infer<typeof generatePostSchema>
+]);
+export type GeneratePostValues = z.infer<typeof generatePostSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: generatedPostSchema, GeneratedPost
@@ -152,5 +153,5 @@ export type GeneratePostValues = z.infer<typeof generatePostSchema>
  */
 export const generatedPostSchema = z.object({
   commentary: z.string().trim().min(1).max(LINKEDIN_MAX_COMMENTARY),
-})
-export type GeneratedPost = z.infer<typeof generatedPostSchema>
+});
+export type GeneratedPost = z.infer<typeof generatedPostSchema>;

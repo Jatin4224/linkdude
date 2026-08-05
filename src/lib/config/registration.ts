@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -15,4 +14,4 @@
  * WHERE: Read by auth.ts (server gate) and the sign-up UI (hide form).
  */
 export const REGISTRATION_OPEN =
-  process.env['NEXT_PUBLIC_REGISTRATION_OPEN'] !== 'false'
+  process.env["NEXT_PUBLIC_REGISTRATION_OPEN"] !== "false";

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -20,13 +19,13 @@
  *        and src/lib/config (prisma).
  */
 
-import { cache } from 'react'
-import { headers } from 'next/headers'
-import { TRPCError } from '@trpc/server'
-import { prisma } from '@/lib/config'
-import { getCachedSession } from '@/lib/better-auth/auth'
-import type { Session, User } from '@/lib/better-auth/auth'
-import type { StructuredErrorCause } from '@/lib/errors'
+import { cache } from "react";
+import { headers } from "next/headers";
+import { TRPCError } from "@trpc/server";
+import { prisma } from "@/lib/config";
+import { getCachedSession } from "@/lib/better-auth/auth";
+import type { Session, User } from "@/lib/better-auth/auth";
+import type { StructuredErrorCause } from "@/lib/errors";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: createTRPCContext, Context
@@ -43,34 +42,35 @@ import type { StructuredErrorCause } from '@/lib/errors'
 export const createTRPCContext = cache(async () => {
   /* Awaited up front so request-scoped headers (proxy.ts stamps) are
    * accessible from any lazy resolver below. */
-  await headers()
+  await headers();
 
-  let user: User | null = null
-  let session: Session | null = null
-  let authResolved = false
+  let user: User | null = null;
+  let session: Session | null = null;
+  let authResolved = false;
 
   /* Auth resolution is LAZY: `auth.api.getSession()` calls `cookies()` which
    * is illegal during static rendering. `baseProcedure` skips it; only
    * `authProcedure`/`protectedProcedure` trigger it. */
   const resolveAuth = cache(async () => {
-    if (authResolved) return
-    const fullSession = await getCachedSession()
-    session = fullSession
-    if (fullSession?.user) user = fullSession.user
-    authResolved = true
-  })
+    if (authResolved) return;
+    const fullSession = await getCachedSession();
+    session = fullSession;
+    if (fullSession?.user) user = fullSession.user;
+    authResolved = true;
+  });
 
   const getUserOrganizationsLazy = cache(async () => {
-    if (!user?.id) return []
-    const { getUserMemberships } = await import('@/services/membership.service')
-    const memberships = await getUserMemberships(user.id)
-    if (!memberships.length) return []
+    if (!user?.id) return [];
+    const { getUserMemberships } =
+      await import("@/services/membership.service");
+    const memberships = await getUserMemberships(user.id);
+    if (!memberships.length) return [];
 
     return Promise.all(
       memberships.map(async (m) => {
         /* Owners get a sentinel empty array — protectedProcedure treats that
          * as "full access" and skips fine-grained checks. */
-        if (m.role === 'owner') {
+        if (m.role === "owner") {
           return {
             id: m.organization.id,
             name: m.organization.name,
@@ -79,35 +79,40 @@ export const createTRPCContext = cache(async () => {
             role: m.role,
             permissions: [] as string[],
             createdAt: m.createdAt,
-          }
+          };
         }
 
         const organizationRole = await prisma.organizationRole.findFirst({
           where: { organizationId: m.organizationId, role: m.role },
           select: { permission: true },
-        })
+        });
 
-        const permissions: string[] = []
+        const permissions: string[] = [];
         /* OrganizationRole.permission is a String column storing a JSON map
          * `{ resource: [actions] }` (written by the organizationRoles router).
          * Parse it before flattening — a bare string never satisfies the
          * object guard, so skipping the parse would silently grant nobody. */
-        let permObj: unknown = null
-        const permRaw = organizationRole?.permission
-        if (typeof permRaw === 'string' && permRaw.length > 0) {
+        let permObj: unknown = null;
+        const permRaw = organizationRole?.permission;
+        if (typeof permRaw === "string" && permRaw.length > 0) {
           try {
-            permObj = JSON.parse(permRaw)
+            permObj = JSON.parse(permRaw);
           } catch {
-            permObj = null
+            permObj = null;
           }
         }
-        if (permObj && typeof permObj === 'object' && !Array.isArray(permObj)) {
+        if (permObj && typeof permObj === "object" && !Array.isArray(permObj)) {
           for (const [resource, actions] of Object.entries(permObj)) {
             /* Skip Better Auth meta-resources — they're internal to the AC
              * layer, not app-level features. */
-            if (Array.isArray(actions) && resource !== 'organization' && resource !== 'ac') {
+            if (
+              Array.isArray(actions) &&
+              resource !== "organization" &&
+              resource !== "ac"
+            ) {
               for (const action of actions) {
-                if (typeof action === 'string') permissions.push(`${resource}:${action}`)
+                if (typeof action === "string")
+                  permissions.push(`${resource}:${action}`);
               }
             }
           }
@@ -121,38 +126,44 @@ export const createTRPCContext = cache(async () => {
           role: m.role,
           permissions,
           createdAt: m.createdAt,
-        }
-      })
-    )
-  })
+        };
+      }),
+    );
+  });
 
   /* Active-org resolution: session.activeOrganizationId → first owner → first
    * membership. Add custom-domain or query-param overrides above the session
    * branch when the app needs them. */
   const getActiveOrganizationLazy = cache(async () => {
-    const organizations = await getUserOrganizationsLazy()
-    if (!organizations.length) return null
+    const organizations = await getUserOrganizationsLazy();
+    if (!organizations.length) return null;
 
-    const activeOrgId = session?.session.activeOrganizationId ?? null
+    const activeOrgId = session?.session.activeOrganizationId ?? null;
     if (activeOrgId) {
-      const match = organizations.find((org) => org.id === activeOrgId)
-      if (match) return match
+      const match = organizations.find((org) => org.id === activeOrgId);
+      if (match) return match;
     }
 
-    return organizations.find((org) => org.role === 'owner') || organizations[0]
-  })
+    return (
+      organizations.find((org) => org.role === "owner") || organizations[0]
+    );
+  });
 
   return {
     prisma,
-    get session() { return session },
-    get user() { return user },
+    get session() {
+      return session;
+    },
+    get user() {
+      return user;
+    },
     resolveAuth,
     getUserOrganizations: getUserOrganizationsLazy,
     getActiveOrganization: getActiveOrganizationLazy,
-  }
-})
+  };
+});
 
-export type Context = Awaited<ReturnType<typeof createTRPCContext>>
+export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: createStructuredError
@@ -165,16 +176,16 @@ export type Context = Awaited<ReturnType<typeof createTRPCContext>>
  */
 export function createStructuredError(
   code:
-    | 'UNAUTHORIZED'
-    | 'FORBIDDEN'
-    | 'PRECONDITION_FAILED'
-    | 'BAD_REQUEST'
-    | 'NOT_FOUND'
-    | 'INTERNAL_SERVER_ERROR',
+    | "UNAUTHORIZED"
+    | "FORBIDDEN"
+    | "PRECONDITION_FAILED"
+    | "BAD_REQUEST"
+    | "NOT_FOUND"
+    | "INTERNAL_SERVER_ERROR",
   message: string,
-  cause: StructuredErrorCause
+  cause: StructuredErrorCause,
 ): TRPCError {
-  return new TRPCError({ code, message, cause })
+  return new TRPCError({ code, message, cause });
 }
 
 /**
@@ -186,5 +197,5 @@ export function createStructuredError(
  *        procedures module a private implementation detail.
  * WHERE: Imported by every file in src/trpc/routers/*.
  */
-export { router as createTRPCRouter } from './procedures'
-export { baseProcedure, authProcedure, protectedProcedure } from './procedures'
+export { router as createTRPCRouter } from "./procedures";
+export { baseProcedure, authProcedure, protectedProcedure } from "./procedures";

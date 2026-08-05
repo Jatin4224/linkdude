@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -21,22 +20,24 @@
  *        layouts, auth.ts, and the upgrade-modal UI.
  */
 
-export const APP_NAME = process.env['NEXT_PUBLIC_APP_NAME'] ?? 'My App'
+export const APP_NAME = process.env["NEXT_PUBLIC_APP_NAME"] ?? "My App";
 
 export const APP_DESCRIPTION =
-  process.env['NEXT_PUBLIC_APP_DESCRIPTION'] ?? `${APP_NAME} — multi-tenant SaaS.`
+  process.env["NEXT_PUBLIC_APP_DESCRIPTION"] ??
+  `${APP_NAME} — multi-tenant SaaS.`;
 
-export const APP_URL = process.env['NEXT_PUBLIC_APP_URL'] ?? 'http://localhost:3000'
+export const APP_URL =
+  process.env["NEXT_PUBLIC_APP_URL"] ?? "http://localhost:3000";
 
 export const APP_METADATA_BASE = (() => {
   try {
-    return new URL(APP_URL)
+    return new URL(APP_URL);
   } catch {
-    return new URL('http://localhost:3000')
+    return new URL("http://localhost:3000");
   }
-})()
+})();
 
-export const APP_DOMAIN = APP_METADATA_BASE.hostname
+export const APP_DOMAIN = APP_METADATA_BASE.hostname;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: BRANDING
@@ -56,13 +57,13 @@ export const BRANDING = {
   appDomain: APP_DOMAIN,
   metadataBase: APP_METADATA_BASE,
   upgradeModal: {
-    title: 'Upgrade required',
+    title: "Upgrade required",
     /* {resourceName} is interpolated from RESOURCES[x].name. */
     bodyTemplate:
       "You've hit your plan limit for {resourceName}. Upgrade your workspace to keep going.",
     genericBody:
       "You've hit your plan limit for this feature. Upgrade your workspace to keep going.",
-    primaryCtaLabel: 'View plans',
-    secondaryCtaLabel: 'Maybe later',
+    primaryCtaLabel: "View plans",
+    secondaryCtaLabel: "Maybe later",
   },
-} as const
+} as const;

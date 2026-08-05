@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-import 'server-only'
+import "server-only";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: resolveExistingStripeCustomerId, ensureStripeCustomer,
@@ -23,16 +22,16 @@ import 'server-only'
  *        getStripeClient and to Prisma for the customer handle + subscription.
  */
 
-import { getStripeClient } from '@/lib/config/stripe'
-import { prisma } from '@/lib/config/prisma'
+import { getStripeClient } from "@/lib/config/stripe";
+import { prisma } from "@/lib/config/prisma";
 
 export interface PaymentMethodSummary {
-  id: string
-  brand: string | null
-  last4: string | null
-  expMonth: number | null
-  expYear: number | null
-  isDefault: boolean
+  id: string;
+  brand: string | null;
+  last4: string | null;
+  expMonth: number | null;
+  expYear: number | null;
+  isDefault: boolean;
 }
 
 /**
@@ -43,20 +42,20 @@ export interface PaymentMethodSummary {
  * WHERE: Used by ensureStripeCustomer and payment-method reads.
  */
 export async function resolveExistingStripeCustomerId(
-  organizationId: string
+  organizationId: string,
 ): Promise<string | null> {
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: { stripeCustomerId: true },
-  })
-  if (org?.stripeCustomerId) return org.stripeCustomerId
+  });
+  if (org?.stripeCustomerId) return org.stripeCustomerId;
 
   const subscription = await prisma.subscription.findFirst({
     where: { referenceId: organizationId, stripeCustomerId: { not: null } },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
     select: { stripeCustomerId: true },
-  })
-  return subscription?.stripeCustomerId ?? null
+  });
+  return subscription?.stripeCustomerId ?? null;
 }
 
 /**
@@ -68,18 +67,18 @@ export async function resolveExistingStripeCustomerId(
  */
 export async function ensureStripeCustomer(
   organizationId: string,
-  params: { email: string; name: string }
+  params: { email: string; name: string },
 ): Promise<string> {
-  const stripe = getStripeClient()
-  const existing = await resolveExistingStripeCustomerId(organizationId)
+  const stripe = getStripeClient();
+  const existing = await resolveExistingStripeCustomerId(organizationId);
   if (existing) {
     /* Verify the customer still exists in Stripe — it may have been deleted in
      * the dashboard, leaving a stale id on the org/subscription. If so, fall
      * through and create a fresh one. */
     try {
-      const customer = await stripe.customers.retrieve(existing)
-      const isDeleted = 'deleted' in customer && customer.deleted === true
-      if (!isDeleted) return existing
+      const customer = await stripe.customers.retrieve(existing);
+      const isDeleted = "deleted" in customer && customer.deleted === true;
+      if (!isDeleted) return existing;
     } catch {
       /* Not found / retrieval failed — create a fresh customer below. */
     }
@@ -89,13 +88,13 @@ export async function ensureStripeCustomer(
     email: params.email,
     name: params.name,
     metadata: { organizationId },
-  })
+  });
 
   await prisma.organization.update({
     where: { id: organizationId },
     data: { stripeCustomerId: customer.id },
-  })
-  return customer.id
+  });
+  return customer.id;
 }
 
 /**
@@ -105,21 +104,22 @@ export async function ensureStripeCustomer(
  * WHERE: billing.getPaymentMethods.
  */
 export async function listPaymentMethods(
-  organizationId: string
+  organizationId: string,
 ): Promise<PaymentMethodSummary[]> {
-  const customerId = await resolveExistingStripeCustomerId(organizationId)
-  if (!customerId) return []
+  const customerId = await resolveExistingStripeCustomerId(organizationId);
+  if (!customerId) return [];
 
-  const stripe = getStripeClient()
+  const stripe = getStripeClient();
   const [customer, methods] = await Promise.all([
     stripe.customers.retrieve(customerId),
-    stripe.paymentMethods.list({ customer: customerId, type: 'card' }),
-  ])
+    stripe.paymentMethods.list({ customer: customerId, type: "card" }),
+  ]);
 
   const defaultId =
-    !('deleted' in customer) && typeof customer.invoice_settings?.default_payment_method === 'string'
+    !("deleted" in customer) &&
+    typeof customer.invoice_settings?.default_payment_method === "string"
       ? customer.invoice_settings.default_payment_method
-      : null
+      : null;
 
   return methods.data.map((pm) => ({
     id: pm.id,
@@ -128,7 +128,7 @@ export async function listPaymentMethods(
     expMonth: pm.card?.exp_month ?? null,
     expYear: pm.card?.exp_year ?? null,
     isDefault: pm.id === defaultId,
-  }))
+  }));
 }
 
 /**
@@ -141,14 +141,14 @@ export async function listPaymentMethods(
 export async function attachPaymentMethod(
   customerId: string,
   paymentMethodId: string,
-  makeDefault: boolean
+  makeDefault: boolean,
 ): Promise<void> {
-  const stripe = getStripeClient()
-  await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId })
+  const stripe = getStripeClient();
+  await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
   if (makeDefault) {
     await stripe.customers.update(customerId, {
       invoice_settings: { default_payment_method: paymentMethodId },
-    })
+    });
   }
 }
 
@@ -159,12 +159,12 @@ export async function attachPaymentMethod(
  */
 export async function setDefaultPaymentMethod(
   customerId: string,
-  paymentMethodId: string
+  paymentMethodId: string,
 ): Promise<void> {
-  const stripe = getStripeClient()
+  const stripe = getStripeClient();
   await stripe.customers.update(customerId, {
     invoice_settings: { default_payment_method: paymentMethodId },
-  })
+  });
 }
 
 /**
@@ -181,17 +181,17 @@ export async function setDefaultPaymentMethod(
  */
 export async function detachPaymentMethod(
   customerId: string,
-  paymentMethodId: string
+  paymentMethodId: string,
 ): Promise<boolean> {
-  const stripe = getStripeClient()
-  const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId)
+  const stripe = getStripeClient();
+  const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
   const ownerCustomerId =
-    typeof paymentMethod.customer === 'string'
+    typeof paymentMethod.customer === "string"
       ? paymentMethod.customer
-      : paymentMethod.customer?.id ?? null
-  if (ownerCustomerId !== customerId) return false
-  await stripe.paymentMethods.detach(paymentMethodId)
-  return true
+      : (paymentMethod.customer?.id ?? null);
+  if (ownerCustomerId !== customerId) return false;
+  await stripe.paymentMethods.detach(paymentMethodId);
+  return true;
 }
 
 /**
@@ -203,6 +203,6 @@ export async function detachPaymentMethod(
 export async function getOrganizationSubscription(organizationId: string) {
   return prisma.subscription.findFirst({
     where: { referenceId: organizationId },
-    orderBy: { createdAt: 'desc' },
-  })
+    orderBy: { createdAt: "desc" },
+  });
 }

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -22,7 +21,7 @@
  *        handlers under src/app/api/linkedin/*.
  */
 
-import { APP_URL } from './branding'
+import { APP_URL } from "./branding";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_SCOPES
@@ -35,34 +34,39 @@ import { APP_URL } from './branding'
  *        `r_member_social`, which LinkedIn restricts to approved partners —
  *        hence the local LinkedInPost table instead.
  */
-export const LINKEDIN_SCOPES = ['openid', 'profile', 'w_member_social'] as const
+export const LINKEDIN_SCOPES = [
+  "openid",
+  "profile",
+  "w_member_social",
+] as const;
 
 /* LinkedIn's versioned APIs require a `LinkedIn-Version: YYYYMM` header and
  * sunset old versions on a rolling schedule. Overridable by env so a version
  * bump doesn't need a deploy of new code. */
-export const LINKEDIN_API_VERSION = process.env['LINKEDIN_API_VERSION'] ?? '202601'
+export const LINKEDIN_API_VERSION =
+  process.env["LINKEDIN_API_VERSION"] ?? "202601";
 
 /* LinkedIn rejects commentary longer than this with FIELD_LENGTH_TOO_LONG. */
-export const LINKEDIN_MAX_COMMENTARY = 3000
+export const LINKEDIN_MAX_COMMENTARY = 3000;
 
-export const LINKEDIN_REDIRECT_PATH = '/api/linkedin/callback'
+export const LINKEDIN_REDIRECT_PATH = "/api/linkedin/callback";
 
 /* Name of the httpOnly cookie binding an in-flight OAuth handshake to this
  * browser. Lives here rather than in a route file because Next.js restricts
  * which symbols a route module may export. */
-export const LINKEDIN_OAUTH_STATE_COOKIE = 'linkedin_oauth_state'
+export const LINKEDIN_OAUTH_STATE_COOKIE = "linkedin_oauth_state";
 
 export const LINKEDIN_ENDPOINTS = {
-  authorization: 'https://www.linkedin.com/oauth/v2/authorization',
-  accessToken: 'https://www.linkedin.com/oauth/v2/accessToken',
-  userinfo: 'https://api.linkedin.com/v2/userinfo',
-  posts: 'https://api.linkedin.com/rest/posts',
-  images: 'https://api.linkedin.com/rest/images',
-} as const
+  authorization: "https://www.linkedin.com/oauth/v2/authorization",
+  accessToken: "https://www.linkedin.com/oauth/v2/accessToken",
+  userinfo: "https://api.linkedin.com/v2/userinfo",
+  posts: "https://api.linkedin.com/rest/posts",
+  images: "https://api.linkedin.com/rest/images",
+} as const;
 
 export interface LinkedInCredentials {
-  clientId: string
-  clientSecret: string
+  clientId: string;
+  clientSecret: string;
 }
 
 /**
@@ -74,7 +78,9 @@ export interface LinkedInCredentials {
  *        bouncing the user to a LinkedIn error page.
  */
 export function isLinkedInConfigured(): boolean {
-  return Boolean(process.env['LINKEDIN_CLIENT_ID'] && process.env['LINKEDIN_CLIENT_SECRET'])
+  return Boolean(
+    process.env["LINKEDIN_CLIENT_ID"] && process.env["LINKEDIN_CLIENT_SECRET"],
+  );
 }
 
 /**
@@ -84,15 +90,15 @@ export function isLinkedInConfigured(): boolean {
  * WHERE: Called by the LinkedIn service for every token exchange.
  */
 export function getLinkedInCredentials(): LinkedInCredentials {
-  const clientId = process.env['LINKEDIN_CLIENT_ID']
-  const clientSecret = process.env['LINKEDIN_CLIENT_SECRET']
+  const clientId = process.env["LINKEDIN_CLIENT_ID"];
+  const clientSecret = process.env["LINKEDIN_CLIENT_SECRET"];
   if (!clientId || !clientSecret) {
     throw new Error(
-      '[linkedin] LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET are not set. ' +
-        'LinkedIn publishing is unavailable until both are configured.'
-    )
+      "[linkedin] LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET are not set. " +
+        "LinkedIn publishing is unavailable until both are configured.",
+    );
   }
-  return { clientId, clientSecret }
+  return { clientId, clientSecret };
 }
 
 /**
@@ -106,5 +112,5 @@ export function getLinkedInCredentials(): LinkedInCredentials {
  *        (LinkedIn requires it in both).
  */
 export function getLinkedInRedirectUri(): string {
-  return new URL(LINKEDIN_REDIRECT_PATH, APP_URL).toString()
+  return new URL(LINKEDIN_REDIRECT_PATH, APP_URL).toString();
 }

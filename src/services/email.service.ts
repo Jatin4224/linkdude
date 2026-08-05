@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-import 'server-only'
+import "server-only";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: sendVerificationEmail, sendPasswordResetEmail,
@@ -23,19 +22,19 @@ import 'server-only'
  *        (src/lib/config/resend.ts).
  */
 
-import * as React from 'react'
-import { render } from '@react-email/render'
+import * as React from "react";
+import { render } from "@react-email/render";
 import {
   getResendClient,
   RESEND_DEFAULT_FROM,
   isResendConfigured,
-} from '@/lib/config/resend'
+} from "@/lib/config/resend";
 import {
   EmailVerificationEmail,
   PasswordResetEmail,
   TeamInvitationEmail,
-} from '@/lib/email-templates'
-import { recordDevEmail } from '@/lib/dev-email-outbox'
+} from "@/lib/email-templates";
+import { recordDevEmail } from "@/lib/dev-email-outbox";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: EmailSendResult
@@ -47,58 +46,62 @@ import { recordDevEmail } from '@/lib/dev-email-outbox'
  * WHERE: Returned by every sender below.
  */
 export interface EmailSendResult {
-  success: boolean
-  skipped: boolean
-  messageId?: string
-  error?: string
+  success: boolean;
+  skipped: boolean;
+  messageId?: string;
+  error?: string;
 }
 
-const SKIPPED: EmailSendResult = { success: false, skipped: true }
+const SKIPPED: EmailSendResult = { success: false, skipped: true };
 
 /* Renders the template to HTML and sends via Resend. No-ops (warns) when the
  * API key is unset so the surrounding flow (sign-up, invite) still succeeds —
  * and records the action link to the dev outbox so the UI can surface it. */
 async function renderAndSend(args: {
-  to: string
-  subject: string
-  template: React.ReactElement
+  to: string;
+  subject: string;
+  template: React.ReactElement;
   /* The primary action URL in the email (verification / reset / invite link).
    * Recorded to the dev outbox when the send is skipped for lack of an API key. */
-  devLink?: string
+  devLink?: string;
 }): Promise<EmailSendResult> {
   if (!isResendConfigured()) {
     console.warn(
-      `[email] RESEND_API_KEY not set — skipping "${args.subject}" to ${args.to}.`
-    )
+      `[email] RESEND_API_KEY not set — skipping "${args.subject}" to ${args.to}.`,
+    );
     if (args.devLink) {
-      recordDevEmail({ to: args.to, subject: args.subject, link: args.devLink })
+      recordDevEmail({
+        to: args.to,
+        subject: args.subject,
+        link: args.devLink,
+      });
     }
-    return SKIPPED
+    return SKIPPED;
   }
 
-  const client = getResendClient()
-  if (!client) return SKIPPED
+  const client = getResendClient();
+  if (!client) return SKIPPED;
 
   try {
-    const html = await render(args.template)
+    const html = await render(args.template);
     const { data, error } = await client.emails.send({
       from: RESEND_DEFAULT_FROM,
       to: args.to,
       subject: args.subject,
       html,
-    })
+    });
     if (error) {
-      console.error('[email] Resend send failed:', error)
-      return { success: false, skipped: false, error: error.message }
+      console.error("[email] Resend send failed:", error);
+      return { success: false, skipped: false, error: error.message };
     }
-    return { success: true, skipped: false, messageId: data?.id }
+    return { success: true, skipped: false, messageId: data?.id };
   } catch (err) {
-    console.error('[email] render/send threw:', err)
+    console.error("[email] render/send threw:", err);
     return {
       success: false,
       skipped: false,
       error: err instanceof Error ? err.message : String(err),
-    }
+    };
   }
 }
 
@@ -109,17 +112,17 @@ async function renderAndSend(args: {
  * WHERE: Called by emailVerification.sendVerificationEmail in auth.ts.
  */
 export function sendVerificationEmail(args: {
-  to: string
-  verificationLink: string
+  to: string;
+  verificationLink: string;
 }): Promise<EmailSendResult> {
   return renderAndSend({
     to: args.to,
-    subject: 'Verify your email',
+    subject: "Verify your email",
     template: React.createElement(EmailVerificationEmail, {
       verificationLink: args.verificationLink,
     }),
     devLink: args.verificationLink,
-  })
+  });
 }
 
 /**
@@ -129,15 +132,17 @@ export function sendVerificationEmail(args: {
  * WHERE: Called by emailAndPassword.sendResetPassword in auth.ts.
  */
 export function sendPasswordResetEmail(args: {
-  to: string
-  resetLink: string
+  to: string;
+  resetLink: string;
 }): Promise<EmailSendResult> {
   return renderAndSend({
     to: args.to,
-    subject: 'Reset your password',
-    template: React.createElement(PasswordResetEmail, { resetLink: args.resetLink }),
+    subject: "Reset your password",
+    template: React.createElement(PasswordResetEmail, {
+      resetLink: args.resetLink,
+    }),
     devLink: args.resetLink,
-  })
+  });
 }
 
 /**
@@ -147,11 +152,11 @@ export function sendPasswordResetEmail(args: {
  * WHERE: Called by the invitation.create / invitation.resend router handlers.
  */
 export function sendOrganizationInvitationEmail(args: {
-  to: string
-  inviterName: string
-  organizationName: string
-  invitationLink: string
-  role?: string
+  to: string;
+  inviterName: string;
+  organizationName: string;
+  invitationLink: string;
+  role?: string;
 }): Promise<EmailSendResult> {
   return renderAndSend({
     to: args.to,
@@ -163,5 +168,5 @@ export function sendOrganizationInvitationEmail(args: {
       ...(args.role !== undefined ? { role: args.role } : {}),
     }),
     devLink: args.invitationLink,
-  })
+  });
 }

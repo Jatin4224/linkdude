@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -24,26 +23,48 @@
  *        Never import an AI SDK provider package directly anywhere else.
  */
 
-import { anthropic } from '@ai-sdk/anthropic'
-import { google } from '@ai-sdk/google'
-import type { LanguageModel } from 'ai'
+import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
+import type { LanguageModel } from "ai";
 
 import {
   aiProviderSchema,
   type AiProvider,
   type AiProviderDefinition,
-} from '@/lib/types/ai'
+} from "@/lib/types/ai";
 
 /* Model ids are pinned here so an upgrade is a one-line diff. Gemini Flash is
  * the default because it is the capable tier of Google's free API allowance —
  * the whole app can be exercised end to end before any card is on file. */
-const GOOGLE_MODEL_ID = 'gemini-3.5-flash'
-const ANTHROPIC_MODEL_ID = 'claude-opus-5'
+/* An alias, not a pin, and deliberately so: the pinned `gemini-3.5-flash`
+ * returned HTTP 503 "high demand" repeatedly on the free tier while
+ * `gemini-flash-latest` answered in ~6s. An alias can shift under us on a
+ * Google release, but a pin that is regularly unavailable is worse. Revisit and
+ * pin a specific id once this runs on a paid tier with reserved capacity. */
+const GOOGLE_MODEL_ID = "gemini-flash-latest";
+const ANTHROPIC_MODEL_ID = "claude-opus-5";
 
 /* A LinkedIn post caps at 3000 characters, so generation never needs a large
  * budget. Kept well under the streaming threshold so non-streaming calls stay
  * inside the SDK's HTTP timeout. */
-export const AI_MAX_TOKENS = 4096
+export const AI_MAX_TOKENS = 4096;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: AI_MAX_RETRIES, AI_TIMEOUT_MS
+ *
+ * WHAT:  Hard ceiling on how long one model call may occupy the caller.
+ * WHY:   Model calls run inside the tRPC factory's mutation TRANSACTION, so a
+ *        slow call holds a Postgres connection for its whole duration. Free
+ *        capacity tiers answer 503 "high demand", which the SDK marks retryable
+ *        — at its default of 2 retries with exponential backoff, one overloaded
+ *        request was measured hanging past 180s, well beyond the 60s txTimeout.
+ *        The transaction then dies holding the connection, and the user waits
+ *        three minutes to learn nothing worked. One retry plus an explicit
+ *        timeout turns provider overload into a fast, legible failure.
+ * WHERE: Applied to every call in src/services/ai.service.ts.
+ */
+export const AI_MAX_RETRIES = 1;
+export const AI_TIMEOUT_MS = 45_000;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AI_PROVIDERS
@@ -57,10 +78,10 @@ export const AI_MAX_TOKENS = 4096
  */
 export const AI_PROVIDERS: Record<AiProvider, AiProviderDefinition> = {
   google: {
-    label: 'Google Gemini',
-    apiKeyEnvVar: 'GOOGLE_GENERATIVE_AI_API_KEY',
+    label: "Google Gemini",
+    apiKeyEnvVar: "GOOGLE_GENERATIVE_AI_API_KEY",
     modelId: GOOGLE_MODEL_ID,
-    consoleUrl: 'https://aistudio.google.com/apikey',
+    consoleUrl: "https://aistudio.google.com/apikey",
     createModel: () => google(GOOGLE_MODEL_ID),
     /* Deliberately empty: Gemini's defaults (thinking budget, safety
      * thresholds) are correct for short post copy, and every knob set here is
@@ -71,22 +92,22 @@ export const AI_PROVIDERS: Record<AiProvider, AiProviderDefinition> = {
     createWebFetchTools: () => ({ url_context: google.tools.urlContext({}) }),
   },
   anthropic: {
-    label: 'Anthropic Claude',
-    apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+    label: "Anthropic Claude",
+    apiKeyEnvVar: "ANTHROPIC_API_KEY",
     modelId: ANTHROPIC_MODEL_ID,
-    consoleUrl: 'https://console.anthropic.com',
+    consoleUrl: "https://console.anthropic.com",
     createModel: () => anthropic(ANTHROPIC_MODEL_ID),
     /* Adaptive thinking lets the model calibrate reasoning to the task; effort
      * is capped at medium because post copy is short and well specified. Raise
      * per-call for genuinely harder work rather than globally. */
     providerOptions: {
-      anthropic: { thinking: { type: 'adaptive' }, effort: 'medium' },
+      anthropic: { thinking: { type: "adaptive" }, effort: "medium" },
     },
     createWebFetchTools: () => ({
       web_fetch: anthropic.tools.webFetch_20260209({ maxUses: 3 }),
     }),
   },
-}
+};
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AI_PROVIDER
@@ -97,8 +118,8 @@ export const AI_PROVIDERS: Record<AiProvider, AiProviderDefinition> = {
  *        fail-soft contract the rest of this file keeps.
  */
 export const AI_PROVIDER: AiProvider = aiProviderSchema
-  .catch('google')
-  .parse(process.env['AI_PROVIDER'])
+  .catch("google")
+  .parse(process.env["AI_PROVIDER"]);
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getAiProvider
@@ -108,7 +129,7 @@ export const AI_PROVIDER: AiProvider = aiProviderSchema
  *        the AI router to name the missing key in its error message.
  */
 export function getAiProvider(): AiProviderDefinition {
-  return AI_PROVIDERS[AI_PROVIDER]
+  return AI_PROVIDERS[AI_PROVIDER];
 }
 
 /**
@@ -116,7 +137,7 @@ export function getAiProvider(): AiProviderDefinition {
  *
  * WHAT:  The active model id, for logging and operator-facing copy.
  */
-export const AI_MODEL: string = AI_PROVIDERS[AI_PROVIDER].modelId
+export const AI_MODEL: string = AI_PROVIDERS[AI_PROVIDER].modelId;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: isAiConfigured
@@ -126,7 +147,7 @@ export const AI_MODEL: string = AI_PROVIDERS[AI_PROVIDER].modelId
  *        install returns a clean "AI is not configured" error.
  */
 export function isAiConfigured(): boolean {
-  return Boolean(process.env[getAiProvider().apiKeyEnvVar])
+  return Boolean(process.env[getAiProvider().apiKeyEnvVar]);
 }
 
 /**
@@ -139,11 +160,11 @@ export function isAiConfigured(): boolean {
  * WHERE: Called by src/services/ai.service.ts.
  */
 export function getAiModel(): LanguageModel {
-  const provider = getAiProvider()
+  const provider = getAiProvider();
   if (!process.env[provider.apiKeyEnvVar]) {
     throw new Error(
-      `[ai] ${provider.apiKeyEnvVar} is not set. AI generation is unavailable until it is configured. Get a key at ${provider.consoleUrl}.`
-    )
+      `[ai] ${provider.apiKeyEnvVar} is not set. AI generation is unavailable until it is configured. Get a key at ${provider.consoleUrl}.`,
+    );
   }
-  return provider.createModel()
+  return provider.createModel();
 }

@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-'use client'
+"use client";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AcceptInvitation
@@ -20,13 +19,13 @@
  *        trpc.invitation.get / .accept and authClient.organization.setActive.
  */
 
-import * as React from 'react'
-import { Loader2Icon } from 'lucide-react'
+import * as React from "react";
+import { Loader2Icon } from "lucide-react";
 
-import { trpc } from '@/trpc/react-provider'
-import { authClient } from '@/lib/better-auth/auth-client'
-import { AUTH_ROUTES, ROUTES } from '@/lib/config'
-import { Button } from '@/components/ui/button'
+import { trpc } from "@/trpc/react-provider";
+import { authClient } from "@/lib/better-auth/auth-client";
+import { AUTH_ROUTES, ROUTES } from "@/lib/config";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -34,41 +33,43 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
+} from "@/components/ui/card";
 
 export function AcceptInvitation({ invitationId }: { invitationId: string }) {
-  const [signedIn, setSignedIn] = React.useState<boolean | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
-  const [isAccepting, setIsAccepting] = React.useState(false)
+  const [signedIn, setSignedIn] = React.useState<boolean | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [isAccepting, setIsAccepting] = React.useState(false);
 
   React.useEffect(() => {
-    let active = true
+    let active = true;
     void authClient.getSession().then((result) => {
-      if (active) setSignedIn(Boolean(result.data?.user))
-    })
+      if (active) setSignedIn(Boolean(result.data?.user));
+    });
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, []);
 
-  const invitationQuery = trpc.invitation.get.useQuery({ invitationId })
-  const acceptMutation = trpc.invitation.accept.useMutation()
+  const invitationQuery = trpc.invitation.get.useQuery({ invitationId });
+  const acceptMutation = trpc.invitation.accept.useMutation();
 
-  const invitation = invitationQuery.data
+  const invitation = invitationQuery.data;
 
   async function handleAccept() {
-    setError(null)
-    setIsAccepting(true)
+    setError(null);
+    setIsAccepting(true);
     try {
-      const result = await acceptMutation.mutateAsync({ invitationId })
+      const result = await acceptMutation.mutateAsync({ invitationId });
       await authClient.organization.setActive({
         organizationId: result.organizationId,
         organizationSlug: result.slug,
-      })
-      window.location.assign(ROUTES.dashboard)
+      });
+      window.location.assign(ROUTES.dashboard);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not accept the invitation.')
-      setIsAccepting(false)
+      setError(
+        err instanceof Error ? err.message : "Could not accept the invitation.",
+      );
+      setIsAccepting(false);
     }
   }
 
@@ -79,7 +80,7 @@ export function AcceptInvitation({ invitationId }: { invitationId: string }) {
           <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
-    )
+    );
   }
 
   if (!invitation || invitation.expired) {
@@ -88,20 +89,23 @@ export function AcceptInvitation({ invitationId }: { invitationId: string }) {
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Invitation unavailable</CardTitle>
           <CardDescription>
-            This invitation is invalid or has expired. Ask the organization owner to send a new
-            one.
+            This invitation is invalid or has expired. Ask the organization
+            owner to send a new one.
           </CardDescription>
         </CardHeader>
       </Card>
-    )
+    );
   }
 
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-xl">Join {invitation.organizationName}</CardTitle>
+        <CardTitle className="text-xl">
+          Join {invitation.organizationName}
+        </CardTitle>
         <CardDescription>
-          You were invited to join as <span className="font-medium">{invitation.role ?? 'member'}</span>.
+          You were invited to join as{" "}
+          <span className="font-medium">{invitation.role ?? "member"}</span>.
         </CardDescription>
       </CardHeader>
       <CardContent className="text-center text-sm text-muted-foreground">
@@ -118,23 +122,30 @@ export function AcceptInvitation({ invitationId }: { invitationId: string }) {
             <p className="text-sm text-muted-foreground text-center">
               Sign in with {invitation.email} to accept.
             </p>
-            <Button className="w-full" onClick={() => window.location.assign(AUTH_ROUTES.signIn)}>
+            <Button
+              className="w-full"
+              onClick={() => window.location.assign(AUTH_ROUTES.signIn)}
+            >
               Go to sign in
             </Button>
           </>
         ) : (
-          <Button className="w-full" onClick={handleAccept} disabled={isAccepting || signedIn === null}>
+          <Button
+            className="w-full"
+            onClick={handleAccept}
+            disabled={isAccepting || signedIn === null}
+          >
             {isAccepting ? (
               <>
                 <Loader2Icon className="size-4 animate-spin" />
                 Accepting…
               </>
             ) : (
-              'Accept invitation'
+              "Accept invitation"
             )}
           </Button>
         )}
       </CardFooter>
     </Card>
-  )
+  );
 }

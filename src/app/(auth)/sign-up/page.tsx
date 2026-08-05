@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -15,18 +14,18 @@
  * WHERE: Bounced to /sign-in by src/proxy.ts when REGISTRATION_OPEN=false.
  */
 
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
 
-import { AuthForm, AuthShell } from '@/components/global/auth'
+import { AuthForm, AuthShell } from "@/components/global/auth";
 
 export const metadata: Metadata = {
-  title: 'Create account',
-}
+  title: "Create account",
+};
 
 export default function SignUpPage() {
   return (
     <AuthShell>
       <AuthForm mode="sign-up" />
     </AuthShell>
-  )
+  );
 }

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2026 Web Prodigies LLC
- *
+ *   *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
@@ -18,7 +17,9 @@
  *   generatePostSchema, GeneratePostValues, generatedPostSchema, GeneratedPost,
  *   publishPostSchema, PublishPostValues, postImageSchema, PostImageValues,
  *   listPostsSchema, deletePostSchema, disconnectIntegrationSchema,
- *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES, LINKEDIN_MAX_IMAGE_BYTES
+ *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES, LINKEDIN_MAX_IMAGE_BYTES,
+ *   analyzeProfileSchema, AnalyzeProfileValues, profileAnalysisSchema,
+ *   ProfileAnalysis, SectionFeedback, ProfileImprovement
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -36,7 +37,7 @@ export {
   authSchemaFor,
   forgotPasswordSchema,
   resetPasswordSchema,
-} from './auth'
+} from "./auth";
 export type {
   SignInValues,
   SignUpValues,
@@ -44,12 +45,15 @@ export type {
   AuthValuesByMode,
   ForgotPasswordValues,
   ResetPasswordValues,
-} from './auth'
-export { createOrganizationSchema, updateOrganizationSettingsSchema } from './organization'
+} from "./auth";
+export {
+  createOrganizationSchema,
+  updateOrganizationSettingsSchema,
+} from "./organization";
 export type {
   CreateOrganizationValues,
   UpdateOrganizationSettingsValues,
-} from './organization'
+} from "./organization";
 export {
   inviteMemberSchema,
   updateMemberSchema,
@@ -63,24 +67,24 @@ export {
   permissionStringSchema,
   RESERVED_ROLE_NAMES,
   VALID_PERMISSION_STRINGS,
-} from './team'
+} from "./team";
 export type {
   InviteMemberValues,
   UpdateMemberValues,
   CreateRoleValues,
   UpdateRoleValues,
-} from './team'
+} from "./team";
 export {
   billingIntervalSchema,
   planKeySchema,
   createSubscriptionSchema,
   upgradeSubscriptionSchema,
   paymentMethodIdSchema,
-} from './billing'
+} from "./billing";
 export type {
   CreateSubscriptionValues,
   UpgradeSubscriptionValues,
-} from './billing'
+} from "./billing";
 export {
   POST_TONES,
   POST_LENGTHS,
@@ -88,13 +92,13 @@ export {
   postLengthSchema,
   generatePostSchema,
   generatedPostSchema,
-} from './ai'
+} from "./ai";
 export type {
   PostTone,
   PostLength,
   GeneratePostValues,
   GeneratedPost,
-} from './ai'
+} from "./ai";
 export {
   LINKEDIN_IMAGE_MIME_TYPES,
   LINKEDIN_MAX_IMAGE_BYTES,
@@ -106,11 +110,52 @@ export {
   listPostsSchema,
   deletePostSchema,
   disconnectIntegrationSchema,
-} from './linkedin'
+} from "./linkedin";
 export type {
   LinkedInImageMimeType,
   LinkedInOAuthErrorCode,
   PostImageValues,
   PublishPostValues,
   LinkedInConnectionStatus,
-} from './linkedin'
+} from "./linkedin";
+export {
+  analyzeProfileSchema,
+  profileAnalysisSchema,
+  sectionFeedbackSchema,
+  profileImprovementSchema,
+  listAnalysesSchema,
+  discardAnalysisSchema,
+} from "./profile-analysis";
+export type {
+  AnalyzeProfileValues,
+  ProfileAnalysis,
+  SectionFeedback,
+  ProfileImprovement,
+  ListAnalysesValues,
+  DiscardAnalysisValues,
+  StoredProfileAnalysis,
+} from "./profile-analysis";
+
+/* Profile lookup — a shared capability, exported from its own module rather
+ * than through the analyzer that happened to need it first. */
+export {
+  fetchProfileSchema,
+  fetchedProfileSchema,
+  brightDataProfileSchema,
+  apifyProfileSchema,
+  scrapedErrorItemSchema,
+  profileSourceSchema,
+  PROFILE_SOURCE_KEYS,
+  LINKEDIN_PROFILE_URL_PATTERN,
+  PROFILE_HEADLINE_MAX,
+  PROFILE_ABOUT_MAX,
+  PROFILE_EXPERIENCE_MAX,
+} from "./profile-lookup";
+export type {
+  FetchProfileValues,
+  FetchedProfile,
+  CachedProfileLookup,
+  BrightDataProfile,
+  ApifyProfile,
+  ProfileSource,
+} from "./profile-lookup";

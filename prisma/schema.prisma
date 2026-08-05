@@ -1,7 +1,5 @@
-// Copyright (c) 2026 Web Prodigies LLC
-//
-// This source code is licensed under the MIT license found in the
-// LICENSE file in the root directory of this source tree.
+//  //
+//   // LICENSE file in the root directory of this source tree.
 
 // ============================================================================
 // PRISMA SCHEMA
@@ -79,6 +77,7 @@ model User {
   cardFingerprints CardFingerprint[]
   linkedinAccounts LinkedInAccount[]
   linkedinPosts    LinkedInPost[]
+  profileAnalyses  ProfileAnalysis[]
 
   @@map("user")
 }
@@ -194,6 +193,8 @@ model Organization {
   activityLogs      ActivityLog[]
   linkedinAccount   LinkedInAccount?
   linkedinPosts     LinkedInPost[]
+  profileAnalyses   ProfileAnalysis[]
+  profileLookups    ProfileLookup[]
 
   @@map("organization")
 }
@@ -471,4 +472,89 @@ model LinkedInPost {
   @@index([accountId])
   @@index([authorId])
   @@map("linkedin_post")
+}
+
+/// ProfileAnalysis — one AI critique this organization paid for.
+///
+/// Persisted because the model call is METERED and irreversible: the usage
+/// counter increments the moment the analysis returns, so without a row a
+/// refresh destroys a result the org has already been charged for. A free-tier
+/// org gets 5 of these in total.
+///
+/// The input columns are kept alongside the output so a history row is
+/// self-contained — it can be compared against a later run or re-analyzed
+/// without the user re-pasting their profile.
+///
+/// NOTE: deleting a row does NOT refund the quota. See the `discard` verb in
+/// src/trpc/routers/profile-analysis.ts for why.
+///
+/// SOURCE OF TRUTH KEYWORD: ProfileAnalysis
+model ProfileAnalysis {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope
+  authorId       String // The member who ran the analysis
+
+  // The analyzed input, exactly as AnalyzeProfileValues holds it.
+  headline   String  @db.Text
+  about      String  @db.Text
+  experience String? @db.Text
+
+  // Denormalised off `result` so the history list renders without parsing the
+  // JSON payload of every row.
+  score   Int
+  summary String @db.Text
+
+  // The full ProfileAnalysis critique. Json rather than columns because the
+  // shape is nested (per-section feedback, strengths, improvements) and is
+  // owned by profileAnalysisSchema, which re-validates it on read so no
+  // untyped value reaches the router. Precedent: ActivityLog.metadata.
+  result Json
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([authorId])
+  @@map("profile_analysis")
+}
+
+/// ProfileLookup — the cached result of one paid vendor scrape.
+///
+/// Exists because a lookup costs REAL MONEY per call (Apify/Bright Data bill
+/// per request) and the same profile is fetched repeatedly: the user retries,
+/// a second feature wants the same person, someone reloads the page. Without
+/// this table each of those is a separate invoice line for identical data.
+///
+/// Cached PER ORGANIZATION, never globally. A shared cache would leak which
+/// profiles another tenant has looked at — a competitive-intelligence leak, and
+/// the reason `organizationId` is part of the unique key rather than just an
+/// index.
+///
+/// `profileUrl` is stored NORMALISED (see normaliseProfileUrl in
+/// profile-lookup.service.ts) so trailing slashes and casing cannot produce two
+/// cache entries — and therefore two charges — for one person.
+///
+/// SOURCE OF TRUTH KEYWORD: ProfileLookup
+model ProfileLookup {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope — caches are never shared across orgs
+
+  /// Normalised LinkedIn profile URL. The cache key.
+  profileUrl String
+
+  /// FetchedProfile as returned by the vendor mapper, re-validated on read
+  /// through fetchedProfileSchema. Precedent: ProfileAnalysis.result.
+  profile Json
+
+  /// Drives TTL staleness. Refreshing overwrites the row rather than appending,
+  /// so this table holds one row per profile, not a history.
+  fetchedAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, profileUrl])
+  @@index([organizationId, fetchedAt])
+  @@map("profile_lookup")
 }
