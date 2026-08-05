@@ -59,11 +59,16 @@ export function ProfileAnalyzer() {
   const orgId = organizationId ?? "";
   const canAnalyze = hasPermission(permissions.PROFILE_ANALYSIS_CREATE);
   const canReadHistory = hasPermission(permissions.PROFILE_ANALYSIS_READ);
+  /* A lookup is now its own metered resource, so it carries its own permission.
+     A member may be allowed to analyze pasted text without being allowed to
+     spend the org's vendor budget. */
+  const canLookUp = hasPermission(permissions.PROFILE_LOOKUP_CREATE);
 
   /* Whether a vendor key is configured is a server fact, so it is read from the
    * server rather than guessed client-side — the URL tab is hidden entirely on
-   * installs without one, instead of offering a button that always errors. */
-  const fetchStatus = trpc.profileAnalysis.fetchStatus.useQuery(
+   * installs without one, instead of offering a button that always errors.
+   * Served by the shared profileLookup router, not this feature. */
+  const fetchStatus = trpc.profileLookup.status.useQuery(
     { organizationId: orgId },
     { enabled, staleTime: 5 * 60 * 1000 },
   );
@@ -82,10 +87,13 @@ export function ProfileAnalyzer() {
     onError: (error) => toast.error(error.message),
   });
 
-  const fetchProfile = trpc.profileAnalysis.fetch.useMutation({
-    onSuccess: (result) => {
+  const fetchProfile = trpc.profileLookup.create.useMutation({
+    onSuccess: async (result) => {
       setFetched(result);
       toast.success(result.name ? `Loaded ${result.name}.` : "Profile loaded.");
+      /* A lookup is metered on its own quota, so the meter beside the URL field
+         has to move even though nothing about the analysis changed. */
+      await utils.usage.invalidate();
     },
     onError: (error) => toast.error(error.message),
   });
@@ -96,7 +104,7 @@ export function ProfileAnalyzer() {
   }
 
   function handleFetch(values: FetchProfileValues) {
-    if (!enabled || !canAnalyze) return;
+    if (!enabled || !canLookUp) return;
     fetchProfile.mutate({ ...values, organizationId: orgId });
   }
 
@@ -147,7 +155,9 @@ export function ProfileAnalyzer() {
               isAnalyzing={analyze.isPending}
               isFetching={fetchProfile.isPending}
               fetched={fetched}
-              canFetchByUrl={Boolean(fetchStatus.data?.canFetchByUrl)}
+              canFetchByUrl={
+                Boolean(fetchStatus.data?.canFetchByUrl) && canLookUp
+              }
               disabled={!enabled || !canAnalyze}
             />
             {!canAnalyze ? (

@@ -51,7 +51,7 @@ import {
   type BrightDataProfile,
   type FetchedProfile,
   type ProfileSource,
-} from "@/lib/types/profile-analysis";
+} from "@/lib/types/profile-lookup";
 
 /* Vendor responses are wrapped in an array — one record per requested URL —
  * even from the single-URL synchronous endpoint. An EMPTY array is a distinct

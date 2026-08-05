@@ -194,6 +194,7 @@ model Organization {
   linkedinAccount   LinkedInAccount?
   linkedinPosts     LinkedInPost[]
   profileAnalyses   ProfileAnalysis[]
+  profileLookups    ProfileLookup[]
 
   @@map("organization")
 }
@@ -517,4 +518,43 @@ model ProfileAnalysis {
   @@index([organizationId, createdAt])
   @@index([authorId])
   @@map("profile_analysis")
+}
+
+/// ProfileLookup — the cached result of one paid vendor scrape.
+///
+/// Exists because a lookup costs REAL MONEY per call (Apify/Bright Data bill
+/// per request) and the same profile is fetched repeatedly: the user retries,
+/// a second feature wants the same person, someone reloads the page. Without
+/// this table each of those is a separate invoice line for identical data.
+///
+/// Cached PER ORGANIZATION, never globally. A shared cache would leak which
+/// profiles another tenant has looked at — a competitive-intelligence leak, and
+/// the reason `organizationId` is part of the unique key rather than just an
+/// index.
+///
+/// `profileUrl` is stored NORMALISED (see normaliseProfileUrl in
+/// profile-lookup.service.ts) so trailing slashes and casing cannot produce two
+/// cache entries — and therefore two charges — for one person.
+///
+/// SOURCE OF TRUTH KEYWORD: ProfileLookup
+model ProfileLookup {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope — caches are never shared across orgs
+
+  /// Normalised LinkedIn profile URL. The cache key.
+  profileUrl String
+
+  /// FetchedProfile as returned by the vendor mapper, re-validated on read
+  /// through fetchedProfileSchema. Precedent: ProfileAnalysis.result.
+  profile Json
+
+  /// Drives TTL staleness. Refreshing overwrites the row rather than appending,
+  /// so this table holds one row per profile, not a history.
+  fetchedAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, profileUrl])
+  @@index([organizationId, fetchedAt])
+  @@map("profile_lookup")
 }

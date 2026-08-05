@@ -123,30 +123,39 @@ export {
   profileAnalysisSchema,
   sectionFeedbackSchema,
   profileImprovementSchema,
-  fetchProfileSchema,
-  brightDataProfileSchema,
-  apifyProfileSchema,
-  scrapedErrorItemSchema,
-  profileSourceSchema,
   listAnalysesSchema,
   discardAnalysisSchema,
-  PROFILE_SOURCE_KEYS,
-  LINKEDIN_PROFILE_URL_PATTERN,
-  PROFILE_HEADLINE_MAX,
-  PROFILE_ABOUT_MAX,
-  PROFILE_EXPERIENCE_MAX,
 } from "./profile-analysis";
 export type {
   AnalyzeProfileValues,
   ProfileAnalysis,
   SectionFeedback,
   ProfileImprovement,
-  FetchProfileValues,
-  FetchedProfile,
-  BrightDataProfile,
-  ApifyProfile,
-  ProfileSource,
   ListAnalysesValues,
   DiscardAnalysisValues,
   StoredProfileAnalysis,
 } from "./profile-analysis";
+
+/* Profile lookup — a shared capability, exported from its own module rather
+ * than through the analyzer that happened to need it first. */
+export {
+  fetchProfileSchema,
+  fetchedProfileSchema,
+  brightDataProfileSchema,
+  apifyProfileSchema,
+  scrapedErrorItemSchema,
+  profileSourceSchema,
+  PROFILE_SOURCE_KEYS,
+  LINKEDIN_PROFILE_URL_PATTERN,
+  PROFILE_HEADLINE_MAX,
+  PROFILE_ABOUT_MAX,
+  PROFILE_EXPERIENCE_MAX,
+} from "./profile-lookup";
+export type {
+  FetchProfileValues,
+  FetchedProfile,
+  CachedProfileLookup,
+  BrightDataProfile,
+  ApifyProfile,
+  ProfileSource,
+} from "./profile-lookup";

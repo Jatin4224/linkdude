@@ -29,6 +29,7 @@ import { devRouter } from "./dev";
 import { userRouter } from "./user";
 import { aiGenerationRouter } from "./ai-generation";
 import { profileAnalysisRouter } from "./profile-analysis";
+import { profileLookupRouter } from "./profile-lookup";
 import { linkedinPostsRouter } from "./linkedin-posts";
 import { integrationsRouter } from "./integrations";
 
@@ -57,6 +58,7 @@ export const appRouter = createTRPCRouter({
    * shape is what auto-wires quotas, counters, audit, and permissions. */
   aiGeneration: aiGenerationRouter,
   profileAnalysis: profileAnalysisRouter,
+  profileLookup: profileLookupRouter,
   linkedinPosts: linkedinPostsRouter,
   integrations: integrationsRouter,
 });

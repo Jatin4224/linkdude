@@ -27,13 +27,14 @@ This feature has a different character from the first one. Feature 1 was mostly 
 13. [Step 9 — Saved history, and the verb that had to change](#step-9--saved-history-and-the-verb-that-had-to-change)
 14. [Step 10 — Showing the meter before the bill](#step-10--showing-the-meter-before-the-bill)
 15. [Step 11 — Cost controls, and the lever that doesn't exist](#step-11--cost-controls-and-the-lever-that-doesnt-exist)
-16. [How one request flows end to end](#how-one-request-flows-end-to-end)
-17. [Two incidents, and what they taught us about the database](#two-incidents-and-what-they-taught-us-about-the-database)
-18. [Testing it](#testing-it)
-19. [Things only a live call could teach us](#things-only-a-live-call-could-teach-us)
-20. [Mistakes that are easy to make](#mistakes-that-are-easy-to-make)
-21. [What we deliberately did NOT build](#what-we-deliberately-did-not-build)
-22. [File map](#file-map)
+16. [Step 12 — Extracting the lookup, and caching what it costs](#step-12--extracting-the-lookup-and-caching-what-it-costs)
+17. [How one request flows end to end](#how-one-request-flows-end-to-end)
+18. [Two incidents, and what they taught us about the database](#two-incidents-and-what-they-taught-us-about-the-database)
+19. [Testing it](#testing-it)
+20. [Things only a live call could teach us](#things-only-a-live-call-could-teach-us)
+21. [Mistakes that are easy to make](#mistakes-that-are-easy-to-make)
+22. [What we deliberately did NOT build](#what-we-deliberately-did-not-build)
+23. [File map](#file-map)
 
 ---
 
@@ -187,7 +188,7 @@ profileAnalysis: {
 },
 ```
 
-> **This snippet is the entry as first written, and three of its values have since changed.** It is left as-is because the reasoning below explains *why each one was chosen*, and the later steps only make sense against it. Current values: `permissions` gained `read` and `discard` ([Step 9](#the-registry-change-that-came-free)), `free` dropped from 5 to 3 and the `fetch` rate limit moved from 5/min to 20/hour ([Step 11](#step-11--cost-controls-and-the-lever-that-doesnt-exist)), and `nav.requirePermission` is now `read`.
+> **This snippet is the entry as first written, and much of it has since changed.** It is left as-is because the reasoning below explains *why each value was chosen*, and the later steps only make sense against it. Current state: `permissions` gained `read` and `discard` ([Step 9](#the-registry-change-that-came-free)); `free` dropped from 5 to 3 ([Step 11](#step-11--cost-controls-and-the-lever-that-doesnt-exist)); the whole `fetch` rate limit is **gone**, because lookups became their own `profileLookup` resource ([Step 12](#step-12--extracting-the-lookup-and-caching-what-it-costs)); and `nav.requirePermission` stayed `create` after briefly moving to `read` — see [Step 9](#the-registry-change--and-the-one-that-got-reverted) for why that revert matters.
 
 ### Why a separate quota from `aiGeneration`
 
@@ -1081,6 +1082,8 @@ The change itself is one line. The interesting part is that **it does not do wha
 | `profileAnalysis.create` | a Gemini call | the plan quota — 3 on free |
 | `profileAnalysis.fetch` | **an Apify lookup** | a rate limit only — **no lifetime cap** |
 
+*(That row describes the state at the time. Step 12 moved the lookup to its own resource with its own quota — the second row no longer applies.)*
+
 [Step 7](#fetch--deliberately-not-named-create) deliberately kept `fetch` off the usage counter, because a lookup is not an analysis. That was the right call for quota accounting and it has a consequence nobody had stated: **the expensive call is the uncapped one.**
 
 The rate limiter is keyed on `userId:organizationId:clientIp`. At the original `{ count: 5, window: '1 m' }`, one free account could legitimately run **5 lookups a minute — 300 an hour — indefinitely**, without ever clicking Analyze.
@@ -1128,9 +1131,97 @@ profileLookup: {
 
 A free user then gets 3 Apify calls *ever*, not 3 per hour. It needs its own router so the path becomes `profileLookup.create` and the counter wiring fires — the same naming rule from [Step 9](#the-verb-discard-not-delete), used in the opposite direction. **No migration is required**: `UsageMetrics` is keyed by a `featureKey` string, so a new metered resource needs no schema change. And `<UsageMeter resource="profileLookup" />` next to the URL field would be a one-liner.
 
-Not built yet. Recorded here so the reasoning survives.
+> **Built in [Step 12](#step-12--extracting-the-lookup-and-caching-what-it-costs).** The 20/hour stopgap above is gone — the quota replaced it, and the rate limit that remains is burst protection only.
 
 > **The general lesson:** before you change a number to control a cost, confirm the number governs the thing that costs money. Here the quota and the expense were on two different procedures, and the fix that felt obvious touched neither.
+
+---
+
+## Step 12 — Extracting the lookup, and caching what it costs
+
+Step 11 concluded that lookups need their own quota. The trigger to actually do it was a different question: *"the profile fetch is useful in other features too — can we make it global?"*
+
+Both turn out to be the same change, which is worth noticing. A capability that needs its own cost control also needs its own permission and its own namespace, because those are the same thing: **a resource**.
+
+### Most of it was already global
+
+The instinct was to go build a shared module. The first thing to check is whether one already exists — and here it effectively did:
+
+| Layer | Already reusable? |
+|---|---|
+| `profile-source.service.ts` — vendor HTTP + mapping | ✅ `fetchProfileFromUrl(url)`, knows nothing about analysis |
+| `config/profile-source.ts` — vendor registry | ✅ swapping Apify for Bright Data is one env var |
+| **tRPC procedure** | ❌ `profileAnalysis.fetch` |
+| **Permission** | ❌ required `profileAnalysis:create` |
+| **Quota / rate limit** | ❌ metered under the `profileAnalysis` resource |
+| **Types** | ❌ `FetchedProfile` lived in `types/profile-analysis.ts` |
+
+So this was not "build a shared thing". It was **lift the ceiling off a shared thing that was already there** — the service had always been generic, and only the plumbing above it was feature-shaped.
+
+Under the old shape, an outreach-drafting feature wanting to look up a profile would have had to ask for `profileAnalysis:create` and would have shared the analyzer's rate limit. Both wrong, and worse with every feature added.
+
+### The type module, and which way the arrow points
+
+`fetchProfileSchema`, the vendor payload schemas, `FetchedProfile`, and the LinkedIn field ceilings moved to `src/lib/types/profile-lookup.ts`.
+
+The rule that decided the direction: **`profile-analysis.ts` imports from `profile-lookup.ts`, never the reverse.** A shared capability must not know about the features built on it. Getting this backwards is how "shared" modules end up importing from three features and becoming unmovable.
+
+The old names are re-exported from `profile-analysis.ts` and the barrel, so nothing downstream broke.
+
+> **One gotcha:** `export { X } from './y'` re-exports without binding `X` locally. `analyzeProfileSchema` validates against `PROFILE_HEADLINE_MAX`, so the file needs a real `import` **as well as** the re-export. The compiler catches it immediately, but the fix is not obvious if you have not hit it.
+
+### The cache, and why it forced a two-procedure split
+
+Every lookup is a billed vendor call, and the same profile gets requested repeatedly — a retry, a page reload, a second feature wanting the same person. Without a cache each of those is another invoice line for byte-identical data. Making the lookup *global* makes this worse, not better: more callers, more duplicate requests.
+
+So a `ProfileLookup` table caches the mapped result. And that immediately collided with the counter wiring, in [`protected.ts`](../src/trpc/procedures/protected.ts):
+
+> *`.create` increments, `.delete` decrements — always, for every resource that declares a `limit`. **No opt-out**: counters always reflect reality.*
+
+Serving a cache hit from `create` would therefore charge a lookup for data that cost nothing. There is no flag to suppress that, and adding one would punch a hole in an invariant the whole app relies on.
+
+The answer is two procedures rather than one clever one:
+
+```
+profileLookup.get     query,    read permission   -> cached profile or null. FREE.
+profileLookup.create  mutation, create permission -> spends a lookup. ALWAYS increments.
+```
+
+`create` still checks the cache first and short-circuits before touching the vendor — so a duplicate request inside the TTL never bills twice even if the caller forgets to call `get`. But it still increments, because the user asked to spend a lookup and the counter must reflect what was asked for. That asymmetry is deliberate: **the cache saves the vendor charge, not the quota unit.**
+
+This is the third time in this document the same rule has applied: when the convention does not fit, change the shape of the code, not the convention. `discard` instead of `delete`, `fetch` instead of `create`, and now `get` alongside `create`.
+
+### Two details that quietly decide the bill
+
+**URLs are normalised before they become cache keys.**
+
+```
+/in/jatin      /in/jatin/      /IN/Jatin      /in/jatin?utm_source=x
+```
+
+That is one person. Keyed raw, it is four cache rows and therefore four charges. `normaliseProfileUrl` lowercases, strips query and hash, drops the trailing slash, and collapses `uk.` / `www.` to one canonical host — applied on every read *and* write so no caller can bypass it.
+
+**The cache is per organization, never global.** A shared cache would be cheaper and is the obvious optimisation. It would also reveal which profiles another tenant has been researching — a competitive-intelligence leak wearing the costume of a performance win. `organizationId` is part of the unique key, not merely an index.
+
+**TTL is 7 days.** Profiles change slowly, so a short TTL spends money re-fetching text that has not moved. The UI shows the age and can offer a fresh fetch, so the ceiling never traps anyone.
+
+### The registry entry
+
+```ts
+profileLookup: {
+  name: 'Profile Lookups',
+  permissions: ['create', 'read'],     // read = use the cache; create = spend
+  limit: { perPlan: { free: 3, starter: 50, pro: 300, ... }, unit: 'lookups' },
+  rateLimit: { create: { count: 5, window: '1 m' } },   // burst only
+  audit: { entity: 'profileLookup', describe: { create: 'Looked up a LinkedIn profile' } },
+}
+```
+
+The flat `fetch: { count: 20, window: '1 h' }` came **off** `profileAnalysis`. Free tier now gets 3 lookups *total* rather than 20 per hour forever — which was the actual hole. What remains is burst protection so a stuck client cannot spend a month's quota in a minute.
+
+`<UsageMeter resource="profileLookup" />` sits beside the URL field and `<FeatureGate resource="profileLookup">` wraps the Fetch button — both free, because [Step 10](#step-10--showing-the-meter-before-the-bill) built them against `LimitResourceKey` rather than one hard-coded resource. That is the payoff for having generalised them once.
+
+> **The general lesson:** "make it reusable" is usually not a rewrite. Find the layer that is already generic — there often is one — and ask what is sitting on top of it that shouldn't be. Here the answer was a permission, a quota, a namespace, and a type file, and none of the actual logic changed.
 
 ---
 
@@ -1142,18 +1233,23 @@ Not built yet. Recorded here so the reasoning survives.
 1.  profile-analyzer.tsx → fetchProfile.mutate({ profileUrl, organizationId })
 
 2.  protectedProcedure wrapper                        ← AUTOMATIC
-    ├─ logged in? in this org? has profileAnalysis:create?
-    ├─ rate limit: 20 fetches/hour        (Step 11)
+    ├─ logged in? in this org? has profileLookup:create?     (Step 12)
+    ├─ PLAN LIMIT: under the lookup quota? → 402 + upgrade   (Step 12)
+    ├─ rate limit: 5 lookups/min (burst only)
     └─ open transaction (90s ceiling)
 
-3.  profile-analysis.ts fetch handler                 ← OUR CODE
+3.  profile-lookup.ts create handler                  ← OUR CODE
     ├─ isProfileFetchConfigured()  → PRECONDITION_FAILED if no vendor key
+    ├─ readCachedLookup()  → CACHE HIT? return it, vendor never called
     └─ profileSourceService.fetchProfileFromUrl()
         ├─ POST to Apify (75s abort ceiling)
         ├─ check: HTTP error? empty array? error-inside-200?
         └─ PROFILE_MAPPERS[apify] → FetchedProfile
+    └─ writeCachedLookup()  → upsert on (organizationId, normalised url)
 
-4.  Transaction commits. No counter bump (verb isn't `create`).
+4.  protectedProcedure wrapper                        ← AUTOMATIC
+    ├─ increment the LOOKUP counter (always — see Step 12)
+    └─ commit
 
 5.  profile-form.tsx → form.reset(fetched)   — fields fill, user reviews
 ```
@@ -1264,7 +1360,7 @@ await prisma.$transaction(async (tx) => {
 })
 ```
 
-Five procedures do this: `profileAnalysis.fetch` (90s), `profileAnalysis.create` (60s), `aiGeneration.create` (60s), `linkedinPosts.create` (60s), `billing.*` (20s). A few concurrent analyses park most of the pool on network latency. Then the session lookup — which runs on **every single request** — queues behind them and dies at 10 seconds.
+Five procedures do this: `profileLookup.create` (90s — `profileAnalysis.fetch` when this incident happened), `profileAnalysis.create` (60s), `aiGeneration.create` (60s), `linkedinPosts.create` (60s), `billing.*` (20s). A few concurrent analyses park most of the pool on network latency. Then the session lookup — which runs on **every single request** — queues behind them and dies at 10 seconds.
 
 That is why it surfaced at login. The auth query is not slow; it is the highest-frequency query, so it is the first to notice there is nothing left to borrow. **It was the casualty, not the cause.**
 
@@ -1338,6 +1434,15 @@ SELECT * FROM "usageMetrics" WHERE "organizationId" = '<your org id>';
 
 `profileAnalysis` should be **1** after one analysis — and should **not** move when you only fetch, nor when you discard. We wrote no counting code; that's Step 1 working, plus the verb choice from Step 9.
 
+Since [Step 12](#step-12--extracting-the-lookup-and-caching-what-it-costs) there is a **second** row to watch, `profileLookup`, with its own counter. The checks that prove that wiring:
+
+| Do this | Expect |
+|---|---|
+| Fetch a profile by URL | `profileLookup` = 1, `profileAnalysis` unchanged |
+| Fetch the **same** URL again | Counter goes to 2, but the response is instant — the cache served it and **no vendor call was made** |
+| Fetch the same URL with a trailing slash or `?utm_source=x` | Still a cache hit — normalisation collapsed it to one key |
+| Check `profile_lookup` rows | One row per profile, not one per fetch — refresh upserts |
+
 Then set your plan to `free` and run 4 analyses. The 4th is blocked — and since [Step 10](#step-10--showing-the-meter-before-the-bill), it is blocked **in the browser**: the Analyze button opens the upgrade modal and fires no request at all.
 
 Reaching the cap honestly costs 3 model calls. Cheaper: set `currentUsage` to the limit on that row directly, then reload.
@@ -1402,6 +1507,11 @@ Two patterns worth extracting:
 | Running `prisma migrate dev` in a `db push` project | "Drift detected", offers to **drop the whole database** | Check `ls prisma/migrations` first; use `db push` here |
 | An external API call inside `$transaction` | One connection held for 60-90s; pool starves and *auth* starts failing | Call the API first, open the transaction only for the writes |
 | Assuming a rate limit can protect a plan tier | `ResourceRateLimit` has no `perPlan` — one setting for everyone | Use a `limit.perPlan` quota; only quotas are plan-aware |
+| Serving a cache hit from `<resource>.create` | The counter has **no opt-out** — free data charges a quota unit | Free reads get their own `get` query; `create` means "spend one" |
+| Caching a paid lookup globally instead of per tenant | Cheaper, and it leaks which profiles another org researched | Put `organizationId` in the unique key, not just an index |
+| Using the raw URL as a cache key | `/in/x`, `/in/x/`, `/IN/X`, `?utm=` are 4 keys and 4 charges for one person | Normalise on every read and write |
+| A "shared" module importing from a feature | The dependency arrow inverts and the module stops being movable | Shared code never imports the features built on it |
+| `export { X } from './y'` and then using `X` locally | Re-export does not bind the name in this module | Add a real `import` alongside the re-export |
 | Gating existing UI on a **newly added** permission | Custom roles don't have it and nothing backfills them — the page vanishes for them, silently | Keep the gate on a permission current roles hold, or ship a backfill |
 | A `delete` service returning `void` | `computeDeleteDecrement` sees no `count` and decrements by 1 — deleting nothing still refunds quota | Return `deleteMany`'s `{ count }` and let the caller surface it |
 | `field: value ?? undefined` for an optional prop | `exactOptionalPropertyTypes` rejects an explicit `undefined` | Omit the key: `...(v === null ? {} : { field: v })` |
@@ -1418,7 +1528,8 @@ Two patterns worth extracting:
 | **Auto-apply rewrites** | Would need `w_member_social`-style write access to profile fields. LinkedIn exposes no such API | Not possible |
 | **Analyzing someone else's profile** | Works technically, but the prompt and UI assume "your profile" | Competitor analysis would be its own feature |
 | **Bulk analysis** | Needs async jobs — a lookup already takes tens of seconds | Only with a queue |
-| **A `profileLookup` quota** | The one real gap left. Apify lookups have no lifetime cap — only a flat rate limit that can't vary by plan. Fully designed in [Step 11](#step-11--cost-controls-and-the-lever-that-doesnt-exist), needs no migration | Next — it is the actual cost control |
+| ~~**A `profileLookup` quota**~~ | ~~Apify lookups have no lifetime cap — only a flat rate limit that can't vary by plan~~ | **Built — see [Step 12](#step-12--extracting-the-lookup-and-caching-what-it-costs)** |
+| **A `docs/11-profile-lookup.md`** | Step 12 turned the lookup into a standalone capability with its own resource, router, cache, and types. It is documented here only because this is where it grew up — it is no longer part of this feature | When a second feature consumes it, which is the moment the split stops being theoretical |
 | ~~**Re-running an analysis from history**~~ | ~~The `about` / `experience` columns are written for exactly this and are never read back~~ | **Built — see [Reuse](#reuse--closing-a-thread-the-first-version-left-open)** |
 | **Moving the model call out of the transaction** | The fix for the pool incident. Touches `protected.ts`, so it is a platform change affecting five procedures, not a feature change | Deliberate platform work |
 | **A backfill for new permissions** | Adding a verb to `RESOURCES` does not grant it to existing custom roles, so any newly-required permission is a silent regression. Owners can re-save each role by hand today | Worth a one-off script when a permission next needs to be *required* |
@@ -1444,7 +1555,10 @@ src/lib/types/profile-analysis.ts                              Input, output, an
 src/lib/config/profile-source.ts                               Vendor registry + timeouts
 src/services/profile-source.service.ts                         Vendor HTTP + per-vendor mapping
 src/services/profile-analysis.service.ts                       Persistence + Json re-validation   [Step 9]
-src/trpc/routers/profile-analysis.ts                           fetchStatus / fetch / create / list / discard
+src/lib/types/profile-lookup.ts                                URL + vendor + FetchedProfile      [Step 12]
+src/services/profile-lookup.service.ts                         Per-org cache, TTL, URL normalise  [Step 12]
+src/trpc/routers/profile-lookup.ts                             status / get / create              [Step 12]
+src/trpc/routers/profile-analysis.ts                           create / list / discard
 src/app/(dashboard)/dashboard/profile-analysis/page.tsx        Thin shell
   .../_components/profile-analyzer.tsx                         Orchestration + permission gating
   .../_components/profile-form.tsx                             URL field + paste fields
@@ -1457,9 +1571,12 @@ src/components/global/usage-meter/index.ts                     Barrel           
 **Edited files (9):**
 
 ```
-prisma/schema.prisma                          + ProfileAnalysis model                             [Step 9]
-src/lib/resources.ts                          + profileAnalysis entry; + read/discard, audit, nav read [9];
-                                              free 5→3, fetch rate limit 5/min→20/hr             [Step 11]
+prisma/schema.prisma                          + ProfileAnalysis model [9]; + ProfileLookup cache  [Step 12]
+src/lib/resources.ts                          + profileAnalysis entry; + read/discard, audit [9];
+                                              free 5→3 [11]; + profileLookup resource, fetch
+                                              rate limit removed                                 [Step 12]
+src/lib/types/profile-analysis.ts             lookup types moved out, re-exported                [Step 12]
+src/trpc/routers/_app.ts                      + profileLookup mounted                            [Step 12]
 src/lib/types/index.ts                        + re-exports
 src/lib/config/index.ts                       + AI_MAX_RETRIES, AI_TIMEOUT_MS
 src/lib/config/ai.ts                          + retry/timeout ceilings; model → gemini-flash-latest
@@ -1502,9 +1619,10 @@ Steps 9-11 added a third, which only appeared once the feature was in use rather
 
 Working and shipped: paste and URL input, structured critique, saved history with discard, a usage meter, and a client-side upgrade path at the cap.
 
-Two threads left open, both recorded above rather than forgotten:
+One thread left open:
 
-1. **Apify lookups have no lifetime cap** — [Step 11](#step-11--cost-controls-and-the-lever-that-doesnt-exist) has the design; it needs no migration.
-2. **The model call still runs inside the transaction** — mitigated by a bigger pool, not fixed.
+**The model call still runs inside the transaction** — mitigated by a bigger connection pool, not fixed. It touches `protected.ts` and affects five procedures, so it is platform work rather than a change to this feature.
 
-Closed during the pre-push review: reuse-from-history (which made the stored input columns honest), the nav permission regression, `.env.example` missing the pool settings, `docs/07` recommending a command that offers to drop the database, and a pre-existing counter drift in `linkedinPosts.delete`.
+Closed since the first version: saved history and `discard` (Step 9), quota UX and the upgrade path (Step 10), the free-tier drop (Step 11), and the lookup extraction with its own quota and cache (Step 12). Plus, during the pre-push review: reuse-from-history, the nav permission regression, `.env.example` missing the pool settings, `docs/07` recommending a command that offers to drop the database, and a pre-existing counter drift in `linkedinPosts.delete`.
+
+**A note on this document.** It started as the build log for one feature and now covers a capability that outgrew it — the lookup has its own resource, router, cache, and types, and the analyzer is merely its first consumer. When a second feature starts calling `profileLookup`, Step 12 should move to its own doc. Until then it lives here, because this is where the reasoning happened and splitting it early would separate the decisions from the context that produced them.

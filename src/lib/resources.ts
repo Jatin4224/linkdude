@@ -325,19 +325,6 @@ export const RESOURCES = {
     rateLimit: {
       /* Larger prompt than post generation, so a tighter burst cap. */
       create: { count: 5, window: "1 m" },
-      /* URL lookups bill per call to a third-party vendor and do NOT increment
-       * the usage counter (only create/delete do), so this limiter is the only
-       * thing standing between a stuck client and a real invoice.
-       *
-       * Per HOUR, not per minute: 5/min is 300/hour sustained, which is a real
-       * Apify bill from one account. 20/hour still clears any human workflow
-       * while capping a stuck or scripted client at ~7% of the old ceiling.
-       *
-       * This is a blunt instrument and deliberately not tightened further —
-       * rate limits here are NOT per-plan, so anything strict enough to contain
-       * a free account would also throttle a paying one. The real fix is to
-       * give lookups their own perPlan quota; see profileLookup in the docs. */
-      fetch: { count: 20, window: "1 h" },
     },
     audit: {
       entity: "profileAnalysis",
@@ -363,6 +350,41 @@ export const RESOURCES = {
        * Switch this to 'read' only alongside a backfill that grants
        * profileAnalysis:read to the roles that already hold :create. */
       requirePermission: "create",
+    },
+  },
+
+  profileLookup: {
+    name: "Profile Lookups",
+    description: "Fetch a LinkedIn profile by URL through a data vendor",
+    /* Its OWN resource rather than a verb on profileAnalysis, because fetching a
+     * profile is a capability several features want (analysis today, outreach
+     * drafting next) and none of them should need `profileAnalysis:create` to
+     * use it. */
+    permissions: ["create", "read"],
+    /* The only real control on vendor spend. Each lookup is a billed call to
+     * Apify/Bright Data, and a rate limit cannot express "3 for free users, 300
+     * for pro" — ResourceRateLimit has no perPlan. A quota can, which is why the
+     * cap lives here and the limiter below is only burst protection. */
+    limit: {
+      perPlan: {
+        free: 3,
+        starter: 50,
+        pro: 300,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} for more profile lookups",
+      availableOnFreeTrial: true,
+      unit: "lookups",
+    },
+    rateLimit: {
+      /* Burst protection on top of the quota: a stuck client should not be able
+       * to spend a month's lookups in a minute. */
+      create: { count: 5, window: "1 m" },
+    },
+    audit: {
+      entity: "profileLookup",
+      describe: { create: "Looked up a LinkedIn profile" },
     },
   },
 

@@ -29,91 +29,18 @@ import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
 import {
   analyzeProfileSchema,
-  fetchProfileSchema,
   listAnalysesSchema,
   discardAnalysisSchema,
 } from "@/lib/types";
 import { isAiConfigured, getAiProvider } from "@/lib/config";
-import {
-  isProfileFetchConfigured,
-  getProfileSource,
-} from "@/lib/config/profile-source";
 import * as aiService from "@/services/ai.service";
-import * as profileSourceService from "@/services/profile-source.service";
 import * as profileAnalysisService from "@/services/profile-analysis.service";
 
 export const profileAnalysisRouter = createTRPCRouter({
-  /**
-   * SOURCE OF TRUTH KEYWORDS: profileAnalysis.fetchStatus
-   *
-   * WHAT:  Whether URL lookups are available on this deployment.
-   * WHY:   Whether a vendor key is set is a server fact — the key is never in a
-   *        client bundle, so the UI cannot determine this on its own. Exposing
-   *        it lets the analyzer hide the URL field entirely rather than render a
-   *        button that always errors. Returns a boolean only; the key, the
-   *        vendor endpoint, and the env var name stay server-side.
-   * WHERE: Queried by the analyzer to decide whether to show the URL field.
-   */
-  fetchStatus: protectedProcedure()
-    .input(z.object({ organizationId: z.string().min(1) }))
-    .query(() => ({ canFetchByUrl: isProfileFetchConfigured() })),
-
-  /**
-   * SOURCE OF TRUTH KEYWORDS: profileAnalysis.fetch
-   *
-   * WHAT:  Pulls a public LinkedIn profile via the configured data vendor and
-   *        returns it as form fields — it does NOT analyze.
-   * WHY:   Separate from `create` for two reasons. Mechanically, a 10-30s vendor
-   *        scrape chained to a ~25s model call would sit against the 60s
-   *        txTimeout and fail intermittently while holding a database
-   *        connection. Practically, scraped profiles are often incomplete or
-   *        subtly wrong, so the result populates the form for the user to review
-   *        before an analysis is spent on it. Deliberately NOT named `create`:
-   *        that verb would increment the analysis counter, and a lookup is not
-   *        an analysis. Its cost is contained by the `fetch` rate limit in
-   *        RESOURCES instead.
-   * WHERE: Called by the analyzer's URL tab.
-   */
-  fetch: protectedProcedure({
-    requirePermission: permissions.PROFILE_ANALYSIS_CREATE,
-    /* Must exceed PROFILE_FETCH_TIMEOUT_MS (75s) or the transaction dies before
-     * the service's own abort fires, turning a clean "lookup timed out" into an
-     * opaque Prisma error. Kept a mutation rather than a query — which would
-     * skip the transaction entirely — because React Query refetches queries on
-     * window focus, and each refetch here is a BILLED vendor call. Holding a
-     * connection this long is the accepted cost of not spending money by
-     * accident; revisit if Neon pool pressure ever shows up. */
-    txTimeout: 90_000,
-    /* Nothing is created or changed — an audit row per lookup would be noise. */
-    audit: false,
-  })
-    .input(
-      fetchProfileSchema.and(z.object({ organizationId: z.string().min(1) })),
-    )
-    .mutation(async ({ input }) => {
-      if (!isProfileFetchConfigured()) {
-        const source = getProfileSource();
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `URL lookups are not configured. Add ${source.apiKeyEnvVar} to enable them, or paste your profile details manually.`,
-        });
-      }
-
-      try {
-        return await profileSourceService.fetchProfileFromUrl(input.profileUrl);
-      } catch (error) {
-        /* The service already rewrites vendor failures into user-facing
-         * sentences that end in "paste your details manually", so the message
-         * passes through rather than being flattened to a generic one. */
-        throw new TRPCError({
-          code: "BAD_GATEWAY",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Could not fetch that profile. Paste your details manually.",
-        });
-      }
-    }),
+  /* `fetch` and `fetchStatus` used to live here. They moved to the
+   * profileLookup router: fetching a profile is a shared capability, and under
+   * this namespace every future caller would have needed
+   * `profileAnalysis:create` and would have shared this feature's rate limit. */
 
   /**
    * SOURCE OF TRUTH KEYWORDS: profileAnalysis.create

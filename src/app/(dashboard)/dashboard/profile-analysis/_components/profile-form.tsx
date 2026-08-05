@@ -33,6 +33,7 @@ import {
   type FetchedProfile,
 } from "@/lib/types";
 import { FeatureGate } from "@/components/feature-gate";
+import { UsageMeter } from "@/components/global/usage-meter";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -121,19 +122,26 @@ export function ProfileForm({
                 </FormItem>
               )}
             />
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={busy}
-              className="w-full"
-            >
-              {isFetching ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : (
-                <DownloadIcon className="size-4" />
-              )}
-              {isFetching ? "Fetching profile..." : "Fetch profile"}
-            </Button>
+            {/* Lookups are billed per call by the data vendor and metered on
+                their own quota, so the remaining count sits next to the button
+                that spends one — not on the analysis meter above. */}
+            <UsageMeter resource="profileLookup" />
+
+            <FeatureGate resource="profileLookup">
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={busy}
+                className="w-full"
+              >
+                {isFetching ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  <DownloadIcon className="size-4" />
+                )}
+                {isFetching ? "Fetching profile..." : "Fetch profile"}
+              </Button>
+            </FeatureGate>
             {fetched?.name ? (
               /* Named so a wrong-profile fetch is obvious before it is analyzed. */
               <p className="text-sm text-muted-foreground">
