@@ -113,9 +113,10 @@ export const PROFILE_FETCH_TIMEOUT_MS = 75_000;
  *          1 — headline/about/flattened experience only
  *          2 — structured sections; Apify items read under every observed
  *              key-name spelling rather than one guess
+ *          3 — skills, languages, volunteering and articles extracted too
  * WHERE: Written by writeCachedLookup, checked by readCachedLookup.
  */
-export const PROFILE_MAPPER_VERSION = 2;
+export const PROFILE_MAPPER_VERSION = 3;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PROFILE_SOURCES

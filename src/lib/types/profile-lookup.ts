@@ -12,7 +12,8 @@
  *   scrapedErrorItemSchema, PROFILE_HEADLINE_MAX, PROFILE_ABOUT_MAX,
  *   PROFILE_EXPERIENCE_MAX, profileSectionItemSchema, ProfileSectionItem,
  *   PROFILE_SECTION_KEYS, ProfileSectionKey, profileSectionsSchema,
- *   ProfileSections, PROFILE_SECTION_MAX_ITEMS
+ *   ProfileSections, PROFILE_SECTION_MAX_ITEMS, PROFILE_SKILLS_MAX_ITEMS,
+ *   skillLikeSchema, SkillLikeEntry, apifyItemSchema, ApifyItem
  *
  * WHAT:  Everything about turning a LinkedIn URL into profile text — the vendor
  *        set, the URL contract, the raw vendor payload shapes, and the mapped
@@ -90,20 +91,24 @@ export const PROFILE_ITEM_DETAIL_MAX = 2000;
 /* Caps the prompt: a 60-role career would blow the context budget and the
  * analysis is about positioning, not an exhaustive audit. */
 export const PROFILE_SECTION_MAX_ITEMS = 25;
+/* Skills are the exception: LinkedIn allows 50, they are one word each, and
+ * which keywords a profile carries is exactly what a positioning critique needs
+ * to see. Truncating them at the shared ceiling would hide half the evidence. */
+export const PROFILE_SKILLS_MAX_ITEMS = 50;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: profileSectionItemSchema, ProfileSectionItem
  *
  * WHAT:  One entry in any structured profile section — a role, a project, a
  *        certification, a degree.
- * WHY:   ONE item shape for all four sections rather than four bespoke schemas.
+ * WHY:   ONE item shape for every section rather than a bespoke schema each.
  *        Every section is the same thing structurally: a primary line, a
  *        secondary line, and optional prose. Four shapes would mean four form
- *        components, four prompt serializers, four mappers and four sets of
+ *        components, N prompt serializers, N mappers and N sets of
  *        result rendering — the duplication CLAUDE.md exists to prevent. What
  *        each slot MEANS per section is described once in
- *        src/lib/config/profile-sections.ts, so adding a fifth section (skills,
- *        publications) is a registry entry and nothing else.
+ *        src/lib/config/profile-sections.ts, so adding a section (skills and
+ *        languages arrived this way) is a registry entry and nothing else.
  *
  *        Structured rather than one blob of prose because the result view counts
  *        entries ("3 Experience, 2 Certifications") and attributes feedback to a
@@ -142,6 +147,10 @@ export const PROFILE_SECTION_KEYS = [
   "projects",
   "certifications",
   "education",
+  "skills",
+  "languages",
+  "volunteering",
+  "articles",
 ] as const;
 export const profileSectionKeySchema = z.enum(PROFILE_SECTION_KEYS);
 export type ProfileSectionKey = z.infer<typeof profileSectionKeySchema>;
@@ -149,7 +158,7 @@ export type ProfileSectionKey = z.infer<typeof profileSectionKeySchema>;
 /**
  * SOURCE OF TRUTH KEYWORDS: profileSectionsSchema, ProfileSections
  *
- * WHAT:  All four structured sections of one profile.
+ * WHAT:  Every structured section of one profile.
  * WHY:   Every section is REQUIRED-but-possibly-empty rather than optional or
  *        defaulted. That is a deliberate constraint, not an oversight: this
  *        schema is the resolver for the profile form, and a zod `.default()`
@@ -173,6 +182,12 @@ export const profileSectionsSchema = z.object({
     .array(profileSectionItemSchema)
     .max(PROFILE_SECTION_MAX_ITEMS),
   education: z.array(profileSectionItemSchema).max(PROFILE_SECTION_MAX_ITEMS),
+  /* Skills routinely run past 25 on a real profile and are one word each, so
+   * they get their own ceiling rather than being truncated at the shared one. */
+  skills: z.array(profileSectionItemSchema).max(PROFILE_SKILLS_MAX_ITEMS),
+  languages: z.array(profileSectionItemSchema).max(PROFILE_SECTION_MAX_ITEMS),
+  volunteering: z.array(profileSectionItemSchema).max(PROFILE_SECTION_MAX_ITEMS),
+  articles: z.array(profileSectionItemSchema).max(PROFILE_SECTION_MAX_ITEMS),
 });
 export type ProfileSections = z.infer<typeof profileSectionsSchema>;
 
@@ -191,6 +206,28 @@ export type ProfileSections = z.infer<typeof profileSectionsSchema>;
  * WHERE: Parsed in src/services/profile-source.service.ts and mapped onto
  *        FetchedProfile.
  */
+/**
+ * SOURCE OF TRUTH KEYWORDS: skillLikeSchema, SkillLikeEntry
+ *
+ * WHAT:  A skill or language as either a bare string or a small object.
+ * WHY:   Both vendors return these two sections in either form — a skill IS its
+ *        name, so there is often nothing to wrap in an object. Declared once,
+ *        above both vendor schemas, because both need it and neither owns it.
+ * WHERE: Used by brightDataProfileSchema and apifyProfileSchema; normalised by
+ *        toTextOrItem in profile-source.service.ts.
+ */
+const skillLikeSchema = z.union([
+  z.string(),
+  z.looseObject({
+    name: z.string().nullish(),
+    title: z.string().nullish(),
+    subtitle: z.string().nullish(),
+    caption: z.string().nullish(),
+    metadata: z.string().nullish(),
+  }),
+]);
+export type SkillLikeEntry = z.infer<typeof skillLikeSchema>;
+
 const brightDataExperienceSchema = z.looseObject({
   title: z.string().nullish(),
   company: z.string().nullish(),
@@ -243,6 +280,11 @@ export const brightDataProfileSchema = z.looseObject({
   projects: z.array(brightDataProjectSchema).nullish(),
   certifications: z.array(brightDataCertificationSchema).nullish(),
   education: z.array(brightDataEducationSchema).nullish(),
+  /* Same string-or-object tolerance as the Apify side, for the same reason. */
+  skills: z.array(skillLikeSchema).nullish(),
+  languages: z.array(skillLikeSchema).nullish(),
+  volunteer_experience: z.array(brightDataProjectSchema).nullish(),
+  posts: z.array(brightDataProjectSchema).nullish(),
 });
 export type BrightDataProfile = z.infer<typeof brightDataProfileSchema>;
 
@@ -271,7 +313,7 @@ const apifyDateSchema = z
  *
  * WHAT:  One entry in any Apify profile section, read under every key name the
  *        actor is known to use for it.
- * WHY:   ONE wide schema for all four sections instead of a bespoke one each,
+ * WHY:   ONE wide schema for every section instead of a bespoke one each,
  *        because the actor's inner key names are undocumented, differ per
  *        section, and differ again per fallback tier. A live response proved the
  *        cost of guessing: the top-level `experience`, `education` and
@@ -355,6 +397,17 @@ export const apifyProfileSchema = z.looseObject({
   licenseAndCertificates: z.array(apifyItemSchema).nullish(),
   education: z.array(apifyItemSchema).nullish(),
   educations: z.array(apifyItemSchema).nullish(),
+  /* Skills and languages commonly arrive as bare strings rather than objects —
+   * a skill IS its name, there is nothing else to carry — so both forms are
+   * accepted and the mapper normalises them. `topSkills` is the spelling a live
+   * response used. */
+  topSkills: z.array(skillLikeSchema).nullish(),
+  skills: z.array(skillLikeSchema).nullish(),
+  languages: z.array(skillLikeSchema).nullish(),
+  volunteer_experience: z.array(apifyItemSchema).nullish(),
+  volunteerExperience: z.array(apifyItemSchema).nullish(),
+  articles: z.array(apifyItemSchema).nullish(),
+  posts: z.array(apifyItemSchema).nullish(),
 });
 export type ApifyProfile = z.infer<typeof apifyProfileSchema>;
 

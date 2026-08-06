@@ -49,7 +49,9 @@ import {
   PROFILE_HEADLINE_MAX,
   PROFILE_SECTION_KEYS,
   PROFILE_SECTION_MAX_ITEMS,
+  PROFILE_SKILLS_MAX_ITEMS,
   type ApifyItem,
+  type SkillLikeEntry,
   type ApifyProfile,
   type BrightDataProfile,
   type FetchedProfile,
@@ -125,11 +127,12 @@ function describeSampleItems(record: unknown): string {
 function collectSection<TRaw>(
   raw: readonly TRaw[] | null | undefined,
   toItem: (entry: TRaw) => ProfileSectionItem | null,
+  maxItems: number = PROFILE_SECTION_MAX_ITEMS,
 ): ProfileSectionItem[] {
   return (raw ?? [])
     .map(toItem)
     .filter((item): item is ProfileSectionItem => item !== null)
-    .slice(0, PROFILE_SECTION_MAX_ITEMS);
+    .slice(0, maxItems);
 }
 
 /* The flat `experience` string is DERIVED from the structured roles rather than
@@ -190,6 +193,25 @@ function mapBrightDataProfile(profile: BrightDataProfile): FetchedProfile {
         school.description,
       ),
     ),
+    skills: collectSection(
+      profile.skills,
+      toTextOrItem,
+      PROFILE_SKILLS_MAX_ITEMS,
+    ),
+    languages: collectSection(profile.languages, toTextOrItem),
+    volunteering: collectSection(profile.volunteer_experience, (entry) =>
+      toProfileSectionItem(
+        entry.title ?? entry.name,
+        [[entry.start_date, entry.end_date].filter(Boolean).join(" - ")],
+        entry.description,
+      ),
+    ),
+    articles: collectSection(profile.posts, (entry) =>
+      toProfileSectionItem(entry.title ?? entry.name, [
+        entry.url,
+        entry.start_date,
+      ]),
+    ),
   };
 
   return {
@@ -223,6 +245,17 @@ function apifyDateText(value: ApifyItem["startDate"]): string {
   if (typeof value === "string") return value;
   if (value && typeof value.year === "number") return String(value.year);
   return "";
+}
+
+/* Skills and languages arrive as bare strings as often as objects, and a skill
+ * carries nothing but its name either way. Normalised here so the section shape
+ * is the same regardless of which form the vendor sent. */
+function toTextOrItem(entry: SkillLikeEntry): ProfileSectionItem | null {
+  if (typeof entry === "string") return toProfileSectionItem(entry, []);
+  return toProfileSectionItem(
+    firstText(entry.name, entry.title),
+    [firstText(entry.subtitle, entry.caption, entry.metadata)],
+  );
 }
 
 /* On the tier verified in 2026 this actor returned roles WITHOUT descriptions —
@@ -317,6 +350,30 @@ function mapApifyProfile(profile: ApifyProfile): FetchedProfile {
           ],
           firstText(school.description, school.summary),
         ),
+    ),
+    skills: collectSection(
+      profile.topSkills ?? profile.skills,
+      toTextOrItem,
+      PROFILE_SKILLS_MAX_ITEMS,
+    ),
+    languages: collectSection(profile.languages, toTextOrItem),
+    volunteering: collectSection(
+      profile.volunteer_experience ?? profile.volunteerExperience,
+      (entry) =>
+        toProfileSectionItem(
+          firstText(entry.title, entry.role, entry.position),
+          [
+            firstText(entry.organization, entry.companyName, entry.subtitle),
+            dateOf(entry),
+          ],
+          firstText(entry.description, entry.summary),
+        ),
+    ),
+    articles: collectSection(profile.articles ?? profile.posts, (entry) =>
+      toProfileSectionItem(firstText(entry.title, entry.name), [
+        firstText(entry.url, entry.link),
+        dateOf(entry),
+      ]),
     ),
   };
 

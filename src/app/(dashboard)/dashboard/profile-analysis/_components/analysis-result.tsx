@@ -34,8 +34,12 @@ import {
   CopyIcon,
   FolderGitIcon,
   GraduationCapIcon,
+  HeartHandshakeIcon,
+  LanguagesIcon,
   LightbulbIcon,
+  NewspaperIcon,
   ThumbsUpIcon,
+  WrenchIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -127,6 +131,10 @@ const SECTION_ICONS: Record<ProfileSectionKey, React.ComponentType<{ className?:
   projects: FolderGitIcon,
   certifications: AwardIcon,
   education: GraduationCapIcon,
+  skills: WrenchIcon,
+  languages: LanguagesIcon,
+  volunteering: HeartHandshakeIcon,
+  articles: NewspaperIcon,
 };
 
 /* How many findings are shown before the list collapses. Sized so the pane

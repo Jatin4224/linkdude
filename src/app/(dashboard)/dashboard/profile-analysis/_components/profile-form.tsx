@@ -33,7 +33,10 @@ import {
   type FetchProfileValues,
   type FetchedProfile,
 } from "@/lib/types";
-import { PROFILE_SECTION_ENTRIES } from "@/lib/config/profile-sections";
+import {
+  PROFILE_SECTION_ENTRIES,
+  emptyProfileSections,
+} from "@/lib/config/profile-sections";
 import { FeatureGate } from "@/components/feature-gate";
 import { UsageMeter } from "@/components/global/usage-meter";
 import { ProfileSectionFields } from "@/components/global/profile-section-fields";
@@ -79,12 +82,7 @@ export function ProfileForm({
     defaultValues: {
       headline: "",
       about: "",
-      sections: {
-        experience: [],
-        projects: [],
-        certifications: [],
-        education: [],
-      },
+      sections: emptyProfileSections(),
     },
   });
 

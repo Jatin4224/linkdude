@@ -10,14 +10,15 @@
  * SOURCE OF TRUTH KEYWORDS: ProfileSectionFields, ProfileSectionFieldsProps
  *
  * WHAT:  The add/remove editor for one structured profile section — roles,
- *        projects, certifications or education.
- * WHY:   ONE component for all four sections. Every section shares the same
+ *        projects, certifications, education, skills and the rest.
+ * WHY:   ONE component for every section. They all share the same
  *        `{ label, meta, detail }` item shape (profileSectionItemSchema) and
- *        differs only in what those three slots are CALLED, which is declared
- *        once per section in PROFILE_SECTIONS. Four bespoke editors would be
- *        four places to fix a bug and four places to forget when a fifth section
- *        is added — the registry means a new section renders here with no change
- *        to this file.
+ *        differ only in what those three slots are CALLED, which is declared
+ *        once per section in PROFILE_SECTIONS. A bespoke editor each would be a
+ *        place to fix every bug N times and a place to forget when a section is
+ *        added — the registry means a new section renders here with no change to
+ *        this file, which is how skills, languages, volunteering and articles
+ *        arrived.
  *
  *        Global rather than route-local because the profile sections are a
  *        shared capability, not part of the analyzer: anything that edits a
@@ -37,7 +38,6 @@ import {
   type ProfileSectionDefinition,
 } from "@/lib/config/profile-sections";
 import type { AnalyzeProfileValues, ProfileSectionKey } from "@/lib/types";
-import { PROFILE_SECTION_MAX_ITEMS } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   FormControl,
@@ -73,7 +73,7 @@ export function ProfileSectionFields({
     name: `sections.${section}`,
   });
 
-  const atMax = fields.length >= PROFILE_SECTION_MAX_ITEMS;
+  const atMax = fields.length >= definition.maxItems;
 
   return (
     <div className="flex flex-col gap-3">

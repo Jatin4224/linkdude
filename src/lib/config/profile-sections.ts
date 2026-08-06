@@ -15,12 +15,13 @@
  *        `{ label, meta, detail }` shape so there is one form component, one
  *        prompt serializer and one mapper. That uniformity only works if the
  *        per-section meaning lives somewhere — this is that place. Adding a
- *        fifth section (skills, publications, recommendations) is one entry
- *        here: the form, the stat tiles, the prompt and the result view all
- *        iterate this registry and pick it up with no further change.
+ *        section is one entry here: the form, the stat tiles, the prompt and
+ *        the result view all iterate this registry and pick it up with no
+ *        further change. Skills, languages, volunteering and articles were
+ *        added exactly that way, touching no other file but the mappers.
  *
  *        Registry-driven for the same reason as PROFILE_SOURCES and
- *        AI_PROVIDERS: the alternative is the same four strings copied into a
+ *        AI_PROVIDERS: the alternative is the same strings copied into a
  *        form, a prompt, a mapper and a renderer, drifting independently.
  * WHERE: Read by the profile form, the analysis prompt in ai.service.ts, the
  *        vendor mappers, and the result view's stat tiles.
@@ -28,6 +29,8 @@
 
 import {
   PROFILE_SECTION_KEYS,
+  PROFILE_SECTION_MAX_ITEMS,
+  PROFILE_SKILLS_MAX_ITEMS,
   PROFILE_ITEM_DETAIL_MAX,
   PROFILE_ITEM_LABEL_MAX,
   PROFILE_ITEM_META_MAX,
@@ -59,6 +62,13 @@ export interface ProfileSectionDefinition {
     };
   };
   /**
+   * Ceiling on entries, matching this section's array max in
+   * profileSectionsSchema. Declared here so the form's Add button disables at
+   * the same number the schema rejects, instead of letting the user type a 51st
+   * skill and discover the limit on submit.
+   */
+  readonly maxItems: number;
+  /**
    * Whether the model is asked to critique this section at all.
    * `false` sections still count toward the stat tiles and still reach the
    * prompt as context — they are simply never given their own critique block.
@@ -76,7 +86,7 @@ export interface ProfileSectionDefinition {
 /**
  * SOURCE OF TRUTH KEYWORDS: PROFILE_SECTIONS
  *
- * WHAT:  The four structured sections, keyed by ProfileSectionKey.
+ * WHAT:  Every structured section, keyed by ProfileSectionKey.
  * WHY:   `Record<ProfileSectionKey, …>` so adding a key to PROFILE_SECTION_KEYS
  *        without describing it here is a compile error rather than a section
  *        that renders as a blank card.
@@ -97,6 +107,7 @@ export const PROFILE_SECTIONS: Record<
         enabled: true,
       },
     },
+    maxItems: PROFILE_SECTION_MAX_ITEMS,
     critiqued: true,
     premium: true,
   },
@@ -112,6 +123,7 @@ export const PROFILE_SECTIONS: Record<
         enabled: true,
       },
     },
+    maxItems: PROFILE_SECTION_MAX_ITEMS,
     critiqued: true,
     premium: true,
   },
@@ -123,6 +135,7 @@ export const PROFILE_SECTIONS: Record<
       meta: { label: "Issuer & year", placeholder: "Amazon Web Services · 2024" },
       detail: { label: "Notes", placeholder: "", enabled: false },
     },
+    maxItems: PROFILE_SECTION_MAX_ITEMS,
     /* Not critiqued: a certification is a fact, not positioning. It informs the
      * headline and About advice as context, but "rewrite your certification" is
      * not something a user can act on. */
@@ -137,6 +150,64 @@ export const PROFILE_SECTIONS: Record<
       meta: { label: "Degree & years", placeholder: "B.Tech, CSE · 2018 - 2022" },
       detail: { label: "Notes", placeholder: "", enabled: false },
     },
+    maxItems: PROFILE_SECTION_MAX_ITEMS,
+    critiqued: false,
+    premium: false,
+  },
+  skills: {
+    label: "Skills",
+    addLabel: "Add skill",
+    fields: {
+      label: { label: "Skill", placeholder: "TypeScript" },
+      meta: { label: "Endorsements", placeholder: "12 endorsements" },
+      detail: { label: "Notes", placeholder: "", enabled: false },
+    },
+    maxItems: PROFILE_SKILLS_MAX_ITEMS,
+    /* Context, not a critique target. Which keywords a profile carries is
+     * genuinely load-bearing for positioning — recruiters search on them — so
+     * these reach the prompt and inform the headline and About advice. But
+     * "rewrite your skills" is not a thing: the fix is always to add or drop
+     * one, which belongs in the findings list, not in a rewrite panel. */
+    critiqued: false,
+    premium: false,
+  },
+  languages: {
+    label: "Languages",
+    addLabel: "Add language",
+    fields: {
+      label: { label: "Language", placeholder: "Hindi" },
+      meta: { label: "Proficiency", placeholder: "Native or bilingual" },
+      detail: { label: "Notes", placeholder: "", enabled: false },
+    },
+    maxItems: PROFILE_SECTION_MAX_ITEMS,
+    critiqued: false,
+    premium: false,
+  },
+  volunteering: {
+    label: "Volunteering",
+    addLabel: "Add volunteering",
+    fields: {
+      label: { label: "Role", placeholder: "Mentor" },
+      meta: { label: "Organisation & dates", placeholder: "Code Club · 2023 - Present" },
+      detail: {
+        label: "What you did",
+        placeholder: "Who you helped and what changed...",
+        enabled: true,
+      },
+    },
+    maxItems: PROFILE_SECTION_MAX_ITEMS,
+    critiqued: false,
+    premium: false,
+  },
+  articles: {
+    label: "Articles",
+    addLabel: "Add article",
+    fields: {
+      label: { label: "Title", placeholder: "Why your API needs idempotency" },
+      meta: { label: "Link or date", placeholder: "link.to/post · March 2025" },
+      detail: { label: "Notes", placeholder: "", enabled: false },
+    },
+    maxItems: PROFILE_SECTION_MAX_ITEMS,
     critiqued: false,
     premium: false,
   },
@@ -179,6 +250,10 @@ export function emptyProfileSections(): ProfileSections {
     projects: [],
     certifications: [],
     education: [],
+    skills: [],
+    languages: [],
+    volunteering: [],
+    articles: [],
   };
 }
 
