@@ -28,13 +28,14 @@ This feature has a different character from the first one. Feature 1 was mostly 
 14. [Step 10 — Showing the meter before the bill](#step-10--showing-the-meter-before-the-bill)
 15. [Step 11 — Cost controls, and the lever that doesn't exist](#step-11--cost-controls-and-the-lever-that-doesnt-exist)
 16. [Step 12 — Extracting the lookup, and caching what it costs](#step-12--extracting-the-lookup-and-caching-what-it-costs)
-17. [How one request flows end to end](#how-one-request-flows-end-to-end)
-18. [Two incidents, and what they taught us about the database](#two-incidents-and-what-they-taught-us-about-the-database)
-19. [Testing it](#testing-it)
-20. [Things only a live call could teach us](#things-only-a-live-call-could-teach-us)
-21. [Mistakes that are easy to make](#mistakes-that-are-easy-to-make)
-22. [What we deliberately did NOT build](#what-we-deliberately-did-not-build)
-23. [File map](#file-map)
+17. [Step 13 — Structured sections, and what a live response taught us](#step-13--structured-sections-and-what-a-live-response-taught-us)
+18. [How one request flows end to end](#how-one-request-flows-end-to-end)
+19. [Two incidents, and what they taught us about the database](#two-incidents-and-what-they-taught-us-about-the-database)
+20. [Testing it](#testing-it)
+21. [Things only a live call could teach us](#things-only-a-live-call-could-teach-us)
+22. [Mistakes that are easy to make](#mistakes-that-are-easy-to-make)
+23. [What we deliberately did NOT build](#what-we-deliberately-did-not-build)
+24. [File map](#file-map)
 
 ---
 
@@ -324,6 +325,7 @@ export const analyzeProfileSchema = z.object({
     .min(50, 'Paste your About section — at least 50 characters to analyze')
     .max(PROFILE_ABOUT_MAX, ...),
   experience: z.string().trim().max(PROFILE_EXPERIENCE_MAX).optional(),
+  sections: profileSectionsSchema,
 })
 ```
 
@@ -331,7 +333,25 @@ Decisions worth understanding:
 
 - **The maxima are LinkedIn's real field limits.** Advice about text the user can't actually save is useless.
 - **`about` has a 50-character minimum.** Without it, someone pastes "I code" and the model invents a profile to critique. A floor forces there to be something real to analyze.
-- **`experience` is optional.** It sharpens the analysis considerably, but plenty of users won't paste it — and requiring it would block the feature for them.
+- **`experience` is a legacy string.** It is no longer typed by the user — the form collects structured roles — but it is still what the `ProfileAnalysis.experience` column stores, and the router derives it from `sections.experience` so pre-sections history rows keep reloading. See [Step 13](#step-13--structured-sections-and-what-a-live-response-taught-us).
+
+### The structured sections
+
+`experience` started as one textarea of prose. That could not survive contact with the result view, which counts entries ("3 Experience, 2 Certifications") and attributes a fix to a specific role — neither of which is possible once a career is flattened into a paragraph.
+
+```ts
+export const profileSectionItemSchema = z.object({
+  label: z.string().trim().min(1).max(PROFILE_ITEM_LABEL_MAX),
+  meta: z.string().trim().max(PROFILE_ITEM_META_MAX),
+  detail: z.string().trim().max(PROFILE_ITEM_DETAIL_MAX),
+})
+```
+
+**One item shape for every section**, not a bespoke schema each. A role, a project, a certification and a degree are structurally identical — a primary line, a secondary line, optional prose. What the three slots *mean* per section lives once in [`src/lib/config/profile-sections.ts`](../src/lib/config/profile-sections.ts), which is why there is one form component, one prompt serializer and one mapper rather than eight of each.
+
+The payoff is real: **skills, languages, volunteering and articles were added later by writing one registry entry each.** The form, the stat tiles, the prompt and the result view picked them up with no change; only the vendor mappers needed a line.
+
+**Every section is required-but-possibly-empty, never `.default([])`.** That is a hard constraint, not a style choice: a zod default makes the parsed input type diverge from the output type, and `react-hook-form` reports that as an unresolvable `Resolver<A>` vs `Resolver<B>` mismatch under `exactOptionalPropertyTypes`. Backward compatibility is handled by the callers instead, each in the way that suits it — see [Step 13](#step-13--structured-sections-and-what-a-live-response-taught-us).
 
 ### Output: what the model returns
 
@@ -339,10 +359,11 @@ Decisions worth understanding:
 export const profileAnalysisSchema = z.object({
   score: z.number().int().min(0).max(100),
   summary: z.string().min(1).max(500),
-  headlineFeedback: sectionFeedbackSchema,
+  headlineFeedback: headlineFeedbackSchema,
   aboutFeedback: sectionFeedbackSchema,
   strengths: z.array(z.string().min(1).max(300)).min(1).max(3),
-  improvements: z.array(profileImprovementSchema).min(1).max(4),
+  improvements: z.array(profileImprovementSchema).min(1).max(14),
+  sectionInsights: z.array(sectionInsightSchema).max(4).default([]),
 })
 ```
 
@@ -353,7 +374,25 @@ export const sectionFeedbackSchema = z.object({
   verdict: z.string().min(1).max(400),
   rewrite: z.string().min(1).max(PROFILE_ABOUT_MAX),
 })
+
+// The headline gets alternatives; About does not.
+export const headlineFeedbackSchema = sectionFeedbackSchema.extend({
+  alternatives: z.array(z.string().min(1).max(PROFILE_HEADLINE_MAX)).max(3).default([]),
+})
+
+export const profileImprovementSchema = z.object({
+  issue: z.string().min(1).max(300),
+  fix: z.string().min(1).max(600),
+  area: profileIssueAreaSchema.default('headline'),
+  severity: profileIssueSeveritySchema.default('warning'),
+})
 ```
+
+Three things changed here after the first version, each for a concrete reason:
+
+- **`improvements` went from 4 to 14.** The cap was sized for a list that rendered everything at once. The result view now leads with a findings count and collapses the tail, so a hard ceiling of four made "and 12 more" unreachable — and buried nothing, because there was nothing to bury.
+- **`area` and `severity` are defaulted, not required.** `toStoredAnalysis` returns `null` on a parse failure and `listAnalyses` filters those rows out — silently. Adding these as required fields would have made every previously-saved analysis vanish from the history with no error anywhere. The same reasoning covers `alternatives` and `sectionInsights`.
+- **`sectionInsights` is the plan-gated part**, and it is *not generated* when the plan excludes it. More in [Step 13](#step-13--structured-sections-and-what-a-live-response-taught-us).
 
 **Why `rewrite` matters more than `verdict`.** A verdict tells the user what's wrong. A rewrite hands them the fix. The user came here to avoid writing — so the schema *forces* the model to produce finished text, not advice about text.
 
@@ -1225,6 +1264,79 @@ The flat `fetch: { count: 20, window: '1 h' }` came **off** `profileAnalysis`. F
 
 ---
 
+## Step 13 — Structured sections, and what a live response taught us
+
+The first version collected experience as one textarea and analyzed headline + About. The result view that replaced it counts entries and critiques individual roles, which forced the input to become structured — and structuring it surfaced two failures that are worth more than the feature itself.
+
+### The registry, and why one item shape beat four
+
+Covered in [Step 3](#the-structured-sections): every section is `{ label, meta, detail }`, and `PROFILE_SECTIONS` says what those slots mean per section. The test of that decision came later — skills, languages, volunteering and articles were added as **four registry entries**, and the form, stat tiles, prompt and result view needed no change at all.
+
+### Gating: what is generated, not what is shown
+
+`profileDeepInsights` is a **flag-only** RESOURCES entry with no router and no procedures.
+
+That shape is deliberate. A `flag` on `profileAnalysis` would be enforced by `protectedProcedure` on *every* verb of that resource — analysis, history, discard — locking the entire feature for free plans. As its own entry nothing auto-fires, and the analysis router calls `checkBooleanFeature` explicitly to decide **what to ask the model for**:
+
+```ts
+const deepInsights = await checkBooleanFeature(organizationId, 'profileDeepInsights')
+const analysis = await aiService.analyzeLinkedInProfile(input, { deepInsights })
+```
+
+When the flag is off, `sectionInsights` is `omit`ted from the schema handed to `generateObject`, so those sections are never produced. A free analysis is genuinely cheaper, not merely less visible. The cost of that choice is that unlocking requires a re-run — [`LockedSection`](../src/components/global/locked-section/) says so on the panel rather than letting the user upgrade into an empty card.
+
+One trap worth naming: `sectionInsights` is `.default([])` on the storage schema (so old rows parse), which also makes it **optional in the JSON schema the model sees** — and an optional array is one the model will happily skip. The paid branch overrides it back to `.min(1)` at generation time while storage stays lenient.
+
+### Failure 1 — a loose schema is a silent schema
+
+The symptom was "the URL lookup only ever fills the headline". Three plausible causes, indistinguishable from the outside: LinkedIn authwalled the scrape, the plan was restricted, or the mapper was reading the wrong keys.
+
+Nothing in the logs could tell them apart, and the reason is instructive. The vendor schemas are `looseObject` with every field `.nullish()` — which means they parse **any** object, including one whose keys the mapper does not recognise. So `PROFILE_MAPPERS` never returned `null`, the carefully-written "unexpected response shape" branch was **unreachable code**, and a renamed field produced an empty section with no signal anywhere.
+
+Adding one `console.warn` of the record's top-level key names answered it immediately:
+
+```
+[profile-source] Apify produced no entries for: experience, projects, certifications, education.
+record keys: object{name,headline,experience,education,topSkills,location,about,...,certifications,...}
+```
+
+`experience`, `education` and `certifications` were **right there**. The actor was working perfectly; the mapper read `position`/`companyName` while this actor used different inner names. A vendor swap was very nearly the conclusion — it would have cost money and fixed nothing.
+
+Two lessons:
+
+- **Log the key names, never the values.** Names diagnose a shape change; values are scraped personal data and must not reach a log.
+- **Top-level keys are not enough.** They cannot distinguish an empty array from an array of unreadable entries. `describeSampleItems` now reports the *first entry's* keys per array, and `array[0]` when a section is genuinely empty.
+
+The fix was to stop guessing: `apifyItemSchema` reads every key name the actor is known to use per slot, and `firstText(...)` takes the first populated candidate. Extra nullish keys cost nothing on a loose schema; a wrong guess costs a section.
+
+### Failure 2 — a cache row can be shape-valid and content-stale
+
+The mapper fix did not appear to work. `profileLookup.create` serves the cache **before** calling the vendor, and the TTL is seven days — so the improved code never ran for any profile already looked up.
+
+Schema validation cannot catch this. The cached row's *shape* was perfect; only its *content* was impoverished, because it was extracted by an older mapper. Four empty sections re-validate cleanly forever.
+
+```ts
+export const PROFILE_MAPPER_VERSION = 3
+```
+
+Stamped on write, checked on read, bumped whenever a mapper changes what it extracts. Costs one re-fetch per cached profile, once. The alternative is a week of the fix appearing not to work.
+
+**The general rule: staleness has two causes, and only one of them is time.** Any cache in front of a transformation needs a version for the transformation, not just a TTL.
+
+### Backward compatibility, decided per caller
+
+The same question — "what happens to rows written before this field existed?" — got three different answers, because the consequence of a parse failure differs at each site:
+
+| Where | Call | Why |
+|---|---|---|
+| `profileAnalysisSchema` | Default the new fields | A failure silently drops the row from history. Losing a user's saved analysis is the worst outcome. |
+| `ProfileAnalysis.sections` | Nullable column, rebuild from the legacy prose | Prose can't be split back into roles, so it becomes one honest entry rather than a guess or a silent loss. |
+| `fetchedProfileSchema.sections` | **Required, no default** | A failure means a cache miss and a re-fetch — which is exactly what a pre-sections cache row deserves. Defaulting it would serve a permanently-incomplete scrape for the rest of the TTL. |
+
+Defaulting everything reflexively would have been wrong in the third case, and the failure mode is invisible.
+
+---
+
 ## How one request flows end to end
 
 **User pastes a URL and clicks Fetch:**
@@ -1475,6 +1587,12 @@ The most useful section of this document. Every one of these cost real debugging
 | A failed scrape returns an HTTP error | Returns **HTTP 201 with `array[0]`** — after 26 seconds |
 | Fallback tiers are on by default | Two of three are **off**; without them authwalled profiles return nothing |
 | The actor's fields match its docs | Docs said `fullName`/`summary`/`experiences`; reality was `name`/`about`/`experience`, and roles have **no description** |
+| A loose schema fails loudly when the vendor renames a field | It parses **anything**. The "unexpected shape" branch was unreachable code; a renamed key produced an empty section and an empty log |
+| Empty sections mean the vendor returned nothing | `experience`, `education` and `certifications` were all present and populated — the mapper read the wrong *inner* key names |
+| Top-level key names are enough to diagnose | They can't tell an empty array from an array of unreadable entries. You need the first entry's keys |
+| Fixing a mapper fixes the next lookup | Not for any profile already cached. Seven-day TTL, cache checked before the vendor — the fix never ran |
+| Schema validation catches a stale cache | Only catches wrong *shape*. A row extracted by an older mapper is shape-perfect and content-stale |
+| Skills arrive as objects | As often bare strings. A skill is nothing but its name |
 
 Two patterns worth extracting:
 
@@ -1497,6 +1615,11 @@ Two patterns worth extracting:
 | Strict Zod schema on scraped data | A user with no About section crashes the lookup | `looseObject` + `.nullish()` everywhere |
 | Loose schema with no error detection | `{error: "..."}` parses as an empty profile; the real message is lost | Add an explicit error-item schema |
 | Trusting `if (!res.ok)` alone | Misses empty arrays and errors inside 2xx | Check the body shape too |
+| Relying on a loose schema to report a shape change | It parses anything; the error branch is unreachable and the section is silently empty | Log the record's key names — top level *and* first array entry |
+| Caching the output of a transformation with only a TTL | A mapper fix can't reach anything already cached | Stamp a version; bump it when the transformation changes |
+| Adding a required field to a schema that guards stored rows | `toStoredAnalysis` returns null and `listAnalyses` filters it — history vanishes with no error | Default new fields, *unless* a miss is the desired outcome (see the cache) |
+| `.default()` on a schema used as a form resolver | Input and output types diverge; RHF reports an unresolvable `Resolver<A>`/`Resolver<B>` mismatch | Required-but-empty, and handle compatibility at the callers |
+| A `flag` on the feature's own RESOURCES entry | `protectedProcedure` enforces it on every verb — the whole feature locks, not the paid part | A separate flag-only entry, checked explicitly where it matters |
 | Reporting every vendor failure identically | User checks their URL while the real fix is a billing page | Branch the message per cause |
 | Using an actor that wants `li_at` | You act as that account; risks a real person's LinkedIn ban | Cookie-free actors only |
 | Indexing an array for a fallback | `noUncheckedIndexedAccess` makes it `T \| undefined` | Declare the fallback as its own constant |
@@ -1538,7 +1661,7 @@ Two patterns worth extracting:
 
 **The URL path is best-effort.** LinkedIn is increasingly authwalled. Some profiles return nothing even with every fallback enabled. The paste path is the guarantee; treat URL as a convenience.
 
-**Experience from a URL is thin.** No descriptions, only role/company/duration. Users who want deep experience feedback should paste.
+**Experience from a URL can still be thin.** The mapper now reads role descriptions when the actor returns them and every section under every observed key spelling, but the fallback tiers genuinely produce less than a full-profile scrape. The form stays editable for exactly this reason.
 
 **Vendor risk is real.** Proxycurl was the market leader and is gone. The registry means swapping is cheap — but budget for doing it eventually.
 
@@ -1548,7 +1671,7 @@ Two patterns worth extracting:
 
 ## File map
 
-**New files (12):**
+**New files (16):**
 
 ```
 src/lib/types/profile-analysis.ts                              Input, output, and vendor schemas
@@ -1561,11 +1684,14 @@ src/trpc/routers/profile-lookup.ts                             status / get / cr
 src/trpc/routers/profile-analysis.ts                           create / list / discard
 src/app/(dashboard)/dashboard/profile-analysis/page.tsx        Thin shell
   .../_components/profile-analyzer.tsx                         Orchestration + permission gating
-  .../_components/profile-form.tsx                             URL field + paste fields
-  .../_components/analysis-result.tsx                          Score, rewrites, copy buttons
+  .../_components/profile-form.tsx                             URL field + paste + section fields
+  .../_components/analysis-result.tsx                          Stats, findings, rewrites, locks
   .../_components/analysis-history.tsx                         Saved analyses + discard            [Step 9]
 src/components/global/usage-meter/usage-meter.tsx              Plan-usage bar, any limit resource  [Step 10]
 src/components/global/usage-meter/index.ts                     Barrel                              [Step 10]
+src/lib/config/profile-sections.ts                             Section registry + serializers     [Step 13]
+src/components/global/locked-section/                          Plan-gated content panel           [Step 13]
+src/components/global/profile-section-fields/                  Repeatable section editor          [Step 13]
 ```
 
 **Edited files (9):**

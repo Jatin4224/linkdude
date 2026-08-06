@@ -44,9 +44,16 @@ import {
 } from "@/lib/types/ai";
 import {
   profileAnalysisSchema,
+  sectionInsightSchema,
   type AnalyzeProfileValues,
   type ProfileAnalysis,
 } from "@/lib/types/profile-analysis";
+import {
+  DEEP_INSIGHT_SECTIONS,
+  PROFILE_SECTIONS,
+  PROFILE_SECTION_ENTRIES,
+  serializeProfileSection,
+} from "@/lib/config/profile-sections";
 
 export interface GenerateTextArgs {
   system: string;
@@ -247,30 +254,91 @@ Hard rules:
 - The headline rewrite must fit LinkedIn's 220-character limit and lead with the outcome the person delivers, not their job title alone.
 - The About rewrite opens with a first line that works as a standalone hook, because LinkedIn truncates the rest behind "see more".
 - Write in the person's own register. If their profile is plain and technical, do not return marketing copy.
-- Score honestly against what a strong profile in their field looks like. Most real profiles land between 30 and 60; reserve 80+ for genuinely exceptional positioning. A flattering score is useless feedback.`;
+- Score honestly against what a strong profile in their field looks like. Most real profiles land between 30 and 60; reserve 80+ for genuinely exceptional positioning. A flattering score is useless feedback.
+- Tag every finding with the area it belongs to and how much it matters. "critical" is reserved for something actively costing the person opportunities; "polish" is a refinement, not a problem.
+- Headline alternatives must be genuinely different angles — a different audience, a different outcome, a different proof point — not the same sentence reworded.`;
 
 /**
- * SOURCE OF TRUTH KEYWORDS: analyzeLinkedInProfile
+ * SOURCE OF TRUTH KEYWORDS: buildProfilePrompt
  *
- * WHAT:  Turns a pasted profile into a structured, actionable critique.
- * WHY:   The profile is pasted rather than fetched because LinkedIn exposes
- *        neither the headline nor the About text to this app — see the note on
- *        analyzeProfileSchema. Sections are labelled in the prompt so feedback
- *        can be attributed back to the field it belongs to, and the optional
- *        experience block is omitted entirely rather than sent empty, so the
- *        model never critiques a section the user did not provide.
- * WHERE: Called by profileAnalysis.create.
+ * WHAT:  Assembles the user-facing half of the analysis prompt.
+ * WHY:   Sections are labelled so a finding can be attributed back to the field
+ *        it belongs to, and an EMPTY section is stated as absent rather than
+ *        sent as an empty block — otherwise the model spends a finding slot on
+ *        "you should add projects", which the user already knows and did not ask
+ *        about. Entries are numbered by serializeProfileSection so a per-entry
+ *        rewrite can name the role it replaces.
  */
+function buildProfilePrompt(input: AnalyzeProfileValues): string {
+  const sections = PROFILE_SECTION_ENTRIES.map(({ key, label }) => {
+    const items = input.sections[key];
+    return items.length > 0
+      ? `\n\n${label.toUpperCase()} (${items.length}):\n${serializeProfileSection(items)}`
+      : `\n\n(No ${label.toLowerCase()} provided — do not fault the profile for a section it was not given.)`;
+  }).join("");
+
+  return `Analyze this LinkedIn profile.\n\nHEADLINE:\n${input.headline}\n\nABOUT:\n${input.about}${sections}`;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: analyzeLinkedInProfile, AnalyzeProfileOptions
+ *
+ * WHAT:  Turns a profile into a structured, actionable critique.
+ * WHY:   `deepInsights` decides what is ASKED FOR, not what is displayed. When
+ *        the org's plan does not include profileDeepInsights the per-section
+ *        rewrites are omitted from the schema entirely, so the model never
+ *        generates them — a locked analysis genuinely costs fewer output tokens
+ *        rather than paying for text the UI then hides. The result is parsed
+ *        back through the full profileAnalysisSchema either way, so both
+ *        branches return the same total type and `sectionInsights` lands as an
+ *        empty array rather than as a missing key.
+ * WHERE: Called by profileAnalysis.create, which resolves the flag.
+ */
+export interface AnalyzeProfileOptions {
+  /** True when the plan includes per-role and per-project rewrites. */
+  deepInsights: boolean;
+}
+
 export async function analyzeLinkedInProfile(
   input: AnalyzeProfileValues,
+  options: AnalyzeProfileOptions,
 ): Promise<ProfileAnalysis> {
-  const experienceSection = input.experience
-    ? `\n\nEXPERIENCE:\n${input.experience}`
-    : "\n\n(No experience section provided — judge only the headline and About, and do not comment on missing experience.)";
+  /* Only sections the user actually supplied are worth asking about — the model
+   * cannot rewrite roles it was never given, and naming an empty section in the
+   * instruction reliably produces invented entries. */
+  const deepSections = options.deepInsights
+    ? DEEP_INSIGHT_SECTIONS.filter((key) => input.sections[key].length > 0)
+    : [];
 
-  return generateStructured({
+  const prompt = buildProfilePrompt(input);
+
+  if (deepSections.length === 0) {
+    const base = await generateStructured({
+      system: PROFILE_ANALYSIS_SYSTEM_PROMPT,
+      prompt,
+      schema: profileAnalysisSchema.omit({ sectionInsights: true }),
+    });
+    return profileAnalysisSchema.parse(base);
+  }
+
+  const sectionNames = deepSections
+    .map((key) => PROFILE_SECTIONS[key].label)
+    .join(" and ");
+
+  /* `sectionInsights` is defaulted on the storage schema so old rows still
+   * parse — which also makes it OPTIONAL in the JSON schema handed to the model,
+   * and an optional array is one the model will happily omit. Overridden to
+   * required here so the branch that paid for these sections actually receives
+   * them, while the storage contract stays lenient. */
+  const result = await generateStructured({
     system: PROFILE_ANALYSIS_SYSTEM_PROMPT,
-    prompt: `Analyze this LinkedIn profile.\n\nHEADLINE:\n${input.headline}\n\nABOUT:\n${input.about}${experienceSection}`,
-    schema: profileAnalysisSchema,
+    prompt: `${prompt}\n\nAlso critique ${sectionNames}. For each, return one verdict and a rewritten version of the entries worth rewriting — set "target" to the exact title of the entry you are replacing, copied from the list above. Only cover ${sectionNames}; leave every other section out.`,
+    schema: profileAnalysisSchema.extend({
+      sectionInsights: sectionInsightSchema
+        .array()
+        .min(1)
+        .max(deepSections.length),
+    }),
   });
+  return profileAnalysisSchema.parse(result);
 }

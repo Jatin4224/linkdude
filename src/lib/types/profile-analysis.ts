@@ -8,7 +8,9 @@
  * SOURCE OF TRUTH KEYWORDS: analyzeProfileSchema, AnalyzeProfileValues,
  *   profileAnalysisSchema, ProfileAnalysis, SectionFeedback,
  *   ProfileImprovement, listAnalysesSchema, discardAnalysisSchema,
- *   StoredProfileAnalysis
+ *   StoredProfileAnalysis, headlineFeedbackSchema, HeadlineFeedback,
+ *   sectionInsightSchema, SectionInsight, profileIssueAreaSchema,
+ *   profileIssueSeveritySchema, PROFILE_ISSUE_SEVERITIES
  *
  * WHAT:  Input and output contracts for AI profile analysis — what the user
  *        pastes in, and the structured critique the model returns.
@@ -38,6 +40,10 @@ import {
   PROFILE_ABOUT_MAX,
   PROFILE_EXPERIENCE_MAX,
   PROFILE_HEADLINE_MAX,
+  PROFILE_ITEM_DETAIL_MAX,
+  PROFILE_ITEM_LABEL_MAX,
+  profileSectionKeySchema,
+  profileSectionsSchema,
 } from "./profile-lookup";
 
 /* The URL contract, the vendor payload shapes, and LinkedIn's field ceilings
@@ -55,6 +61,11 @@ export {
   PROFILE_HEADLINE_MAX,
   PROFILE_ABOUT_MAX,
   PROFILE_EXPERIENCE_MAX,
+  PROFILE_SECTION_KEYS,
+  PROFILE_SECTION_MAX_ITEMS,
+  profileSectionKeySchema,
+  profileSectionItemSchema,
+  profileSectionsSchema,
 } from "./profile-lookup";
 export type {
   ProfileSource,
@@ -63,6 +74,9 @@ export type {
   CachedProfileLookup,
   ApifyProfile,
   BrightDataProfile,
+  ProfileSectionKey,
+  ProfileSectionItem,
+  ProfileSections,
 } from "./profile-lookup";
 
 /**
@@ -93,6 +107,13 @@ export const analyzeProfileSchema = z.object({
       PROFILE_ABOUT_MAX,
       `About is limited to ${PROFILE_ABOUT_MAX} characters`,
     ),
+  /**
+   * The flattened experience prose. No longer typed by the user — the form
+   * collects structured roles now — but kept because it is what the
+   * ProfileAnalysis.experience column stores and what pre-sections history rows
+   * hold. The router derives it from `sections.experience` when absent, so the
+   * column keeps being written and old rows keep reloading.
+   */
   experience: z
     .string()
     .trim()
@@ -101,6 +122,14 @@ export const analyzeProfileSchema = z.object({
       `Experience is limited to ${PROFILE_EXPERIENCE_MAX} characters`,
     )
     .optional(),
+  /**
+   * Roles, projects, certifications and education as countable entries.
+   * Required-but-empty rather than optional: this schema is the form resolver,
+   * and a `.default()` here splits the input and output types in a way
+   * react-hook-form cannot reconcile. See profileSectionsSchema for the full
+   * reasoning and where backward compatibility is handled instead.
+   */
+  sections: profileSectionsSchema,
 });
 export type AnalyzeProfileValues = z.infer<typeof analyzeProfileSchema>;
 
@@ -117,11 +146,98 @@ export const sectionFeedbackSchema = z.object({
 });
 export type SectionFeedback = z.infer<typeof sectionFeedbackSchema>;
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: headlineFeedbackSchema, HeadlineFeedback
+ *
+ * WHAT:  Headline critique with more than one ready-to-use rewrite.
+ * WHY:   A headline is 220 characters that the user will read a dozen times
+ *        before committing — one take is a coin flip, and the natural response
+ *        to a single suggestion is "not quite". Alternatives turn the output
+ *        into a CHOICE, which is both more useful and cheap: the model is
+ *        already reasoning about positioning, so extra variants cost a handful
+ *        of tokens. `rewrite` stays the recommended one so every existing
+ *        consumer — and every already-saved analysis — keeps working unchanged.
+ * WHERE: profileAnalysisSchema.headlineFeedback; rendered as the "Choose one"
+ *        block in the result view.
+ */
+export const headlineFeedbackSchema = sectionFeedbackSchema.extend({
+  /* Defaulted, so analyses saved before alternatives existed still parse and
+   * stay visible in the history rather than being silently filtered out. */
+  alternatives: z
+    .array(z.string().min(1).max(PROFILE_HEADLINE_MAX))
+    .max(3)
+    .default([]),
+});
+export type HeadlineFeedback = z.infer<typeof headlineFeedbackSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: PROFILE_ISSUE_SEVERITIES, profileIssueSeveritySchema,
+ *   ProfileIssueSeverity
+ *
+ * WHAT:  How much a finding matters.
+ * WHY:   The result view leads with a count of what needs attention, and a flat
+ *        list gives it nothing to count. Ordered worst-first so the UI can sort
+ *        on the index rather than hard-coding the ranking a second time.
+ */
+export const PROFILE_ISSUE_SEVERITIES = ["critical", "warning", "polish"] as const;
+export const profileIssueSeveritySchema = z.enum(PROFILE_ISSUE_SEVERITIES);
+export type ProfileIssueSeverity = z.infer<typeof profileIssueSeveritySchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: profileIssueAreaSchema, ProfileIssueArea
+ *
+ * WHAT:  Which part of the profile a finding belongs to.
+ * WHY:   A closed set built from the structured section keys plus the two free
+ *        text areas, so the model can only attribute a finding to a section that
+ *        actually exists — and the result view can group findings under the same
+ *        headings the form collected them from.
+ */
+export const profileIssueAreaSchema = z.union([
+  z.enum(["headline", "about"]),
+  profileSectionKeySchema,
+]);
+export type ProfileIssueArea = z.infer<typeof profileIssueAreaSchema>;
+
 export const profileImprovementSchema = z.object({
   issue: z.string().min(1).max(300),
   fix: z.string().min(1).max(600),
+  /* Both defaulted so a critique saved under the older two-field shape still
+   * parses. Without the defaults every pre-existing history row would fail
+   * toStoredAnalysis and vanish from the list with no error anywhere. */
+  area: profileIssueAreaSchema.default("headline"),
+  severity: profileIssueSeveritySchema.default("warning"),
 });
 export type ProfileImprovement = z.infer<typeof profileImprovementSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: sectionInsightSchema, SectionInsight
+ *
+ * WHAT:  A critique of one structured section, with rewrites for its entries.
+ * WHY:   `target` names the entry each rewrite replaces — without it the user
+ *        gets three paragraphs and has to work out which role each one is for.
+ *        Kept as an ARRAY keyed by `section` rather than an object with a key
+ *        per section because the set generated varies with the org's plan: an
+ *        object shape would force every locked section to be present-but-empty,
+ *        which is exactly the "we generated it and hid it" cost this design
+ *        avoids.
+ * WHERE: profileAnalysisSchema.sectionInsights; rendered as the Experience and
+ *        Projects panels, locked behind the profileDeepInsights plan flag.
+ */
+export const sectionInsightSchema = z.object({
+  section: profileSectionKeySchema,
+  verdict: z.string().min(1).max(400),
+  rewrites: z
+    .array(
+      z.object({
+        /** The entry this replaces — matched against ProfileSectionItem.label. */
+        target: z.string().min(1).max(PROFILE_ITEM_LABEL_MAX),
+        rewrite: z.string().min(1).max(PROFILE_ITEM_DETAIL_MAX),
+      }),
+    )
+    .min(1)
+    .max(5),
+});
+export type SectionInsight = z.infer<typeof sectionInsightSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: profileAnalysisSchema, ProfileAnalysis
@@ -139,10 +255,20 @@ export type ProfileImprovement = z.infer<typeof profileImprovementSchema>;
 export const profileAnalysisSchema = z.object({
   score: z.number().int().min(0).max(100),
   summary: z.string().min(1).max(500),
-  headlineFeedback: sectionFeedbackSchema,
+  headlineFeedback: headlineFeedbackSchema,
   aboutFeedback: sectionFeedbackSchema,
   strengths: z.array(z.string().min(1).max(300)).min(1).max(3),
-  improvements: z.array(profileImprovementSchema).min(1).max(4),
+  /* Raised from 4. The result view now leads with a findings COUNT and shows the
+   * first few, so a hard ceiling of four made "and 12 more" impossible to reach
+   * — the cap was sized for a list that showed everything at once. 14 keeps the
+   * output bounded without capping it below what a weak profile deserves. */
+  improvements: z.array(profileImprovementSchema).min(1).max(14),
+  /* Empty when the org's plan does not include profileDeepInsights: the sections
+   * are not generated at all rather than generated and hidden, so a free-tier
+   * analysis is genuinely cheaper rather than merely less visible. Defaulted for
+   * the same reason as everything else here — pre-existing rows must still
+   * parse. */
+  sectionInsights: z.array(sectionInsightSchema).max(4).default([]),
 });
 export type ProfileAnalysis = z.infer<typeof profileAnalysisSchema>;
 

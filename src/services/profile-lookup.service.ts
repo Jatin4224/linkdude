@@ -25,12 +25,30 @@ import "server-only";
  * WHERE: Called by src/trpc/routers/profile-lookup.ts with `import *`.
  */
 
+import { z } from "zod";
+
 import type { DbClient } from "@/lib/config/prisma";
+import { PROFILE_MAPPER_VERSION } from "@/lib/config/profile-source";
 import { fetchedProfileSchema } from "@/lib/types/profile-lookup";
 import type {
   CachedProfileLookup,
   FetchedProfile,
 } from "@/lib/types/profile-lookup";
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: cachedProfileEnvelopeSchema
+ *
+ * WHAT:  Reads the mapper version stamped alongside a cached profile.
+ * WHY:   Separate from fetchedProfileSchema, which is a strict `z.object` and
+ *        therefore STRIPS the stamp on parse — that is deliberate, so the
+ *        version never leaks into FetchedProfile and out to the UI. Loose here
+ *        because everything else on the row is the profile itself, and the
+ *        version is absent entirely on rows written before it existed.
+ * WHERE: readCachedLookup, before the profile is parsed.
+ */
+const cachedProfileEnvelopeSchema = z.looseObject({
+  mapperVersion: z.number().nullish(),
+});
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PROFILE_LOOKUP_TTL_MS
@@ -101,6 +119,19 @@ export async function readCachedLookup(
 
   if (Date.now() - row.fetchedAt.getTime() > ttlMs) return null;
 
+  /* Staleness has TWO causes and only one of them is time. A row extracted by an
+   * older mapper is stale the moment the mapper improves — its shape still
+   * validates, so nothing else here would catch it, and serving it would hide
+   * the fix for the rest of the TTL. Treated as a miss so the next lookup
+   * re-extracts through the current mappers. */
+  const envelope = cachedProfileEnvelopeSchema.safeParse(row.profile);
+  if (
+    !envelope.success ||
+    envelope.data.mapperVersion !== PROFILE_MAPPER_VERSION
+  ) {
+    return null;
+  }
+
   const parsed = fetchedProfileSchema.safeParse(row.profile);
   if (!parsed.success) return null;
 
@@ -125,10 +156,13 @@ export async function writeCachedLookup(
 ): Promise<void> {
   const key = normaliseProfileUrl(profileUrl);
   const fetchedAt = new Date();
+  /* Stamped so a future mapper fix can invalidate this row. Stripped again on
+   * read by fetchedProfileSchema, so it never reaches a caller. */
+  const stamped = { ...profile, mapperVersion: PROFILE_MAPPER_VERSION };
 
   await db.profileLookup.upsert({
     where: { organizationId_profileUrl: { organizationId, profileUrl: key } },
-    create: { organizationId, profileUrl: key, profile, fetchedAt },
-    update: { profile, fetchedAt },
+    create: { organizationId, profileUrl: key, profile: stamped, fetchedAt },
+    update: { profile: stamped, fetchedAt },
   });
 }

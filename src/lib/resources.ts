@@ -388,6 +388,42 @@ export const RESOURCES = {
     },
   },
 
+  profileDeepInsights: {
+    name: "Deep Profile Insights",
+    description:
+      "Per-role and per-project rewrites in a profile analysis, on top of the headline and About critique",
+    /* FLAG, not a limit, and deliberately its OWN resource rather than a verb on
+     * profileAnalysis. A flag on profileAnalysis would be enforced by
+     * protectedProcedure on EVERY verb of that resource (see the flag gate in
+     * protected.ts), which would lock the whole feature — analysis, history and
+     * all — for free plans. This entry has no router and no procedures, so
+     * nothing auto-fires: the analysis router reads it with checkBooleanFeature
+     * to decide what to ASK the model for, and the result view reads the same
+     * gate to decide what to SHOW.
+     *
+     * That split is the point of gating here rather than in the component. The
+     * locked sections are never generated for a plan that cannot see them, so a
+     * free analysis costs materially fewer output tokens instead of paying for
+     * text nobody is allowed to read. The cost of that choice is honest and
+     * stated in the UI: unlocking requires re-running the analysis.
+     *
+     * No `permissions` key: this is a plan entitlement, not an RBAC verb. The
+     * member permission that governs running an analysis is
+     * profileAnalysis:create and is unchanged. */
+    flag: {
+      perPlan: {
+        free: false,
+        starter: true,
+        pro: true,
+        enterprise: true,
+        portal: true,
+      },
+      /* Trials get it: the deep sections are the thing worth converting on, and
+       * hiding them during the trial hides the reason to upgrade. */
+      availableOnFreeTrial: true,
+    },
+  },
+
   linkedinPosts: {
     name: "LinkedIn Posts",
     description: "Generate, publish, and review LinkedIn posts",

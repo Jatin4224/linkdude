@@ -47,11 +47,22 @@ import {
   PROFILE_ABOUT_MAX,
   PROFILE_EXPERIENCE_MAX,
   PROFILE_HEADLINE_MAX,
+  PROFILE_SECTION_KEYS,
+  PROFILE_SECTION_MAX_ITEMS,
+  PROFILE_SKILLS_MAX_ITEMS,
+  type ApifyItem,
+  type SkillLikeEntry,
   type ApifyProfile,
   type BrightDataProfile,
   type FetchedProfile,
+  type ProfileSections,
+  type ProfileSectionItem,
   type ProfileSource,
 } from "@/lib/types/profile-lookup";
+import {
+  serializeProfileSection,
+  toProfileSectionItem,
+} from "@/lib/config/profile-sections";
 
 /* Vendor responses are wrapped in an array — one record per requested URL —
  * even from the single-URL synchronous endpoint. An EMPTY array is a distinct
@@ -77,24 +88,59 @@ function describePayload(value: unknown): string {
   return typeof value;
 }
 
-/* Roles arrive structured but the model reads prose, so they are flattened into
- * the same shape a user would have pasted. Truncated to the schema ceiling
- * because a long career easily exceeds it and a hard validation failure here
- * would waste the lookup the user just paid for. */
-/* `description` is a required key holding a nullable value, not an optional key:
- * under exactOptionalPropertyTypes those are different types, and the vendor
- * schemas produce `string | null | undefined` rather than an absent property. */
-function joinRoles(
-  roles: ReadonlyArray<{
-    header: string;
-    description: string | null | undefined;
-  }>,
-): string {
-  return roles
-    .map((role) => [role.header, role.description].filter(Boolean).join("\n"))
-    .filter((entry) => entry.trim().length > 0)
-    .join("\n\n")
-    .slice(0, PROFILE_EXPERIENCE_MAX);
+/**
+ * SOURCE OF TRUTH KEYWORDS: describeSampleItems
+ *
+ * WHAT:  For every array on the record, the key names of its FIRST entry.
+ * WHY:   The difference between "the vendor sent nothing" and "the vendor sent
+ *        it under a name we don't read" lives one level down, inside the array
+ *        entries — and only the second of those is fixable for free. Reports
+ *        `array[0]` for a genuinely empty section so the two are distinguishable
+ *        at a glance. Key names only: the values are scraped personal data and
+ *        must never reach a log.
+ */
+function describeSampleItems(record: unknown): string {
+  if (record == null || typeof record !== "object" || Array.isArray(record)) {
+    return describePayload(record);
+  }
+
+  return Object.entries(record)
+    .filter((entry): entry is [string, unknown[]] => Array.isArray(entry[1]))
+    .map(([key, items]) =>
+      items.length === 0
+        ? `${key}=array[0]`
+        : `${key}[0]=${describePayload(items[0])}`,
+    )
+    .join(" ");
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: collectSection
+ *
+ * WHAT:  Turns a raw vendor array into validated section items.
+ * WHY:   Drops entries with no title (an untitled row is not a countable thing)
+ *        and caps the count, so one profile with a 60-role history cannot blow
+ *        the schema maximum AFTER the lookup has already been billed. Shared by
+ *        both vendors because the only per-vendor part is which keys carry the
+ *        label, the meta and the detail — that stays in the mappers.
+ */
+function collectSection<TRaw>(
+  raw: readonly TRaw[] | null | undefined,
+  toItem: (entry: TRaw) => ProfileSectionItem | null,
+  maxItems: number = PROFILE_SECTION_MAX_ITEMS,
+): ProfileSectionItem[] {
+  return (raw ?? [])
+    .map(toItem)
+    .filter((item): item is ProfileSectionItem => item !== null)
+    .slice(0, maxItems);
+}
+
+/* The flat `experience` string is DERIVED from the structured roles rather than
+ * built separately, so the two can never disagree about the same career. It
+ * survives only because the ProfileAnalysis.experience column and pre-sections
+ * cache rows still speak it. */
+function flattenExperience(items: readonly ProfileSectionItem[]): string {
+  return serializeProfileSection(items).slice(0, PROFILE_EXPERIENCE_MAX);
 }
 
 /**
@@ -112,47 +158,233 @@ function mapBrightDataProfile(profile: BrightDataProfile): FetchedProfile {
   const headline = (profile.position ?? profile.headline ?? "").trim();
   const about = (profile.about ?? profile.summary ?? "").trim();
 
+  const sections: ProfileSections = {
+    experience: collectSection(profile.experience, (role) =>
+      toProfileSectionItem(
+        role.title,
+        [role.company, [role.start_date, role.end_date].filter(Boolean).join(" - ")],
+        role.description,
+      ),
+    ),
+    projects: collectSection(profile.projects, (project) =>
+      toProfileSectionItem(
+        project.title ?? project.name,
+        [
+          project.url,
+          [project.start_date, project.end_date].filter(Boolean).join(" - "),
+        ],
+        project.description,
+      ),
+    ),
+    certifications: collectSection(profile.certifications, (cert) =>
+      toProfileSectionItem(cert.title ?? cert.name, [
+        cert.subtitle ?? cert.issuer,
+        cert.meta,
+      ]),
+    ),
+    education: collectSection(profile.education, (school) =>
+      toProfileSectionItem(
+        school.institute_name ?? school.title,
+        [
+          school.degree,
+          school.field,
+          [school.start_year, school.end_year].filter(Boolean).join(" - "),
+        ],
+        school.description,
+      ),
+    ),
+    skills: collectSection(
+      profile.skills,
+      toTextOrItem,
+      PROFILE_SKILLS_MAX_ITEMS,
+    ),
+    languages: collectSection(profile.languages, toTextOrItem),
+    volunteering: collectSection(profile.volunteer_experience, (entry) =>
+      toProfileSectionItem(
+        entry.title ?? entry.name,
+        [[entry.start_date, entry.end_date].filter(Boolean).join(" - ")],
+        entry.description,
+      ),
+    ),
+    articles: collectSection(profile.posts, (entry) =>
+      toProfileSectionItem(entry.title ?? entry.name, [
+        entry.url,
+        entry.start_date,
+      ]),
+    ),
+  };
+
   return {
     headline: headline.slice(0, PROFILE_HEADLINE_MAX),
     about: about.slice(0, PROFILE_ABOUT_MAX),
-    experience: joinRoles(
-      (profile.experience ?? []).map((role) => ({
-        header: [
-          [role.title, role.company].filter(Boolean).join(" at "),
-          [role.start_date, role.end_date].filter(Boolean).join(" - "),
-        ]
-          .filter(Boolean)
-          .join(" "),
-        description: role.description,
-      })),
-    ),
+    experience: flattenExperience(sections.experience),
     name: profile.name?.trim() || null,
+    sections,
   };
 }
 
-/* The actor returns roles WITHOUT descriptions — only position, company, and
- * duration — so experience is reconstructed as a factual role list. It reads
- * thinner than a pasted Experience section, which is fine: the field stays
- * editable, and the analysis prompt is told not to fault a section it wasn't
- * given rather than inventing achievements to fill the gap. */
+/**
+ * SOURCE OF TRUTH KEYWORDS: firstText, apifyDateText
+ *
+ * WHAT:  Picks the first non-empty candidate from the many key names one Apify
+ *        field can arrive under, and flattens a date that may be a string or a
+ *        `{ year }` object.
+ * WHY:   The actor's inner key names are undocumented and vary per section and
+ *        per fallback tier. Reading one name and hoping is what produced empty
+ *        sections from a response that demonstrably contained the data, so every
+ *        slot reads an ordered list of candidates and takes the first that is
+ *        actually populated.
+ */
+function firstText(
+  ...candidates: ReadonlyArray<string | null | undefined>
+): string {
+  return candidates.find((value) => (value ?? "").trim().length > 0)?.trim() ?? "";
+}
+
+function apifyDateText(value: ApifyItem["startDate"]): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value.year === "number") return String(value.year);
+  return "";
+}
+
+/* Skills and languages arrive as bare strings as often as objects, and a skill
+ * carries nothing but its name either way. Normalised here so the section shape
+ * is the same regardless of which form the vendor sent. */
+function toTextOrItem(entry: SkillLikeEntry): ProfileSectionItem | null {
+  if (typeof entry === "string") return toProfileSectionItem(entry, []);
+  return toProfileSectionItem(
+    firstText(entry.name, entry.title),
+    [firstText(entry.subtitle, entry.caption, entry.metadata)],
+  );
+}
+
+/* On the tier verified in 2026 this actor returned roles WITHOUT descriptions —
+ * only position, company and duration — so experience reads thinner than a
+ * pasted section. The mapper now CARRIES a description when one is present,
+ * because the fuller fallback tiers and the actor's own docs both claim it; the
+ * previous version hardcoded it away, which made a richer response impossible to
+ * receive even if the vendor sent one.
+ *
+ * Every section key is read under both spellings the actor is known to use. The
+ * cost of a wrong guess is silent: a loose schema turns a renamed field into an
+ * empty section rather than an error, so reading both is the only cheap defence. */
 function mapApifyProfile(profile: ApifyProfile): FetchedProfile {
+  /* Every date candidate collapsed to one string, so each section's meta line
+   * only has to choose between "a range" and "two endpoints". */
+  const dateOf = (item: ApifyItem): string =>
+    firstText(
+      item.duration,
+      item.dateRange,
+      item.date_range,
+      item.date,
+      item.years,
+      item.caption,
+      [
+        firstText(item.start_date, apifyDateText(item.startDate)),
+        firstText(item.end_date, apifyDateText(item.endDate)),
+      ]
+        .filter(Boolean)
+        .join(" - "),
+    );
+
+  const sections: ProfileSections = {
+    experience: collectSection(
+      profile.experience ?? profile.experiences,
+      (role) =>
+        toProfileSectionItem(
+          firstText(role.title, role.position, role.role, role.jobTitle),
+          [
+            firstText(
+              role.companyName,
+              role.company,
+              role.company_name,
+              role.subtitle,
+            ),
+            dateOf(role),
+            role.location,
+          ],
+          firstText(role.description, role.summary, role.details),
+        ),
+    ),
+    projects: collectSection(profile.projects, (project) =>
+      toProfileSectionItem(
+        firstText(project.title, project.name),
+        [firstText(project.url, project.link), dateOf(project)],
+        firstText(project.description, project.summary, project.details),
+      ),
+    ),
+    certifications: collectSection(
+      profile.certifications ?? profile.licenseAndCertificates,
+      (cert) =>
+        toProfileSectionItem(firstText(cert.title, cert.name), [
+          firstText(
+            cert.subtitle,
+            cert.issuer,
+            cert.authority,
+            cert.organization,
+          ),
+          dateOf(cert),
+        ]),
+    ),
+    education: collectSection(
+      profile.education ?? profile.educations,
+      (school) =>
+        toProfileSectionItem(
+          firstText(
+            school.schoolName,
+            school.school,
+            school.institution,
+            school.instituteName,
+            school.institute_name,
+            school.title,
+            school.name,
+          ),
+          [
+            firstText(school.degree, school.degreeName, school.subtitle),
+            firstText(
+              school.fieldOfStudy,
+              school.field,
+              school.field_of_study,
+            ),
+            dateOf(school),
+          ],
+          firstText(school.description, school.summary),
+        ),
+    ),
+    skills: collectSection(
+      profile.topSkills ?? profile.skills,
+      toTextOrItem,
+      PROFILE_SKILLS_MAX_ITEMS,
+    ),
+    languages: collectSection(profile.languages, toTextOrItem),
+    volunteering: collectSection(
+      profile.volunteer_experience ?? profile.volunteerExperience,
+      (entry) =>
+        toProfileSectionItem(
+          firstText(entry.title, entry.role, entry.position),
+          [
+            firstText(entry.organization, entry.companyName, entry.subtitle),
+            dateOf(entry),
+          ],
+          firstText(entry.description, entry.summary),
+        ),
+    ),
+    articles: collectSection(profile.articles ?? profile.posts, (entry) =>
+      toProfileSectionItem(firstText(entry.title, entry.name), [
+        firstText(entry.url, entry.link),
+        dateOf(entry),
+      ]),
+    ),
+  };
+
   return {
     headline: (profile.headline ?? "").trim().slice(0, PROFILE_HEADLINE_MAX),
-    about: (profile.about ?? "").trim().slice(0, PROFILE_ABOUT_MAX),
-    experience: joinRoles(
-      (profile.experience ?? []).map((role) => ({
-        header: [
-          role.position,
-          role.companyName,
-          role.duration,
-          role.startDate?.year ? `from ${role.startDate.year}` : "",
-        ]
-          .filter(Boolean)
-          .join(" | "),
-        description: null,
-      })),
-    ),
+    about: (profile.about ?? profile.summary ?? "")
+      .trim()
+      .slice(0, PROFILE_ABOUT_MAX),
+    experience: flattenExperience(sections.experience),
     name: profile.name?.trim() || null,
+    sections,
   };
 }
 
@@ -307,6 +539,37 @@ export async function fetchProfileFromUrl(
   if (!mapped.headline && !mapped.about) {
     throw new Error(
       "That profile returned no headline or About text. It may be private — paste your details manually.",
+    );
+  }
+
+  /* The single most useful log line in this file, and the one that was missing.
+   *
+   * The profile schemas are `looseObject` with every field `.nullish()`, which
+   * means they parse ANY object — including one whose keys the mappers do not
+   * recognise. So `PROFILE_MAPPERS` never returns null for an object record and
+   * the "unexpected shape" branch above is effectively unreachable: a vendor
+   * renaming `about` to `summary`, or returning a search-engine snippet instead
+   * of a profile, surfaces as a half-empty form with NOTHING in the server log
+   * to say which of those happened.
+   *
+   * Logging the record's top-level key names — names only, never scraped values
+   * — turns "the fetch only filled the headline" from a guess into a fact: if
+   * the keys are absent, the vendor genuinely returned a thin result and the
+   * answer is a vendor change; if they are present under different spellings,
+   * the answer is a mapper change and costs nothing. */
+  const emptySections = PROFILE_SECTION_KEYS.filter(
+    (key) => mapped.sections[key].length === 0,
+  );
+  if (emptySections.length > 0) {
+    console.warn(
+      `[profile-source] ${source.label} produced no entries for: ${emptySections.join(", ")}.`,
+      `record keys: ${describePayload(record)}`,
+      /* The INNER keys, which is the part that actually matters. A live response
+       * had `experience` and `education` populated at the top level while the
+       * mapper read the wrong key names inside each entry and produced nothing —
+       * top-level keys alone could not distinguish that from an empty array.
+       * Names only, never scraped values. */
+      `sample item keys: ${describeSampleItems(record)}`,
     );
   }
 

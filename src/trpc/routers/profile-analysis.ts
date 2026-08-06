@@ -33,6 +33,9 @@ import {
   discardAnalysisSchema,
 } from "@/lib/types";
 import { isAiConfigured, getAiProvider } from "@/lib/config";
+import { serializeProfileSection } from "@/lib/config/profile-sections";
+import { checkBooleanFeature } from "@/lib/feature-gate";
+import { PROFILE_EXPERIENCE_MAX } from "@/lib/types";
 import * as aiService from "@/services/ai.service";
 import * as profileAnalysisService from "@/services/profile-analysis.service";
 
@@ -79,14 +82,39 @@ export const profileAnalysisRouter = createTRPCRouter({
         });
       }
 
+      /* Business logic, so it belongs here rather than in either service: the
+       * plan decides WHAT IS ASKED FOR, not merely what is rendered. Resolved
+       * before the model call so the locked sections are never generated —
+       * gating them in the component instead would mean paying for output the
+       * user is not allowed to read. `profileDeepInsights` is a flag-only
+       * resource with no procedures of its own, so nothing auto-enforces it;
+       * this is the enforcement. */
+      const deepInsights = await checkBooleanFeature(
+        input.organizationId,
+        "profileDeepInsights",
+      );
+
+      /* The legacy experience column still speaks flattened prose. Derived from
+       * the structured roles rather than collected separately, so the column and
+       * the sections can never describe different careers. */
+      const experience =
+        input.experience ??
+        serializeProfileSection(input.sections.experience).slice(
+          0,
+          PROFILE_EXPERIENCE_MAX,
+        );
+
       try {
-        const analysis = await aiService.analyzeLinkedInProfile(input);
+        const analysis = await aiService.analyzeLinkedInProfile(input, {
+          deepInsights,
+        });
         return await profileAnalysisService.recordAnalysis(ctx.db, {
           organizationId: input.organizationId,
           authorId: ctx.user.id,
           headline: input.headline,
           about: input.about,
-          experience: input.experience,
+          sections: input.sections,
+          ...(experience ? { experience } : {}),
           analysis,
         });
       } catch (error) {

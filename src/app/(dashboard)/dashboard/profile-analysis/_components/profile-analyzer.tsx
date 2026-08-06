@@ -38,6 +38,7 @@ import type {
   FetchedProfile,
   StoredProfileAnalysis,
 } from "@/lib/types";
+import { PROFILE_SECTION_ENTRIES } from "@/lib/config/profile-sections";
 import { ContentLayout } from "@/components/global/page-header";
 import { UsageMeter } from "@/components/global/usage-meter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,7 +91,28 @@ export function ProfileAnalyzer() {
   const fetchProfile = trpc.profileLookup.create.useMutation({
     onSuccess: async (result) => {
       setFetched(result);
-      toast.success(result.name ? `Loaded ${result.name}.` : "Profile loaded.");
+
+      /* A scrape that fills only the headline used to report the same cheerful
+         success as one that filled everything, and the user found out when the
+         About field failed its 50-character minimum on submit. Naming the
+         sections that came back empty says which fields still need them, and
+         makes a thin vendor result visible instead of looking like the app
+         forgot to fill them in. */
+      const missing = PROFILE_SECTION_ENTRIES.filter(
+        ({ key }) => result.sections[key].length === 0,
+      ).map(({ label }) => label.toLowerCase());
+      const loaded = result.name ? `Loaded ${result.name}.` : "Profile loaded.";
+
+      if (missing.length === PROFILE_SECTION_ENTRIES.length) {
+        toast.warning(
+          `${loaded} No ${missing.join(", ")} came back — LinkedIn blocks most automated reads, so add those yourself.`,
+        );
+      } else if (missing.length > 0) {
+        toast.warning(`${loaded} No ${missing.join(" or ")} came back.`);
+      } else {
+        toast.success(loaded);
+      }
+
       /* A lookup is metered on its own quota, so the meter beside the URL field
          has to move even though nothing about the analysis changed. */
       await utils.usage.invalidate();
@@ -125,6 +147,10 @@ export function ProfileAnalyzer() {
       headline: analysis.input.headline,
       about: analysis.input.about,
       experience: analysis.input.experience ?? "",
+      /* Rows written before structured sections existed come back with the
+         legacy prose rebuilt as a single entry, so reusing one never silently
+         drops the experience the user originally pasted. */
+      sections: analysis.input.sections,
       name: null,
     });
     toast.success("Loaded into the form — edit and analyze again.");
@@ -170,7 +196,9 @@ export function ProfileAnalyzer() {
         </Card>
 
         {selected ? (
-          <AnalysisResult analysis={selected.result} />
+          /* The whole stored row, not just the critique: the count tiles and the
+             headline line describe the INPUT that was analyzed. */
+          <AnalysisResult analysis={selected} />
         ) : (
           <Card className="h-fit">
             <CardContent className="p-8 text-center">

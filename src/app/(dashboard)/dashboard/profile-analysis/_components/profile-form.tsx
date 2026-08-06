@@ -9,7 +9,8 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: ProfileForm, ProfileFormProps
  *
- * WHAT:  The paste-your-profile form — headline, About, and optional experience.
+ * WHAT:  The paste-your-profile form — headline, About, and the structured
+ *        sections (roles, projects, certifications, education).
  * WHY:   The profile is typed in rather than fetched: LinkedIn returns only
  *        `{ sub, name, picture }` under this app's scopes and blocks automated
  *        reads of profile pages, so there is no path to this text other than the
@@ -32,8 +33,14 @@ import {
   type FetchProfileValues,
   type FetchedProfile,
 } from "@/lib/types";
+import {
+  PROFILE_SECTION_ENTRIES,
+  emptyProfileSections,
+} from "@/lib/config/profile-sections";
 import { FeatureGate } from "@/components/feature-gate";
 import { UsageMeter } from "@/components/global/usage-meter";
+import { ProfileSectionFields } from "@/components/global/profile-section-fields";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -70,7 +77,13 @@ export function ProfileForm({
 }: ProfileFormProps) {
   const form = useForm<AnalyzeProfileValues>({
     resolver: zodResolver(analyzeProfileSchema),
-    defaultValues: { headline: "", about: "", experience: "" },
+    /* Every section is present-and-empty rather than absent: useFieldArray needs
+       an array to append to, and an undefined path silently renders nothing. */
+    defaultValues: {
+      headline: "",
+      about: "",
+      sections: emptyProfileSections(),
+    },
   });
 
   const urlForm = useForm<FetchProfileValues>({
@@ -86,7 +99,7 @@ export function ProfileForm({
     form.reset({
       headline: fetched.headline,
       about: fetched.about,
-      experience: fetched.experience,
+      sections: fetched.sections,
     });
   }, [fetched, form]);
 
@@ -206,32 +219,20 @@ export function ProfileForm({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="experience"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Experience{" "}
-                  <span className="text-muted-foreground">(optional)</span>
-                </FormLabel>
-                <FormControl>
-                  <Textarea
-                    {...field}
-                    rows={6}
-                    placeholder="Paste a few recent roles and their descriptions..."
-                    disabled={busy}
-                    className="resize-none"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Optional, but it makes the positioning advice noticeably
-                  sharper.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Entry-by-entry rather than one Experience textarea. The result view
+              counts what is here and attributes a fix to a specific role, and
+              neither is possible once a career is flattened into a paragraph.
+              Rendered from PROFILE_SECTION_ENTRIES so a new section appears here
+              by adding a registry entry, not by editing this file. */}
+          <Separator />
+          {PROFILE_SECTION_ENTRIES.map(({ key }) => (
+            <ProfileSectionFields
+              key={key}
+              control={form.control}
+              section={key}
+              disabled={busy}
+            />
+          ))}
 
           {/* Gated at the BUTTON, not the form: FeatureGate clones one child to
               intercept its onClick, and at the cap it calls preventDefault —

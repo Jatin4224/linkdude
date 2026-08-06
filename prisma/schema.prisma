@@ -499,6 +499,18 @@ model ProfileAnalysis {
   about      String  @db.Text
   experience String? @db.Text
 
+  // The structured sections (roles, projects, certifications, education) as
+  // profileSectionsSchema holds them. ONE Json column rather than a column per
+  // section: the set of sections is owned by PROFILE_SECTION_KEYS and is
+  // expected to grow (skills, publications), and a migration per new section is
+  // exactly the coupling the registry exists to avoid. Re-validated on read
+  // through profileSectionsSchema, same contract as `result` below.
+  //
+  // NULLABLE because rows written before structured sections existed have none.
+  // The schema defaults every section to an empty array, so those rows still
+  // reload into the form instead of failing validation and disappearing.
+  sections Json?
+
   // Denormalised off `result` so the history list renders without parsing the
   // JSON payload of every row.
   score   Int
