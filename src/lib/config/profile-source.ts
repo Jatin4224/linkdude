@@ -90,6 +90,34 @@ const APIFY_ACTOR_ID = "thirdwatch~linkedin-profile-scraper";
 export const PROFILE_FETCH_TIMEOUT_MS = 75_000;
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: PROFILE_MAPPER_VERSION
+ *
+ * WHAT:  Stamped onto every cached lookup. Bump it whenever a vendor mapper
+ *        changes what it extracts.
+ * WHY:   Cached lookups live for seven days, and `profileLookup.create` serves
+ *        the cache before it calls the vendor. So a mapper FIX cannot reach any
+ *        profile that was already looked up — the improved code never runs, and
+ *        the user keeps seeing the thin result that motivated the fix, with no
+ *        way to force a refresh short of waiting out the TTL.
+ *
+ *        That is not hypothetical: a lookup cached under a mapper that read the
+ *        wrong key names stored four empty sections, and those empty sections
+ *        re-validate perfectly against the current schema. Schema validation
+ *        cannot catch this class of staleness because the SHAPE is fine and only
+ *        the CONTENT is impoverished. A version stamp can.
+ *
+ *        Bumping costs one re-fetch per previously-cached profile, once. Leaving
+ *        it stale costs a week of the fix appearing not to work.
+ *
+ *        Version history:
+ *          1 — headline/about/flattened experience only
+ *          2 — structured sections; Apify items read under every observed
+ *              key-name spelling rather than one guess
+ * WHERE: Written by writeCachedLookup, checked by readCachedLookup.
+ */
+export const PROFILE_MAPPER_VERSION = 2;
+
+/**
  * SOURCE OF TRUTH KEYWORDS: PROFILE_SOURCES
  *
  * WHAT:  Every profile-data vendor the app knows how to call.

@@ -25,12 +25,20 @@ import "server-only";
 
 import type { DbClient } from "@/lib/config/prisma";
 import type { Prisma } from "@/generated/prisma";
-import { profileAnalysisSchema } from "@/lib/types/profile-analysis";
+import {
+  profileAnalysisSchema,
+  profileSectionsSchema,
+} from "@/lib/types/profile-analysis";
 import type {
   AnalyzeProfileValues,
   ProfileAnalysis,
+  ProfileSections,
   StoredProfileAnalysis,
 } from "@/lib/types/profile-analysis";
+import {
+  emptyProfileSections,
+  splitLegacyExperience,
+} from "@/lib/config/profile-sections";
 
 export interface RecordAnalysisArgs extends AnalyzeProfileValues {
   organizationId: string;
@@ -58,6 +66,7 @@ const PROFILE_ANALYSIS_LIST_SELECT = {
   headline: true,
   about: true,
   experience: true,
+  sections: true,
 } as const satisfies Prisma.ProfileAnalysisSelect;
 
 type ProfileAnalysisRow = Prisma.ProfileAnalysisGetPayload<{
@@ -89,6 +98,28 @@ function toStoredAnalysis(row: ProfileAnalysisRow): StoredProfileAnalysis | null
 }
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: toProfileSections
+ *
+ * WHAT:  Reads the structured sections back out of the Json column.
+ * WHY:   Same contract as `result`: a Json column is untyped coming out of
+ *        Prisma, so it is validated rather than asserted. Falls back to
+ *        rebuilding from the legacy `experience` prose when the column is null,
+ *        which is the case for every row written before sections existed —
+ *        reloading one of those must not silently drop the text the user pasted.
+ *        A parse failure degrades the same way: empty sections plus whatever the
+ *        legacy column holds, never a lost row.
+ */
+function toProfileSections(row: ProfileAnalysisRow): ProfileSections {
+  const parsed = profileSectionsSchema.safeParse(row.sections);
+  if (parsed.success) return parsed.data;
+
+  return {
+    ...emptyProfileSections(),
+    experience: splitLegacyExperience(row.experience),
+  };
+}
+
+/**
  * SOURCE OF TRUTH KEYWORDS: toAnalyzeInput
  *
  * WHAT:  Rebuilds the AnalyzeProfileValues a row was produced from.
@@ -104,6 +135,7 @@ function toAnalyzeInput(row: ProfileAnalysisRow): AnalyzeProfileValues {
     headline: row.headline,
     about: row.about,
     ...(row.experience === null ? {} : { experience: row.experience }),
+    sections: toProfileSections(row),
   };
 }
 
@@ -132,6 +164,9 @@ export async function recordAnalysis(
        * interchangeable. Normalising here keeps "the user skipped it" as one
        * stored value instead of two. */
       experience: args.experience ?? null,
+      /* Written on every analysis so a history row reloads with its roles and
+       * projects intact rather than degrading to the flattened prose. */
+      sections: args.sections,
       score: args.analysis.score,
       summary: args.analysis.summary,
       result: args.analysis,
