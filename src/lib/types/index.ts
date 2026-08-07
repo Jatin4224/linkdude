@@ -17,7 +17,11 @@
  *   generatePostSchema, GeneratePostValues, generatedPostSchema, GeneratedPost,
  *   publishPostSchema, PublishPostValues, postImageSchema, PostImageValues,
  *   listPostsSchema, deletePostSchema, disconnectIntegrationSchema,
- *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES, LINKEDIN_MAX_IMAGE_BYTES,
+ *   listCalendarPostsSchema, ListCalendarPostsValues, scheduledForSchema,
+ *   LINKEDIN_POST_STATUSES, LinkedInPostStatus, CANCELABLE_POST_STATUSES,
+ *   LinkedInImageBinary, uploadAuthParamsSchema, UploadAuthParams,
+ *   imageKitUploadResponseSchema, ImageKitUploadResponse, imageTransformSchema,
+ *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES,
  *   analyzeProfileSchema, AnalyzeProfileValues, profileAnalysisSchema,
  *   ProfileAnalysis, SectionFeedback, ProfileImprovement
  *
@@ -101,23 +105,41 @@ export type {
 } from "./ai";
 export {
   LINKEDIN_IMAGE_MIME_TYPES,
-  LINKEDIN_MAX_IMAGE_BYTES,
-  LINKEDIN_MAX_IMAGE_LABEL,
   LINKEDIN_OAUTH_ERROR_CODES,
+  LINKEDIN_POST_STATUSES,
+  CANCELABLE_POST_STATUSES,
   normalizeLinkedInOAuthError,
-  postImageSchema,
+  scheduledForSchema,
   publishPostSchema,
   listPostsSchema,
+  listCalendarPostsSchema,
   deletePostSchema,
   disconnectIntegrationSchema,
 } from "./linkedin";
 export type {
   LinkedInImageMimeType,
+  LinkedInImageBinary,
   LinkedInOAuthErrorCode,
-  PostImageValues,
+  LinkedInPostStatus,
+  ListCalendarPostsValues,
   PublishPostValues,
   LinkedInConnectionStatus,
 } from "./linkedin";
+
+/* ImageKit — post media lives behind a storage provider so a scheduled post
+ * still has its image when the worker fires days later. */
+export {
+  postImageSchema,
+  imageTransformSchema,
+  uploadAuthParamsSchema,
+  imageKitUploadResponseSchema,
+  IMAGEKIT_TRANSFORM_MAX,
+} from "./imagekit";
+export type {
+  PostImageValues,
+  UploadAuthParams,
+  ImageKitUploadResponse,
+} from "./imagekit";
 export {
   analyzeProfileSchema,
   profileAnalysisSchema,

@@ -7,30 +7,36 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: PostComposer, CALLBACK_ERROR_MESSAGES,
- *   readImageAsBase64
+ * SOURCE OF TRUTH KEYWORDS: PostComposer, PostComposerProps,
+ *   CALLBACK_ERROR_MESSAGES, toLocalDateTimeInput
  *
  * WHAT:  The Create Post screen — generation controls on the left, a live
- *        LinkedIn preview with an inline editor on the right, and Publish.
+ *        LinkedIn preview with an inline editor on the right, and Publish or
+ *        Schedule.
  * WHY:   The preview IS the editor: users judge a post by how it will look, so
  *        editing happens inside the same card rather than in a separate
  *        textarea. Publishing is gated on a live connection, which is why the
  *        connect state is read here and not just in the header. OAuth outcomes
  *        arrive as query params (the callback is a redirect, not a fetch), so
  *        they are translated to toasts on mount.
- * WHERE: Rendered by the post-generation page. Calls aiGeneration.create,
- *        linkedinPosts.create, and integrations.linkedin.
+ *
+ *        Publish and Schedule are ONE mutation with an optional date, not two
+ *        endpoints — that is what keeps a post slot spent exactly once. Images
+ *        upload straight to ImageKit, so the form carries a reference rather
+ *        than bytes and the old 3 MB payload ceiling is gone.
+ * WHERE: Rendered by the post-generation page, which supplies the config flags.
+ *        Calls aiGeneration.create, linkedinPosts.create,
+ *        linkedinPosts.uploadAuth, and integrations.linkedin.
  */
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ImageIcon,
+  CalendarClockIcon,
   LinkIcon,
   Loader2Icon,
   SendIcon,
   SparklesIcon,
-  XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,8 +44,6 @@ import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   LINKEDIN_IMAGE_MIME_TYPES,
-  LINKEDIN_MAX_IMAGE_BYTES,
-  LINKEDIN_MAX_IMAGE_LABEL,
   LINKEDIN_OAUTH_ERROR_CODES,
   type GeneratePostValues,
   type LinkedInOAuthErrorCode,
@@ -47,17 +51,35 @@ import {
   type PostLength,
   type PostTone,
 } from "@/lib/types";
-import { LINKEDIN_MAX_COMMENTARY } from "@/lib/config";
+import {
+  IMAGEKIT_MAX_IMAGE_BYTES,
+  IMAGEKIT_MAX_IMAGE_LABEL,
+  LINKEDIN_IMAGE_TRANSFORM,
+  LINKEDIN_MAX_COMMENTARY,
+  MIN_SCHEDULE_LEAD_MS,
+} from "@/lib/config";
 import { ContentLayout } from "@/components/global/page-header";
 import {
   LinkedInConnectButton,
   LinkedInPostPreview,
 } from "@/components/global/linkedin";
+import { ImageUpload } from "@/components/global/image-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { GenerateForm } from "./generate-form";
+
+export interface PostComposerProps {
+  /** ImageKit is configured — without it, attaching an image is impossible. */
+  imageUploadsEnabled: boolean;
+  /** A scheduler is wired up — without it, a scheduled post would never fire. */
+  schedulingEnabled: boolean;
+  /** Preselected day from the calendar's "add post here" action. */
+  initialScheduledFor?: Date | undefined;
+}
 
 /* The OAuth callback can only talk back through the URL, so each failure mode
  * gets a user-facing sentence here. Typed against LinkedInOAuthErrorCode rather
@@ -80,34 +102,51 @@ const CALLBACK_ERROR_MESSAGES: Record<LinkedInOAuthErrorCode, string> = {
   not_configured: "LinkedIn is not configured on this deployment.",
 };
 
-/* FileReader yields a `data:<mime>;base64,<payload>` URL; the API wants the
- * bare payload, so split on the first comma. */
-function readImageAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () =>
-      reject(new Error("Could not read the selected image."));
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      resolve(result.slice(result.indexOf(",") + 1));
-    };
-    reader.readAsDataURL(file);
-  });
+/* <input type="datetime-local"> speaks `YYYY-MM-DDTHH:mm` in LOCAL time and
+ * rejects anything else. toISOString would silently shift the value by the
+ * timezone offset, so the user picks 09:00 and the post goes out at 04:00. */
+function toLocalDateTimeInput(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
 }
 
-export function PostComposer() {
+/* The earliest value the picker will accept, matching the server's floor so a
+ * too-soon time is refused before the round trip rather than after it. */
+function earliestSchedule(): string {
+  return toLocalDateTimeInput(new Date(Date.now() + MIN_SCHEDULE_LEAD_MS));
+}
+
+export function PostComposer({
+  imageUploadsEnabled,
+  schedulingEnabled,
+  initialScheduledFor,
+}: PostComposerProps) {
   const organizationId = useActiveOrganizationId();
   const router = useRouter();
   const searchParams = useSearchParams();
   const utils = trpc.useUtils();
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [commentary, setCommentary] = React.useState("");
   const [tone, setTone] = React.useState<PostTone>("professional");
   const [length, setLength] = React.useState<PostLength>("medium");
   const [image, setImage] = React.useState<PostImageValues | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(
-    null,
+  /* Seeded from the calendar's "add post here" action, so arriving from a day
+   * cell lands on the composer with that day already chosen. */
+  const [isScheduling, setIsScheduling] = React.useState(
+    initialScheduledFor !== undefined,
+  );
+  /* Computed ONCE at mount, never during render — Date.now() in a render body
+   * is impure and produces a value that shifts on every re-render. The floor
+   * going slightly stale in a long-lived tab is harmless: the server enforces
+   * the real one and returns a readable message. */
+  const [minSchedule] = React.useState(earliestSchedule);
+  const [scheduledFor, setScheduledFor] = React.useState(() =>
+    initialScheduledFor
+      ? toLocalDateTimeInput(initialScheduledFor)
+      : earliestSchedule(),
   );
 
   const enabled = organizationId !== undefined;
@@ -153,66 +192,29 @@ export function PostComposer() {
   });
 
   const publish = trpc.linkedinPosts.create.useMutation({
-    onSuccess: async () => {
-      toast.success("Published to LinkedIn.");
+    onSuccess: async (post) => {
+      toast.success(
+        post.status === "scheduled"
+          ? `Scheduled for ${post.scheduledFor?.toLocaleString() ?? "later"}.`
+          : "Published to LinkedIn.",
+      );
       setCommentary("");
-      clearImage();
+      setImage(null);
+      setIsScheduling(false);
+      setScheduledFor(earliestSchedule());
       await Promise.all([
         utils.linkedinPosts.list.invalidate(),
+        utils.linkedinPosts.listCalendar.invalidate(),
         utils.usage.invalidate(),
       ]);
     },
     onError: (error) => toast.error(error.message),
   });
 
-  function clearImage() {
-    setImage(null);
-    setImagePreviewUrl((previous) => {
-      /* Object URLs leak until revoked. */
-      if (previous) URL.revokeObjectURL(previous);
-      return null;
-    });
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  /* Revoke on unmount too — clearImage only covers the interactive paths. */
-  React.useEffect(
-    () => () => {
-      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-    },
-    [imagePreviewUrl],
-  );
-
-  async function handleImageSelected(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    /* Checked before reading: base64-encoding a huge file just to reject it
-     * would block the main thread for no reason. */
-    if (file.size > LINKEDIN_MAX_IMAGE_BYTES) {
-      toast.error(`Image must be ${LINKEDIN_MAX_IMAGE_LABEL} or smaller.`);
-      event.target.value = "";
-      return;
-    }
-
-    const mimeType = LINKEDIN_IMAGE_MIME_TYPES.find(
-      (type) => type === file.type,
-    );
-    if (!mimeType) {
-      toast.error("LinkedIn accepts PNG, JPEG, or GIF images.");
-      event.target.value = "";
-      return;
-    }
-
-    try {
-      const data = await readImageAsBase64(file);
-      setImage({ mimeType, data });
-      setImagePreviewUrl(URL.createObjectURL(file));
-    } catch {
-      toast.error("Could not read the selected image.");
-    }
+  /* Fetched on demand, never cached: an upload token is short-lived, and a
+   * reused one fails at ImageKit rather than here. */
+  async function fetchUploadAuth() {
+    return utils.linkedinPosts.uploadAuth.fetch({ organizationId: orgId });
   }
 
   function handleGenerate(values: GeneratePostValues) {
@@ -220,21 +222,35 @@ export function PostComposer() {
     generate.mutate({ ...values, organizationId: orgId });
   }
 
-  function handlePublish() {
+  function handleSubmit() {
     if (!enabled) return;
     publish.mutate({
       organizationId: orgId,
       commentary,
       ...(image ? { image } : {}),
+      /* The ONLY difference between publishing and scheduling. The server
+       * branches on this field; the quota is spent either way. */
+      ...(isScheduling ? { scheduledFor: new Date(scheduledFor) } : {}),
     });
   }
 
+  /* What LinkedIn will actually receive — the same transform the publish path
+   * applies, so the preview cannot flatter the result. */
+  const imagePreviewUrl = image
+    ? `${image.url}?tr=${image.transform ?? LINKEDIN_IMAGE_TRANSFORM}`
+    : null;
+
   const isConnected =
     Boolean(connection.data?.connected) && !connection.data?.needsReconnect;
+  /* `YYYY-MM-DDTHH:mm` sorts lexicographically in chronological order, so a
+   * string compare against the mount-time floor is both correct and pure. */
+  const scheduleIsValid =
+    !isScheduling || (scheduledFor.length > 0 && scheduledFor >= minSchedule);
   const canPublish =
     isConnected &&
     commentary.trim().length > 0 &&
-    commentary.length <= LINKEDIN_MAX_COMMENTARY;
+    commentary.length <= LINKEDIN_MAX_COMMENTARY &&
+    scheduleIsValid;
 
   return (
     <ContentLayout
@@ -271,37 +287,17 @@ export function PostComposer() {
             commentary={commentary}
             imageUrl={imagePreviewUrl}
             actions={
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={LINKEDIN_IMAGE_MIME_TYPES.join(",")}
-                  className="hidden"
-                  onChange={handleImageSelected}
+              imageUploadsEnabled ? (
+                <ImageUpload
+                  value={image}
+                  onChange={setImage}
+                  getAuthParams={fetchUploadAuth}
+                  accept={LINKEDIN_IMAGE_MIME_TYPES}
+                  maxBytes={IMAGEKIT_MAX_IMAGE_BYTES}
+                  maxBytesLabel={IMAGEKIT_MAX_IMAGE_LABEL}
+                  disabled={publish.isPending || !enabled}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={publish.isPending}
-                >
-                  <ImageIcon className="size-4" />
-                  {image ? "Replace image" : "Add image"}
-                </Button>
-                {image ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearImage}
-                    disabled={publish.isPending}
-                  >
-                    <XIcon className="size-4" />
-                    Remove
-                  </Button>
-                ) : null}
-              </div>
+              ) : null
             }
           >
             {/* The editor replaces the preview body so what you type is
@@ -316,6 +312,44 @@ export function PostComposer() {
             />
           </LinkedInPostPreview>
 
+          {schedulingEnabled ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="schedule-toggle"
+                  checked={isScheduling}
+                  onCheckedChange={setIsScheduling}
+                  disabled={publish.isPending}
+                />
+                <label
+                  htmlFor="schedule-toggle"
+                  className="flex cursor-pointer items-center gap-1.5 text-sm"
+                >
+                  <CalendarClockIcon className="size-4 text-muted-foreground" />
+                  Schedule for later
+                </label>
+              </div>
+              {isScheduling ? (
+                <Input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  /* Mirrors the server's floor so a too-soon time is refused by
+                     the picker instead of by a round trip. */
+                  min={minSchedule}
+                  onChange={(event) => setScheduledFor(event.target.value)}
+                  disabled={publish.isPending}
+                  className="w-auto"
+                />
+              ) : null}
+              {isScheduling && !scheduleIsValid ? (
+                <p className="text-sm text-destructive">
+                  Pick a time at least {MIN_SCHEDULE_LEAD_MS / 60_000} minutes
+                  from now.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p
               className={
@@ -328,15 +362,17 @@ export function PostComposer() {
             </p>
             <Button
               variant="brand"
-              onClick={handlePublish}
+              onClick={handleSubmit}
               disabled={!canPublish || publish.isPending}
             >
               {publish.isPending ? (
                 <Loader2Icon className="size-4 animate-spin" />
+              ) : isScheduling ? (
+                <CalendarClockIcon className="size-4" />
               ) : (
                 <SendIcon className="size-4" />
               )}
-              Post to LinkedIn
+              {isScheduling ? "Schedule post" : "Post to LinkedIn"}
             </Button>
           </div>
 
@@ -364,7 +400,9 @@ export function PostComposer() {
                     <div className="flex flex-col gap-1">
                       <p className="line-clamp-2 text-sm">{post.commentary}</p>
                       <p className="text-xs text-muted-foreground">
-                        {post.publishedAt.toLocaleString()}
+                        {/* Nullable since scheduling landed, though this list
+                            only ever holds published rows. */}
+                        {post.publishedAt?.toLocaleString() ?? "—"}
                       </p>
                     </div>
                   </React.Fragment>

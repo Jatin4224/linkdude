@@ -180,6 +180,36 @@ export const OPTIONAL_ENV: readonly OptionalEnvVar[] = [
       ...STRIPE_PRICE_KEYS,
     ],
   },
+  {
+    id: "imagekit",
+    label: "Image storage (ImageKit)",
+    purpose:
+      "Optional. Without it, posts are text-only — the image button is hidden rather than broken. With it, images upload straight from the browser to ImageKit (so they survive until a scheduled post fires) and are resized for LinkedIn on delivery via URL transforms.",
+    help: "Create a free ImageKit account and copy the public key, private key, and URL endpoint from the developer dashboard.",
+    icon: "Image",
+    link: {
+      label: "Create a free ImageKit account",
+      url: "https://imagekit.io/registration/",
+    },
+    keys: [
+      { key: "IMAGEKIT_PUBLIC_KEY", label: "Public key" },
+      { key: "IMAGEKIT_PRIVATE_KEY", label: "Private key" },
+      { key: "IMAGEKIT_URL_ENDPOINT", label: "URL endpoint" },
+    ],
+  },
+  {
+    id: "scheduler",
+    label: "Scheduled posts",
+    purpose:
+      "Optional. Without it, posts publish immediately only — the “Schedule for later” control is hidden, so nobody can queue a post that would never fire. With it, a scheduler POSTs one endpoint on an interval and due posts go out on time.",
+    help: "Set SCHEDULER_SECRET to any long random string (openssl rand -base64 32), then point a scheduler at POST /api/scheduled-posts/run with the header `Authorization: Bearer <SCHEDULER_SECRET>`. Upstash QStash, Vercel Cron, and a plain system crontab all work — the endpoint is idempotent, so run it every minute.",
+    icon: "Clock",
+    link: {
+      label: "Create a QStash schedule",
+      url: "https://console.upstash.com/qstash",
+    },
+    keys: [{ key: "SCHEDULER_SECRET", label: "Trigger secret" }],
+  },
 ];
 
 export interface OptionalEnvKeyStatus extends OptionalEnvKey {

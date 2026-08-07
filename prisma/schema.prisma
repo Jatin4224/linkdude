@@ -28,7 +28,15 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Runtime queries go through the POOLED endpoint — serverless functions open
+  // and close connections constantly, and the pooler is what keeps that from
+  // exhausting Postgres' connection limit.
+  //
+  // SCHEMA CHANGES do not use this URL. They resolve through prisma.config.ts,
+  // which prefers DIRECT_URL — Neon's pooler is PgBouncer in transaction mode
+  // and closes the session partway through a long DDL batch, surfacing as
+  // `P1017: Server has closed the connection`.
+  url = env("DATABASE_URL")
 }
 
 // ============================================================================
@@ -448,10 +456,13 @@ model LinkedInAccount {
 /// LinkedIn requires the `r_member_social` scope, which LinkedIn restricts to
 /// approved partners, so the feed cannot be re-fetched.
 ///
-/// Feature 2 (drafts / scheduling) extends this model with a `status` column
-/// rather than introducing a parallel table.
+/// Scheduling extends this model with a `status` column rather than a parallel
+/// table, so one row is the whole lifecycle: scheduled → publishing → published.
+/// The quota is spent once, at CREATE time, whether the post goes out now or on
+/// Tuesday — which is why scheduling reuses `linkedinPosts.create` instead of
+/// declaring its own resource. See src/lib/resources.ts.
 ///
-/// SOURCE OF TRUTH KEYWORD: LinkedInPost
+/// SOURCE OF TRUTH KEYWORD: LinkedInPost, LinkedInPostStatus, scheduledFor
 model LinkedInPost {
   id             String @id @default(cuid())
   organizationId String // Tenant scope
@@ -461,10 +472,50 @@ model LinkedInPost {
   commentary String  @db.Text // The post body as published
   imageUrn   String? // `urn:li:image:{id}` when media was attached
 
+  // scheduled | publishing | published | failed | canceled
+  // A row is created as `scheduled` (quota already spent at schedule time) or
+  // `published` (immediate publish). The background worker owns every
+  // transition out of `scheduled` — see publishDueScheduledPosts.
+  // Defaults to `published` so the migration backfills existing rows correctly.
+  status String @default("published")
+
+  // When the worker should publish. Null for immediate publishes.
+  scheduledFor DateTime?
+
   // `urn:li:share:{id}` or `urn:li:ugcPost:{id}` — returned by LinkedIn in the
-  // `x-restli-id` response header, not the body.
-  postUrn     String   @unique
-  publishedAt DateTime @default(now())
+  // `x-restli-id` response header, not the body. NULL until LinkedIn accepts
+  // the post; a nullable @unique is safe in Postgres because NULLs never
+  // collide with each other.
+  postUrn String? @unique
+
+  // NULL until published. The `@default(now())` was dropped when scheduling
+  // landed: a scheduled row must not claim to have been published the instant
+  // it was created.
+  publishedAt DateTime?
+
+  // Retry accounting for the worker. At MAX_PUBLISH_ATTEMPTS the row goes
+  // terminal `failed` and stops being claimed.
+  attemptCount Int     @default(0)
+  lastError    String? @db.Text
+
+  // Set when the worker claims a row. The reaper uses it to free rows stranded
+  // in `publishing` by a worker that died mid-publish.
+  claimedAt DateTime?
+
+  // IMAGEKIT — the durable image, replacing the old base64-in-payload path.
+  // `imageFileId` is ImageKit's handle (needed to delete the asset when a
+  // scheduled post is canceled); `imageUrl` is the untransformed original.
+  imageFileId String?
+  imageUrl    String?
+
+  // The ImageKit `tr:` string for this post's edits, e.g.
+  // "w-1200,h-627,cm-pad_resize". Stored SEPARATELY from imageUrl so edits stay
+  // non-destructive and re-editable — the image editor rewrites this column and
+  // nothing else. Composed with imageUrl at publish time.
+  imageTransform String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   account      LinkedInAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -473,6 +524,10 @@ model LinkedInPost {
   @@index([organizationId, publishedAt])
   @@index([accountId])
   @@index([authorId])
+  // The worker's claim query: find due rows by status + time.
+  @@index([status, scheduledFor])
+  // The calendar's month-range query.
+  @@index([organizationId, scheduledFor])
   @@map("linkedin_post")
 }
 
