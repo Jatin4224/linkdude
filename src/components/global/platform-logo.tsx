@@ -5,19 +5,49 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: PlatformLogo, PlatformLogoProps
+ * SOURCE OF TRUTH KEYWORDS: PlatformLogo, PlatformLogoProps, BrandMark,
+ *        BrandMarkProps, BRAND_ICON, brand icon, app icon, logo mark, wordmark
  *
- * WHAT:  The app's wordmark — a small square icon (primary token) + APP_NAME.
- * WHY:   One reusable brand mark for the auth screens (and anywhere else the
- *        logo is needed). Swap the SVG path here to rebrand. Uses theme tokens
- *        only (bg-primary / text-primary-foreground).
- * WHERE: Rendered by src/components/global/auth/auth-shell.tsx.
+ * WHAT:  BrandMark = the square brand icon on its own. PlatformLogo = that mark
+ *        + APP_NAME as the app's wordmark.
+ * WHY:   BRAND_ICON is imported in exactly one place so a rebrand is a one-line
+ *        swap here — every surface that shows the mark (wordmark, sidebar org
+ *        switcher) reads it through BrandMark instead of re-importing the file.
+ *        The same source image also backs src/app/icon.png / apple-icon.png, so
+ *        the browser tab and the in-app mark can never drift apart.
+ * WHERE: BrandMark is consumed by PlatformLogo and by
+ *        src/components/global/sidebar/team-switcher.tsx. PlatformLogo is
+ *        rendered by src/components/global/auth/auth-shell.tsx and the
+ *        onboarding flow header.
  */
 
+import Image from "next/image";
 import Link from "next/link";
 
+import BRAND_ICON from "@/app/assets/images/linkdin-dude.png";
 import { APP_NAME } from "@/lib/config/branding";
 import { cn } from "@/lib/utils";
+
+export interface BrandMarkProps {
+  /* Sizing/radius overrides — callers pass e.g. "size-8 rounded-lg". */
+  className?: string;
+}
+
+export function BrandMark({ className }: BrandMarkProps) {
+  return (
+    /* Rendered at 64px so the mark stays crisp on 2x displays at every call
+     * site's CSS size, without shipping the 1024px source. */
+    <Image
+      src={BRAND_ICON}
+      alt=""
+      width={64}
+      height={64}
+      className={cn("size-6 shrink-0 rounded-md object-cover", className)}
+      priority
+      aria-hidden="true"
+    />
+  );
+}
 
 export interface PlatformLogoProps {
   href?: string;
@@ -32,21 +62,7 @@ export function PlatformLogo({
 }: PlatformLogoProps) {
   const content = (
     <div className={cn("flex items-center gap-2 font-medium", className)}>
-      <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="size-4"
-          aria-hidden="true"
-        >
-          <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
-        </svg>
-      </div>
+      <BrandMark />
       {showName ? <span>{APP_NAME}</span> : null}
     </div>
   );

@@ -201,3 +201,40 @@ export type {
   ProfileSectionItem,
   ProfileSections,
 } from "./profile-lookup";
+
+/* Personalized Content Plan — the guided chat that turns a profile plus four
+ * answers into a posting strategy. */
+export {
+  CONTENT_PLAN_STEP_KEYS,
+  CONTENT_PLAN_SECTION_KEYS,
+  CONTENT_PLAN_STATUSES,
+  CONTENT_PLAN_ANSWER_MAX,
+  CONTENT_PLAN_GOALS_MAX,
+  contentPlanStepKeySchema,
+  contentPlanSectionKeySchema,
+  contentPlanStatusSchema,
+  contentPlanAnswersSchema,
+  contentPlanDraftAnswersSchema,
+  contentPlanInsightsSchema,
+  contentPlanPillarSchema,
+  contentPlanCalendarWeekSchema,
+  contentPlanResultSchema,
+  startContentPlanSchema,
+  saveContentPlanProgressSchema,
+  generateContentPlanSchema,
+} from "./content-plan";
+export type {
+  ContentPlanStepKey,
+  ContentPlanSectionKey,
+  ContentPlanStatus,
+  ContentPlanAnswers,
+  ContentPlanDraftAnswers,
+  ContentPlanInsights,
+  ContentPlanPillar,
+  ContentPlanCalendarWeek,
+  ContentPlanResult,
+  StartContentPlanValues,
+  SaveContentPlanProgressValues,
+  GenerateContentPlanValues,
+  StoredContentPlan,
+} from "./content-plan";

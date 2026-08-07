@@ -31,7 +31,6 @@ import {
   AwardIcon,
   BriefcaseIcon,
   CheckIcon,
-  CopyIcon,
   FolderGitIcon,
   GraduationCapIcon,
   HeartHandshakeIcon,
@@ -41,7 +40,6 @@ import {
   ThumbsUpIcon,
   WrenchIcon,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import type {
   ProfileIssueSeverity,
@@ -57,6 +55,7 @@ import {
   DEEP_INSIGHT_SECTIONS,
 } from "@/lib/config/profile-sections";
 import { LockedSection } from "@/components/global/locked-section";
+import { CopyButton } from "@/components/global/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,45 +139,6 @@ const SECTION_ICONS: Record<ProfileSectionKey, React.ComponentType<{ className?:
 /* How many findings are shown before the list collapses. Sized so the pane
  * leads with what to fix first rather than with a wall of every nitpick. */
 const VISIBLE_ISSUES = 3;
-
-/* Copy is the primary action on every rewrite — the user came here to paste
- * something into LinkedIn, not to retype it. */
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [copied, setCopied] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-    } catch {
-      /* Clipboard access is denied in insecure contexts and some browsers. */
-      toast.error("Could not copy. Select the text and copy manually.");
-    }
-  }
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={handleCopy}
-      aria-label={`Copy ${label}`}
-    >
-      {copied ? (
-        <CheckIcon className="size-4" />
-      ) : (
-        <CopyIcon className="size-4" />
-      )}
-      {copied ? "Copied" : "Copy"}
-    </Button>
-  );
-}
 
 function RewriteBlock({
   title,

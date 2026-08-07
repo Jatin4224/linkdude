@@ -33,7 +33,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { cn, initialsOf } from "@/lib/utils";
 
 export interface LinkedInPostPreviewProps {
   authorName: string;
@@ -57,16 +57,6 @@ const REACTIONS = [
   { label: "Repost", icon: RepeatIcon },
   { label: "Send", icon: SendIcon },
 ] as const;
-
-/* First letters of the first two words — the standard avatar fallback. */
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 export function LinkedInPostPreview({
   authorName,

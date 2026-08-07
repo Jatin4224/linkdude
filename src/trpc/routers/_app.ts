@@ -30,6 +30,7 @@ import { userRouter } from "./user";
 import { aiGenerationRouter } from "./ai-generation";
 import { profileAnalysisRouter } from "./profile-analysis";
 import { profileLookupRouter } from "./profile-lookup";
+import { contentPlanRouter } from "./content-plan";
 import { linkedinPostsRouter } from "./linkedin-posts";
 import { integrationsRouter } from "./integrations";
 
@@ -59,6 +60,7 @@ export const appRouter = createTRPCRouter({
   aiGeneration: aiGenerationRouter,
   profileAnalysis: profileAnalysisRouter,
   profileLookup: profileLookupRouter,
+  contentPlan: contentPlanRouter,
   linkedinPosts: linkedinPostsRouter,
   integrations: integrationsRouter,
 });

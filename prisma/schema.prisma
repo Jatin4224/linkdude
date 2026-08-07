@@ -86,6 +86,7 @@ model User {
   linkedinAccounts LinkedInAccount[]
   linkedinPosts    LinkedInPost[]
   profileAnalyses  ProfileAnalysis[]
+  contentPlans     ContentPlan[]
 
   @@map("user")
 }
@@ -203,6 +204,7 @@ model Organization {
   linkedinPosts     LinkedInPost[]
   profileAnalyses   ProfileAnalysis[]
   profileLookups    ProfileLookup[]
+  contentPlans      ContentPlan[]
 
   @@map("organization")
 }
@@ -624,4 +626,73 @@ model ProfileLookup {
   @@unique([organizationId, profileUrl])
   @@index([organizationId, fetchedAt])
   @@map("profile_lookup")
+}
+
+/// ContentPlan — one guided "Personalized Content Plan" session: the profile it
+/// started from, the answers collected so far, and once generated, the strategy.
+///
+/// ONE row per member per organization, not a history. The feature is a guided
+/// session with Save / New, so there is exactly one plan in flight at a time —
+/// and that is what makes resuming ("Welcome back!") a findUnique rather than a
+/// "most recent unfinished row" guess.
+///
+/// Scoped per MEMBER inside the org, not per org. Every query still filters on
+/// organizationId first — tenancy, quota and audit are all org-level — but the
+/// plan is derived from one person's LinkedIn profile. A single shared row would
+/// have a teammate open this page and resume someone else's half-finished chat,
+/// reading positioning advice written about a profile that is not theirs.
+///
+/// The conversation itself is NOT stored. Messages are derived by replaying
+/// CONTENT_PLAN_STEP_ENTRIES against `answers`, so rewording a question — or
+/// adding one — improves old sessions instead of corrupting them.
+///
+/// NOTE: deleting a row does NOT refund the quota. See the `discard` verb in
+/// src/trpc/routers/content-plan.ts for why.
+///
+/// SOURCE OF TRUTH KEYWORD: ContentPlan
+model ContentPlan {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope
+  authorId       String // The member whose plan this is
+
+  /// "collecting" | "ready" | "saved", as CONTENT_PLAN_STATUSES holds them.
+  /// A String rather than an enum, matching every other status in this schema:
+  /// the set is owned by the Zod tuple, and a migration per new state is the
+  /// coupling that avoids.
+  status String @default("collecting")
+
+  /// The normalised LinkedIn URL this session started from. Kept so a resumed
+  /// session can show which profile it is about without parsing the snapshot.
+  profileUrl String?
+
+  /// FetchedProfile snapshot from the lookup, re-validated on read through
+  /// fetchedProfileSchema. Snapshotted rather than re-read from ProfileLookup so
+  /// a cache refresh cannot silently change the input a finished plan was
+  /// generated from — the strategy would then be advice about a profile the row
+  /// no longer describes. Precedent: ProfileLookup.profile.
+  profile Json?
+
+  /// ContentPlanInsights — the short read-back shown before the questions.
+  insights Json?
+
+  /// ContentPlanAnswers, PARTIAL while status is "collecting". Written on every
+  /// step so the session survives a refresh; validated in full only at the point
+  /// of generation, which is the only place a complete answer set is required.
+  answers Json
+
+  /// The full ContentPlanResult. Json rather than columns because the shape is
+  /// nested and owned by contentPlanResultSchema, which re-validates it on read
+  /// so no untyped value reaches the router. Null until generation succeeds.
+  result Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, authorId])
+  @@index([organizationId, updatedAt])
+  @@index([authorId])
+  @@map("content_plan")
 }

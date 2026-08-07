@@ -27,15 +27,48 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export interface PageHeaderProps {
   title: string;
-  actions?: React.ReactNode;
+  /**
+   * One-line subtitle beside the title. Optional because most pages are named
+   * well enough by their title alone — this is for surfaces whose title says
+   * WHAT but not what it does for you ("Content Plan" / "Your guided LinkedIn
+   * strategy").
+   */
+  description?: string | undefined;
+  /**
+   * Leading glyph, rendered in a tinted square. A node rather than an icon name
+   * so a caller passes whichever lucide icon it already imports, without this
+   * component owning a second icon registry alongside NAV_ICONS.
+   */
+  icon?: React.ReactNode | undefined;
+  actions?: React.ReactNode | undefined;
 }
 
-export function PageHeader({ title, actions }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  icon,
+  actions,
+}: PageHeaderProps) {
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
-      <h1 className="text-base font-medium">{title}</h1>
+      {icon ? (
+        <span
+          aria-hidden
+          className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground"
+        >
+          {icon}
+        </span>
+      ) : null}
+      {/* min-w-0 so a long description truncates instead of pushing the actions
+          off the end of the header. */}
+      <div className="min-w-0">
+        <h1 className="truncate text-base font-medium leading-tight">{title}</h1>
+        {description ? (
+          <p className="truncate text-xs text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
       {actions ? (
         <div className="ml-auto flex items-center gap-2">{actions}</div>
       ) : null}
@@ -43,21 +76,38 @@ export function PageHeader({ title, actions }: PageHeaderProps) {
   );
 }
 
-export interface ContentLayoutProps {
-  title: string;
-  actions?: React.ReactNode;
+export interface ContentLayoutProps extends PageHeaderProps {
   children: React.ReactNode;
+  /**
+   * Drops the padded content wrapper and hands the child a BOUNDED region
+   * instead. For pages that scroll internally — the content-plan chat pins a
+   * composer below a scrolling transcript, which only works if something above
+   * it has a definite height.
+   *
+   * The height has to be computed rather than inherited: the sidebar wrapper is
+   * `min-h-svh`, so `flex-1` there means "at least the viewport" and grows with
+   * content — under it a chat would push its own composer off the bottom of the
+   * page instead of scrolling. This subtracts the header (h-16) and, from md up,
+   * the `m-2` the inset sidebar variant adds above and below.
+   */
+  bare?: boolean | undefined;
 }
 
 export function ContentLayout({
-  title,
-  actions,
   children,
+  bare = false,
+  ...header
 }: ContentLayoutProps) {
   return (
     <>
-      <PageHeader title={title} actions={actions} />
-      <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">{children}</div>
+      <PageHeader {...header} />
+      {bare ? (
+        <div className="flex min-h-0 flex-col h-[calc(100svh-4rem)] md:h-[calc(100svh-5rem)]">
+          {children}
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">{children}</div>
+      )}
     </>
   );
 }

@@ -424,6 +424,74 @@ export const RESOURCES = {
     },
   },
 
+  contentPlan: {
+    name: "Content Plans",
+    description:
+      "Turn a LinkedIn profile plus a few answers into a posting strategy",
+    /* `discard` rather than `delete`, for exactly the reason spelled out on
+     * profileAnalysis above: this counter measures MODEL SPEND, and throwing the
+     * session away does not un-spend it. Under the name `delete`, generate →
+     * New → generate would be an unlimited free tier.
+     *
+     * `update` covers the two mutations that change a session without buying
+     * anything — saving progress as the user answers, and keeping a finished
+     * plan. Neither should require permission to spend a quota unit, which is
+     * what folding them into `create` would mean. */
+    permissions: ["create", "read", "update", "discard"],
+    /* Its own budget rather than sharing aiGeneration's. A plan asks for ten
+     * structured sections over a whole profile — the largest single generation
+     * in the app — so one plan is worth many post drafts and a shared counter
+     * would hide that.
+     *
+     * The counter is spent by GENERATION, not by starting a session: a refine
+     * that regenerates the strategy is a fresh model call and costs another
+     * unit, which is why the numbers are lower than the analysis quota. */
+    limit: {
+      perPlan: {
+        /* One. A free plan gets a complete strategy — enough to see the value —
+         * and every regeneration after it is a paid feature. */
+        free: 1,
+        starter: 15,
+        pro: 100,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to generate more content plans",
+      availableOnFreeTrial: true,
+      unit: "plans",
+    },
+    rateLimit: {
+      /* The heaviest prompt in the app; a tight burst cap. */
+      create: { count: 3, window: "1 m" },
+      /* `brief` is the profile read-back at the start of a session. It is a
+       * model call, so it is limited — but it is NOT quota-metered, because it
+       * can only run against a profile the org has already paid profileLookup
+       * for, and that quota is the real ceiling on how many distinct profiles a
+       * plan session can be started from. */
+      brief: { count: 5, window: "1 m" },
+    },
+    audit: {
+      entity: "contentPlan",
+      describe: {
+        create: "Generated a personalized content plan",
+        brief: "Started a content plan from a LinkedIn profile",
+        update: "Updated a content plan session",
+        discard: "Discarded a content plan",
+      },
+    },
+    nav: {
+      label: "Content Plan",
+      href: "/dashboard/content-plan",
+      icon: "Compass",
+      section: "main",
+      /* 'create', not 'read' — same backfill trap documented on profileAnalysis
+       * above. `contentPlan:read` exists nowhere in any current OrganizationRole
+       * row, so gating the nav on it would hide this page from every existing
+       * custom-role member the moment it ships. */
+      requirePermission: "create",
+    },
+  },
+
   linkedinPosts: {
     name: "LinkedIn Posts",
     description: "Generate, schedule, publish, and review LinkedIn posts",

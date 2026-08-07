@@ -13,6 +13,8 @@ These docs explain how this boilerplate is shaped and why. The README tells you 
 7. `07-adding-a-feature.md` — a full end-to-end walkthrough
 8. `08-types-and-grep.md` — type rules and how to navigate the code
 9. `09-linkedin-post-generation.md` — a real feature built start to finish (AI + OAuth + publishing)
+10. `10-profile-analyzer.md` — a second feature: structured AI output, a paid vendor, and a cache
+11. `11-personalized-content-plan.md` — a third: a scripted chat, a derived transcript, and a large AI response
 
 ## If you only have five minutes
 
