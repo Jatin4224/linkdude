@@ -48,12 +48,21 @@ import {
   type AnalyzeProfileValues,
   type ProfileAnalysis,
 } from "@/lib/types/profile-analysis";
+import type { FetchedProfile } from "@/lib/types/profile-lookup";
+import {
+  contentPlanInsightsSchema,
+  contentPlanResultSchema,
+  type ContentPlanAnswers,
+  type ContentPlanInsights,
+  type ContentPlanResult,
+} from "@/lib/types/content-plan";
 import {
   DEEP_INSIGHT_SECTIONS,
   PROFILE_SECTIONS,
   PROFILE_SECTION_ENTRIES,
   serializeProfileSection,
 } from "@/lib/config/profile-sections";
+import { serializeContentPlanAnswers } from "@/lib/config/content-plan-sections";
 
 export interface GenerateTextArgs {
   system: string;
@@ -118,6 +127,22 @@ export interface GenerateStructuredArgs<T> {
   prompt: string;
   /** Doubles as the model's output contract and the validation boundary. */
   schema: z.ZodType<T>;
+  /**
+   * Overrides AI_MAX_TOKENS for this call.
+   *
+   * The global is sized for a LinkedIn post and is far too small for a large
+   * structured result: when the budget runs out mid-object the JSON is
+   * TRUNCATED, and truncated JSON surfaces as "response did not match schema" —
+   * a validation error that says nothing about the real cause. Any task asking
+   * for more than a few fields should raise this deliberately rather than
+   * discovering the ceiling as a schema failure.
+   *
+   * On providers with thinking enabled, reasoning tokens draw on this same
+   * budget, so the headroom needs to cover both.
+   */
+  maxOutputTokens?: number | undefined;
+  /** Overrides AI_TIMEOUT_MS. Must stay below the caller's txTimeout. */
+  timeoutMs?: number | undefined;
 }
 
 /**
@@ -136,16 +161,18 @@ export async function generateStructured<T>({
   system,
   prompt,
   schema,
+  maxOutputTokens = AI_MAX_TOKENS,
+  timeoutMs = AI_TIMEOUT_MS,
 }: GenerateStructuredArgs<T>): Promise<T> {
   const provider = getAiProvider();
 
   const { object } = await generateObject({
     model: getAiModel(),
     schema,
-    maxOutputTokens: AI_MAX_TOKENS,
+    maxOutputTokens,
     providerOptions: provider.providerOptions,
     maxRetries: AI_MAX_RETRIES,
-    timeout: AI_TIMEOUT_MS,
+    timeout: timeoutMs,
     system,
     prompt,
   });
@@ -341,4 +368,215 @@ export async function analyzeLinkedInProfile(
     }),
   });
   return profileAnalysisSchema.parse(result);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: serializeFetchedProfile
+ *
+ * WHAT:  A looked-up profile rendered as the prose the model reads.
+ * WHY:   Shared by both content-plan tasks below so the brief and the strategy
+ *        are demonstrably reading the same profile — a second serializer would
+ *        eventually describe it differently and the two outputs would start
+ *        disagreeing about the same person. Empty sections are stated as absent
+ *        rather than sent as blank blocks, for the reason buildProfilePrompt
+ *        documents: an empty labelled block reliably produces invented entries.
+ * WHERE: buildProfileBriefPrompt and buildContentPlanPrompt.
+ */
+function serializeFetchedProfile(profile: FetchedProfile): string {
+  const sections = PROFILE_SECTION_ENTRIES.map(({ key, label }) => {
+    const items = profile.sections[key];
+    return items.length > 0
+      ? `\n\n${label.toUpperCase()} (${items.length}):\n${serializeProfileSection(items)}`
+      : "";
+  }).join("");
+
+  const name = profile.name ? `NAME:\n${profile.name}\n\n` : "";
+  return `${name}HEADLINE:\n${profile.headline}\n\nABOUT:\n${profile.about}${sections}`;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: PROFILE_BRIEF_SYSTEM_PROMPT
+ *
+ * WHAT:  The persona and hard rules for the read-back shown before the questions.
+ * WHY:   This runs BEFORE the app knows the user's goal, niche or audience, so
+ *        it must not pretend to give strategy — it has none of the inputs a
+ *        strategy needs. Its only job is to prove the profile was actually read,
+ *        which is what makes the questions that follow feel worth answering.
+ *        The rules exist to stop it drifting into the full critique that profile
+ *        analysis already sells: no scores, no rewrites, no fix lists.
+ */
+const PROFILE_BRIEF_SYSTEM_PROMPT = `You are reading a real person's LinkedIn profile and telling them what stands out, in a few lines, before asking them what they want to achieve.
+
+Hard rules:
+- Return 2 to 4 observations. Fewer, sharper points beat a list.
+- Each observation must cite something specific from THIS profile — a role, a project, a phrase from their About, a pattern across their work. If a sentence would apply to any profile, delete it.
+- Name the differentiator: the thing this person has that most people in their field do not. That is the most useful thing you can tell them here.
+- You may name one weakness, but state it as an observation, not a fix. The strategy that follows is where fixes belong.
+- Never invent facts. If the profile does not say it, you do not know it.
+- No score, no rating, no rewritten headline, no numbered action list.
+- Write to them directly as "you". Plain sentences, no markdown, no emoji.`;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateProfileBrief
+ *
+ * WHAT:  The short "Profile Insights" read-back that opens a content-plan session.
+ * WHY:   Deliberately a separate, small call rather than a slice of the strategy
+ *        generation: it has to render immediately after the URL is pasted, while
+ *        the user still has three questions to answer, so it cannot wait on
+ *        inputs that do not exist yet.
+ * WHERE: Called by contentPlan.brief.
+ */
+export async function generateProfileBrief(
+  profile: FetchedProfile,
+): Promise<ContentPlanInsights> {
+  /* `bullets` is defaulted on the storage schema so a stored brief always parses
+   * — which also makes it optional in the JSON schema handed to the model, and
+   * an optional array is one the model will happily omit. Required here so the
+   * call that was made actually returns something, then parsed back through the
+   * lenient schema so both paths produce the same type. Same arrangement as
+   * `sectionInsights` above.
+   *
+   * `.min(1)`, not `.min(2)`: how MANY observations is prompt guidance, because
+   * a run that comes back with one good one is still worth showing rather than
+   * discarding. The `.max(4)` ceiling rides along through `.unwrap()`. */
+  const result = await generateStructured({
+    system: PROFILE_BRIEF_SYSTEM_PROMPT,
+    prompt: `Read this LinkedIn profile and tell the person what stands out.\n\n${serializeFetchedProfile(profile)}`,
+    schema: contentPlanInsightsSchema.extend({
+      bullets: contentPlanInsightsSchema.shape.bullets.unwrap().min(1),
+    }),
+  });
+
+  return contentPlanInsightsSchema.parse(result);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: CONTENT_PLAN_MAX_TOKENS, CONTENT_PLAN_TIMEOUT_MS
+ *
+ * WHAT:  The output budget and time ceiling for one content-plan generation.
+ * WHY:   Local to this task rather than raised globally: AI_MAX_TOKENS is 4096
+ *        because a LinkedIn post caps at 3000 characters, and lifting it for
+ *        everything would quietly enlarge every other call's worst case.
+ *
+ *        16k covers the schema's maxima (~5.5k tokens of JSON at the ceiling)
+ *        several times over, which matters because on providers with thinking
+ *        enabled the reasoning draws on the same budget. Overshooting costs
+ *        nothing — output is billed on tokens produced, not on the ceiling.
+ * WHERE: generateContentPlan. Paired with txTimeout on contentPlan.create,
+ *        which must exceed CONTENT_PLAN_TIMEOUT_MS.
+ */
+const CONTENT_PLAN_MAX_TOKENS = 16_000;
+const CONTENT_PLAN_TIMEOUT_MS = 90_000;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: CONTENT_PLAN_SYSTEM_PROMPT
+ *
+ * WHAT:  The persona and hard rules for generating a posting strategy.
+ * WHY:   The default failure mode here is a plan that could belong to anyone —
+ *        "post consistently, share your journey, engage with your network" — which
+ *        reads as a strategy while being unusable. Every rule below forces the
+ *        output back onto THIS person's material: hooks about their actual
+ *        projects, pillars drawn from their actual stack, a calendar that ships
+ *        things they have already built.
+ *
+ *        The volume ceilings are not style preferences. Ten sections in one
+ *        structured response is the largest generation in the app and it runs
+ *        inside the procedure's transaction, so an unbounded calendar or idea
+ *        bank is a timeout, not just a long read.
+ */
+const CONTENT_PLAN_SYSTEM_PROMPT = `You are a LinkedIn content strategist building a 30-day plan for one real person, using their actual profile and the goals they just told you.
+
+Hard rules:
+- Everything must be traceable to THIS profile. Name their real projects, employers, stack and skills. A plan that would work for any person in their field is a failed plan.
+- Never invent facts, metrics, employers or results. Where a number would strengthen a post, leave a marked placeholder like [X%] or [company] for them to fill in.
+- The positioning section must contain text they can paste: a rewritten headline inside LinkedIn's 220-character limit, and the shape of a rewritten About opening with a standalone hook. Write it for them; never describe what they should write.
+- Audience entries describe people who can actually give them what they asked for — the hiring manager, the buyer, the peer — including where those people already are and what they care about. Not demographics.
+- Content pillars are recurring themes they could post against every week for a month without running dry. Three to five. Each needs a title and a sentence on what belongs under it.
+- The calendar covers four weeks. Each week gets one focus and the specific formats to ship. Weekly, not daily — a day-by-day plan is one they abandon by Thursday.
+- Post ideas and hooks must be specific enough to draft from immediately. "Share a project" is not an idea; naming their project and the angle is.
+- Hooks are opening lines only. They must earn the second line without clickbait or rhetorical-question openers.
+- Return every section. Aim for: 2-4 audience entries, 3-5 formats, 3-5 pillars, exactly 4 calendar weeks, 5-6 post ideas, 5-6 hooks, 2-3 CTAs, 2-4 gaps.
+- Posting strategy covers cadence, timing, and what they do around a post — engaging before and after, replying, what to pin. Concrete numbers, not "be consistent".
+- Gap analysis names what is holding the CURRENT profile back, quoting their own words. Observations about this profile, never generic advice.
+- No markdown anywhere. LinkedIn renders it literally, and these strings are shown and copied as plain text.
+- Avoid "delve", "leverage", "unlock", "game-changer", "supercharge", and em dashes.`;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildContentPlanPrompt
+ *
+ * WHAT:  Assembles the user-facing half of the strategy prompt.
+ * WHY:   The answers come first and the profile second, deliberately: the goal
+ *        and audience are what the plan is FOR, and putting them ahead of a long
+ *        profile dump keeps the model from writing a plan about the profile and
+ *        bolting the goal on at the end. Answers are labelled from the step
+ *        registry, so a reworded question reaches the model in the same words
+ *        the user saw.
+ */
+function buildContentPlanPrompt(
+  answers: ContentPlanAnswers,
+  profile: FetchedProfile,
+): string {
+  return `Build a 30-day LinkedIn content plan for this person.
+
+WHAT THEY TOLD YOU:
+${serializeContentPlanAnswers(answers)}
+
+THEIR PROFILE:
+${serializeFetchedProfile(profile)}`;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateContentPlan
+ *
+ * WHAT:  Turns a profile plus the chat answers into the full posting strategy.
+ * WHY:   Every array on contentPlanResultSchema is `.default([])` so that a saved
+ *        plan keeps parsing when a section is added later — and that leniency is
+ *        exactly wrong to send to the model, which reads an optional array as
+ *        permission to skip the section. The schema handed over here re-requires
+ *        each one with a realistic minimum, then the answer is parsed back
+ *        through the lenient storage schema. One declaration still governs both;
+ *        the strictness differs only in the direction it needs to.
+ * WHERE: Called by contentPlan.create.
+ */
+export async function generateContentPlan(
+  answers: ContentPlanAnswers,
+  profile: FetchedProfile,
+): Promise<ContentPlanResult> {
+  const result = await generateStructured({
+    system: CONTENT_PLAN_SYSTEM_PROMPT,
+    prompt: buildContentPlanPrompt(answers, profile),
+    /* Ten sections at once. The 4096 global is sized for a single LinkedIn post
+     * and truncates this mid-object, which the SDK reports as a schema mismatch
+     * rather than as the budget overrun it is. Sized to clear the schema's own
+     * maxima with room for reasoning tokens on providers that think. */
+    maxOutputTokens: CONTENT_PLAN_MAX_TOKENS,
+    /* Correspondingly slower than a post. Must stay under the router's
+     * txTimeout, which holds a Postgres connection for the whole call. */
+    timeoutMs: CONTENT_PLAN_TIMEOUT_MS,
+    /* Every array is re-required so the model cannot skip a section — a
+     * `.default([])` reads to it as an optional field. The COUNTS, though, stay
+     * in the system prompt rather than being enforced here: a hard `.min(5)` on
+     * hooks means a run that returns four is discarded whole, and the org has
+     * already paid for it. Guidance the model usually follows beats validation
+     * that throws away work when it doesn't. The maxima come through `.unwrap()`
+     * unchanged, so anything that passes here also passes the storage parse. */
+    schema: contentPlanResultSchema.extend({
+      targetAudience: contentPlanResultSchema.shape.targetAudience
+        .unwrap()
+        .min(1),
+      contentFormats: contentPlanResultSchema.shape.contentFormats
+        .unwrap()
+        .min(1),
+      contentPillars: contentPlanResultSchema.shape.contentPillars
+        .unwrap()
+        .min(1),
+      calendar: contentPlanResultSchema.shape.calendar.unwrap().min(1),
+      postIdeas: contentPlanResultSchema.shape.postIdeas.unwrap().min(1),
+      hooks: contentPlanResultSchema.shape.hooks.unwrap().min(1),
+      ctas: contentPlanResultSchema.shape.ctas.unwrap().min(1),
+      gaps: contentPlanResultSchema.shape.gaps.unwrap().min(1),
+    }),
+  });
+
+  return contentPlanResultSchema.parse(result);
 }

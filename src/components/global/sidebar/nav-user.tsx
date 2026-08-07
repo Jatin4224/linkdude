@@ -41,15 +41,8 @@ import {
 } from "@/components/ui/sidebar";
 import { authClient } from "@/lib/better-auth/auth-client";
 import { AUTH_ROUTES, PORTAL_PATH } from "@/lib/config";
+import { initialsOf } from "@/lib/utils";
 import { trpc } from "@/trpc/react-provider";
-
-function initialsOf(name: string | null | undefined, email: string): string {
-  const source = name?.trim() || email;
-  const parts = source.split(/\s+/).filter(Boolean);
-  const letters =
-    parts.length >= 2 ? `${parts[0]?.[0]}${parts[1]?.[0]}` : source.slice(0, 2);
-  return letters.toUpperCase();
-}
 
 export function NavUser() {
   const { isMobile } = useSidebar();

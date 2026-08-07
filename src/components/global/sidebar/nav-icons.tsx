@@ -18,6 +18,7 @@
 import {
   BarChart3,
   Circle,
+  CompassIcon,
   CreditCard,
   Folder,
   LayoutDashboard,
@@ -40,6 +41,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
   Sparkles,
   UserSearch,
+  Compass: CompassIcon,
 };
 
 export type NavIconName = keyof typeof NAV_ICONS;

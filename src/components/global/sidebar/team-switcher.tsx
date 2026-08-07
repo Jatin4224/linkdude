@@ -22,7 +22,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ChevronsUpDown, Plus, Check, GalleryVerticalEnd } from "lucide-react";
+import { ChevronsUpDown, Plus, Check } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -39,6 +39,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { BrandMark } from "@/components/global/platform-logo";
 import { trpc } from "@/trpc/react-provider";
 import { authClient } from "@/lib/better-auth/auth-client";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
@@ -80,9 +81,7 @@ export function TeamSwitcher() {
               />
             }
           >
-            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-              <GalleryVerticalEnd className="size-4" />
-            </div>
+            <BrandMark className="size-8 rounded-lg" />
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{label}</span>
               {activeOrganization?.role ? (
