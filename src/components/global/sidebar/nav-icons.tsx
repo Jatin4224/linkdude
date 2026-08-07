@@ -42,11 +42,8 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
   Sparkles,
   UserSearch,
-<<<<<<< HEAD
   CalendarDays,
-=======
   Compass: CompassIcon,
->>>>>>> origin/main
 };
 
 export type NavIconName = keyof typeof NAV_ICONS;

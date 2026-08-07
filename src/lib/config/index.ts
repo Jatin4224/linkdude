@@ -20,7 +20,14 @@
  *   getImageKitCredentials, IMAGEKIT_MAX_IMAGE_BYTES, IMAGEKIT_POST_FOLDER,
  *   IMAGEKIT_UPLOAD_ENDPOINT, LINKEDIN_IMAGE_TRANSFORM, isSchedulerConfigured,
  *   getSchedulerSecret, MAX_PUBLISH_ATTEMPTS, PUBLISH_BATCH_SIZE,
- *   PUBLISHING_STALE_MS, MIN_SCHEDULE_LEAD_MS, SCHEDULER_RUN_PATH
+ *   PUBLISHING_STALE_MS, MIN_SCHEDULE_LEAD_MS, SCHEDULER_RUN_PATH,
+ *   CONTENT_PLAN_STEPS, CONTENT_PLAN_STEP_ENTRIES, CONTENT_PLAN_QUESTION_KEYS,
+ *   contentPlanAnswerText, isContentPlanAnswered,
+ *   firstUnansweredContentPlanStep, nextContentPlanStep,
+ *   ContentPlanStepDefinition, CONTENT_PLAN_SECTIONS,
+ *   CONTENT_PLAN_SECTION_ENTRIES, serializeContentPlanAnswers,
+ *   serializeContentPlanSection, contentPlanSectionCopyText,
+ *   ContentPlanSectionDefinition
  *
  * WHAT:  Barrel re-export for the `src/lib/config/*` modules.
  * WHY:   Single import surface (`@/lib/config`) so consumers don't depend on
@@ -97,7 +104,6 @@ export {
 } from "./linkedin";
 export type { LinkedInCredentials } from "./linkedin";
 export {
-<<<<<<< HEAD
   isImageKitConfigured,
   getImageKitCredentials,
   IMAGEKIT_MAX_IMAGE_BYTES,
@@ -117,7 +123,7 @@ export {
   MIN_SCHEDULE_LEAD_MS,
   SCHEDULER_RUN_PATH,
 } from "./scheduler";
-=======
+export {
   CONTENT_PLAN_STEPS,
   CONTENT_PLAN_STEP_ENTRIES,
   CONTENT_PLAN_QUESTION_KEYS,
@@ -135,4 +141,3 @@ export {
   contentPlanSectionCopyText,
 } from "./content-plan-sections";
 export type { ContentPlanSectionDefinition } from "./content-plan-sections";
->>>>>>> origin/main
