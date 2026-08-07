@@ -16,7 +16,11 @@
  *   getAiModel, isAiConfigured, AI_MODEL,
  *   AI_MAX_TOKENS, isLinkedInConfigured, getLinkedInCredentials,
  *   LINKEDIN_SCOPES, LINKEDIN_API_VERSION, LINKEDIN_ENDPOINTS,
- *   LINKEDIN_MAX_COMMENTARY, getLinkedInRedirectUri
+ *   LINKEDIN_MAX_COMMENTARY, getLinkedInRedirectUri, isImageKitConfigured,
+ *   getImageKitCredentials, IMAGEKIT_MAX_IMAGE_BYTES, IMAGEKIT_POST_FOLDER,
+ *   IMAGEKIT_UPLOAD_ENDPOINT, LINKEDIN_IMAGE_TRANSFORM, isSchedulerConfigured,
+ *   getSchedulerSecret, MAX_PUBLISH_ATTEMPTS, PUBLISH_BATCH_SIZE,
+ *   PUBLISHING_STALE_MS, MIN_SCHEDULE_LEAD_MS, SCHEDULER_RUN_PATH
  *
  * WHAT:  Barrel re-export for the `src/lib/config/*` modules.
  * WHY:   Single import surface (`@/lib/config`) so consumers don't depend on
@@ -92,3 +96,23 @@ export {
   LINKEDIN_OAUTH_STATE_COOKIE,
 } from "./linkedin";
 export type { LinkedInCredentials } from "./linkedin";
+export {
+  isImageKitConfigured,
+  getImageKitCredentials,
+  IMAGEKIT_MAX_IMAGE_BYTES,
+  IMAGEKIT_MAX_IMAGE_LABEL,
+  IMAGEKIT_POST_FOLDER,
+  IMAGEKIT_UPLOAD_ENDPOINT,
+  IMAGEKIT_AUTH_EXPIRY_SECONDS,
+  LINKEDIN_IMAGE_TRANSFORM,
+} from "./imagekit";
+export type { ImageKitCredentials } from "./imagekit";
+export {
+  isSchedulerConfigured,
+  getSchedulerSecret,
+  MAX_PUBLISH_ATTEMPTS,
+  PUBLISH_BATCH_SIZE,
+  PUBLISHING_STALE_MS,
+  MIN_SCHEDULE_LEAD_MS,
+  SCHEDULER_RUN_PATH,
+} from "./scheduler";

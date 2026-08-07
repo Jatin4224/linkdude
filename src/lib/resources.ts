@@ -426,8 +426,15 @@ export const RESOURCES = {
 
   linkedinPosts: {
     name: "LinkedIn Posts",
-    description: "Generate, publish, and review LinkedIn posts",
+    description: "Generate, schedule, publish, and review LinkedIn posts",
     permissions: ["create", "read", "delete"],
+    /* Scheduling deliberately has NO resource key of its own. A `scheduledPosts`
+     * entry with its own limit would double every plan — an org could schedule
+     * its quota and then publish it again immediately — because only
+     * `<resource>.create` spends a slot. Scheduling is therefore
+     * `linkedinPosts.create` with a date attached, so the slot is spent once,
+     * when the user commits to the post, and refunded by `delete` whether that
+     * cancels a future post or forgets a past one. */
     limit: {
       perPlan: {
         free: 10,
@@ -444,6 +451,9 @@ export const RESOURCES = {
       entity: "linkedinPost",
       describe: {
         create: "Published a LinkedIn post",
+        /* Written by the scheduled-post worker, not by a procedure — the org
+         * needs "your post went live" as an event distinct from scheduling it. */
+        publish: "Published a scheduled LinkedIn post",
         delete: "Removed a LinkedIn post record",
       },
     },
@@ -456,6 +466,24 @@ export const RESOURCES = {
       label: "Create Post",
       href: "/dashboard/post-generation",
       icon: "Sparkles",
+      section: "main",
+    },
+  },
+
+  /* The content calendar is its own KEY purely because `nav` is one entry per
+   * resource and linkedinPosts already spends its on the composer — the sidebar
+   * permission is derived as `<key>:<action>`, so a second page needs a second
+   * key. It carries no `limit`: scheduling spends a linkedinPosts slot, and a
+   * quota here would charge twice for one post. Read-only by design; every
+   * mutation the calendar triggers belongs to linkedinPosts. */
+  contentCalendar: {
+    name: "Content Calendar",
+    description: "See scheduled and published posts on a calendar",
+    permissions: ["read"],
+    nav: {
+      label: "Calendar",
+      href: "/dashboard/calendar",
+      icon: "CalendarDays",
       section: "main",
     },
   },

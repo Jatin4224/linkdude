@@ -7,14 +7,19 @@
 import "server-only";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: LINKEDIN_ACCOUNT_SAFE_SELECT, buildAuthorizationUrl,
- *   exchangeCodeForToken, fetchMemberProfile, upsertConnection,
- *   disconnectAccount, getConnectionStatus, getValidAccessToken, uploadImage,
- *   publishPost, recordPublishedPost, listPublishedPosts, deletePublishedPost,
- *   LinkedInTokenResponse, LinkedInUserInfo, PublishPostResult
+ * SOURCE OF TRUTH KEYWORDS: LINKEDIN_ACCOUNT_SAFE_SELECT, POST_SAFE_SELECT,
+ *   buildAuthorizationUrl, exchangeCodeForToken, fetchMemberProfile,
+ *   upsertConnection, disconnectAccount, getConnectionStatus,
+ *   getValidAccessToken, uploadImage, resolvePostImage, publishPost,
+ *   recordPublishedPost, createScheduledPost, listPublishedPosts,
+ *   listCalendarPosts, deletePublishedPost, publishDueScheduledPosts,
+ *   reclaimStalePublishingPosts, markPostFailed, LinkedInTokenResponse,
+ *   LinkedInUserInfo, PublishPostResult, PublishDueResult,
+ *   DeletePostRecordResult
  *
  * WHAT:  Every LinkedIn touchpoint — the OAuth handshake, credential storage
- *        and refresh, image upload, post publishing, and the local post record.
+ *        and refresh, image upload, post publishing, the local post record,
+ *        and the background worker that publishes scheduled posts.
  * WHY:   `server-only` because this file reads bearer tokens off the
  *        LinkedInAccount row; importing it into a client bundle would ship
  *        posting credentials to the browser. All LinkedIn HTTP lives here so
@@ -26,7 +31,7 @@ import "server-only";
  */
 
 import type { DbClient } from "@/lib/config/prisma";
-import type { LinkedInAccount, Prisma } from "@/generated/prisma";
+import type { LinkedInAccount, LinkedInPost, Prisma } from "@/generated/prisma";
 import {
   getLinkedInCredentials,
   getLinkedInRedirectUri,
@@ -35,10 +40,20 @@ import {
   LINKEDIN_ENDPOINTS,
   LINKEDIN_SCOPES,
 } from "@/lib/config/linkedin";
+import { LINKEDIN_IMAGE_TRANSFORM } from "@/lib/config/imagekit";
+import {
+  MAX_PUBLISH_ATTEMPTS,
+  PUBLISH_BATCH_SIZE,
+  PUBLISHING_STALE_MS,
+} from "@/lib/config/scheduler";
+import type { LinkedInConnectionStatus } from "@/lib/types/linkedin";
 import type {
-  LinkedInConnectionStatus,
+  LinkedInImageBinary,
+  LinkedInPostStatus,
   PostImageValues,
-} from "@/lib/types/linkedin";
+} from "@/lib/types";
+import * as imagekitService from "@/services/imagekit.service";
+import { logActivity } from "@/services/activity-log.service";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_ACCOUNT_SAFE_SELECT
@@ -394,7 +409,7 @@ export async function getValidAccessToken(
 export async function uploadImage(
   accessToken: string,
   personUrn: string,
-  image: PostImageValues,
+  image: LinkedInImageBinary,
 ): Promise<string> {
   const initResponse = await fetch(
     `${LINKEDIN_ENDPOINTS.images}?action=initializeUpload`,
@@ -412,18 +427,38 @@ export async function uploadImage(
     throw await readError(initResponse, "image upload initialize");
   const { value } = (await initResponse.json()) as LinkedInImageUploadResponse;
 
-  const binary = Buffer.from(image.data, "base64");
   const uploadResponse = await fetch(value.uploadUrl, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": image.mimeType,
     },
-    body: new Uint8Array(binary),
+    body: new Uint8Array(image.bytes),
   });
 
   if (!uploadResponse.ok) throw await readError(uploadResponse, "image upload");
   return value.image;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: resolvePostImage
+ *
+ * WHAT:  Turns a stored ImageKit reference into the bytes LinkedIn will accept.
+ * WHY:   The single place the transform decision is made, so an immediate
+ *        publish and a scheduled one can never render different pixels. Falls
+ *        back to LINKEDIN_IMAGE_TRANSFORM when a post carries no custom edit —
+ *        which is every post until the image editor writes `transform`.
+ * WHERE: Called by publishPost; the only producer of LinkedInImageBinary.
+ */
+async function resolvePostImage(
+  image: PostImageValues,
+): Promise<LinkedInImageBinary> {
+  return imagekitService.fetchImageBinary(
+    imagekitService.buildTransformedUrl(
+      image.url,
+      image.transform ?? LINKEDIN_IMAGE_TRANSFORM,
+    ),
+  );
 }
 
 export interface PublishPostArgs {
@@ -445,8 +480,15 @@ export interface PublishPostArgs {
 export async function publishPost(
   args: PublishPostArgs,
 ): Promise<PublishPostResult> {
+  /* Fetch the transformed image from ImageKit, then hand LinkedIn the bytes.
+   * LinkedIn will not pull from a third-party URL, so this hop is unavoidable —
+   * it is the only moment image bytes exist inside this app. */
   const imageUrn = args.image
-    ? await uploadImage(args.accessToken, args.personUrn, args.image)
+    ? await uploadImage(
+        args.accessToken,
+        args.personUrn,
+        await resolvePostImage(args.image),
+      )
     : null;
 
   const response = await fetch(LINKEDIN_ENDPOINTS.posts, {
@@ -486,6 +528,53 @@ export async function publishPost(
 // Local post records
 // ---------------------------------------------------------------------------
 
+/* The legal values of LinkedInPost.status. schema.prisma stores it as a bare
+ * String (this codebase has no Prisma enums), so this checked map is what stops
+ * a typo'd literal from silently creating a status nothing ever queries. */
+const STATUS = {
+  scheduled: "scheduled",
+  publishing: "publishing",
+  published: "published",
+  failed: "failed",
+  canceled: "canceled",
+} as const satisfies Record<LinkedInPostStatus, LinkedInPostStatus>;
+
+/* Columns a client may read. Deliberately narrow: the row also carries
+ * lastError and claimedAt, which are worker bookkeeping, not user content. */
+const POST_SAFE_SELECT = {
+  id: true,
+  commentary: true,
+  status: true,
+  postUrn: true,
+  imageUrn: true,
+  imageUrl: true,
+  imageTransform: true,
+  scheduledFor: true,
+  publishedAt: true,
+  createdAt: true,
+} as const satisfies Prisma.LinkedInPostSelect;
+
+/* Rebuilds the ImageKit reference from its stored columns. Returns undefined
+ * when the post has no image, which is exactly what publishPost expects. */
+function toPostImage(post: LinkedInPost): PostImageValues | undefined {
+  if (!post.imageFileId || !post.imageUrl) return undefined;
+  return {
+    fileId: post.imageFileId,
+    url: post.imageUrl,
+    ...(post.imageTransform ? { transform: post.imageTransform } : {}),
+  };
+}
+
+/* Flattens an ImageKit reference onto the columns. One writer for both the
+ * immediate and scheduled paths so they cannot drift. */
+function imageColumns(image: PostImageValues | undefined) {
+  return {
+    imageFileId: image?.fileId ?? null,
+    imageUrl: image?.url ?? null,
+    imageTransform: image?.transform ?? null,
+  };
+}
+
 export interface RecordPublishedPostArgs {
   organizationId: string;
   accountId: string;
@@ -493,6 +582,7 @@ export interface RecordPublishedPostArgs {
   commentary: string;
   postUrn: string;
   imageUrn: string | null;
+  image?: PostImageValues | undefined;
 }
 
 /**
@@ -502,18 +592,73 @@ export interface RecordPublishedPostArgs {
  * WHY:   This table is the only readable history: LinkedIn gates reading a
  *        member's own posts behind `r_member_social`, which is restricted to
  *        approved partners, so the feed can never be re-fetched.
+ *
+ *        `publishedAt` is set explicitly because the column lost its
+ *        `@default(now())` when scheduling landed — a scheduled row must not
+ *        claim a publish time it does not have.
  */
 export async function recordPublishedPost(
   db: DbClient,
   args: RecordPublishedPostArgs,
 ) {
-  return db.linkedInPost.create({ data: args });
+  const { image, ...rest } = args;
+  return db.linkedInPost.create({
+    data: {
+      ...rest,
+      status: STATUS.published,
+      publishedAt: new Date(),
+      ...imageColumns(image),
+    },
+  });
+}
+
+export interface CreateScheduledPostArgs {
+  organizationId: string;
+  accountId: string;
+  authorId: string;
+  commentary: string;
+  scheduledFor: Date;
+  image?: PostImageValues | undefined;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: createScheduledPost
+ *
+ * WHAT:  Queues a post for the worker. No LinkedIn call happens here.
+ * WHY:   Written by `linkedinPosts.create` — the SAME verb as an immediate
+ *        publish — so the plan-limit gate and usage counter fire once, at the
+ *        moment the user commits to the post. A dedicated `schedule` verb would
+ *        have consumed no quota and let an org publish its plan limit twice.
+ *
+ *        The image is stored as an ImageKit reference rather than bytes: this
+ *        row may sit for days, and a request payload cannot survive that.
+ * WHERE: Called by linkedinPosts.create when input.scheduledFor is present.
+ */
+export async function createScheduledPost(
+  db: DbClient,
+  args: CreateScheduledPostArgs,
+) {
+  const { image, ...rest } = args;
+  return db.linkedInPost.create({
+    data: {
+      ...rest,
+      status: STATUS.scheduled,
+      /* Explicitly null: a scheduled post has neither yet, and both columns are
+       * what the worker fills in on success. */
+      postUrn: null,
+      publishedAt: null,
+      ...imageColumns(image),
+    },
+  });
 }
 
 /**
  * SOURCE OF TRUTH KEYWORDS: listPublishedPosts
  *
- * WHAT:  Recent posts for an organization, newest first.
+ * WHAT:  Recent PUBLISHED posts for an organization, newest first.
+ * WHY:   Filters on status so the composer's recent-posts strip never shows a
+ *        post that hasn't gone out yet — a scheduled row would otherwise sort
+ *        into the feed with a null publishedAt and read as already published.
  * WHERE: Backs the recent-posts strip under the composer.
  */
 export async function listPublishedPosts(
@@ -522,24 +667,65 @@ export async function listPublishedPosts(
   limit: number,
 ) {
   return db.linkedInPost.findMany({
-    where: { organizationId },
+    where: { organizationId, status: STATUS.published },
     orderBy: { publishedAt: "desc" },
     take: limit,
-    select: {
-      id: true,
-      commentary: true,
-      postUrn: true,
-      imageUrn: true,
-      publishedAt: true,
-    },
+    select: POST_SAFE_SELECT,
   });
 }
 
 /**
- * SOURCE OF TRUTH KEYWORDS: deletePublishedPost
+ * SOURCE OF TRUTH KEYWORDS: listCalendarPosts
  *
- * WHAT:  Forgets our local record of a post. Returns how many rows actually went.
- * WHY:   Scoped by organizationId as well as id so one tenant can never delete
+ * WHAT:  Every post an org has planned or published inside a date window.
+ * WHY:   The OR is the whole point: a scheduled post is placed on the calendar
+ *        by `scheduledFor` and a published one by `publishedAt`, so a single
+ *        date filter would silently drop half the grid.
+ * WHERE: Backs linkedinPosts.listCalendar and the month grid.
+ */
+export async function listCalendarPosts(
+  db: DbClient,
+  organizationId: string,
+  from: Date,
+  to: Date,
+) {
+  return db.linkedInPost.findMany({
+    where: {
+      organizationId,
+      OR: [
+        { scheduledFor: { gte: from, lte: to } },
+        { publishedAt: { gte: from, lte: to } },
+      ],
+    },
+    orderBy: [{ scheduledFor: "asc" }, { publishedAt: "asc" }],
+    select: POST_SAFE_SELECT,
+  });
+}
+
+export interface DeletePostRecordResult {
+  count: number;
+  /** Set when the deleted row owned an ImageKit asset that should now go. */
+  imageFileId: string | null;
+  /** True when this removed a future post rather than forgetting a past one. */
+  wasScheduled: boolean;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: deletePublishedPost, deletePostRecord
+ *
+ * WHAT:  Removes one post row — cancelling a scheduled post or forgetting a
+ *        published record, depending on what the row is.
+ * WHY:   ONE function for both because they are indistinguishable to the quota
+ *        system: `linkedinPosts.delete` refunds a post slot either way, and
+ *        which case applies is a property of the row, not of the caller.
+ *
+ *        A row in `publishing` is refused. The worker has already claimed it
+ *        and may be mid-call to LinkedIn; deleting it would either strand a
+ *        live post with no local record or race the worker's own update. The
+ *        status guard is repeated in the delete itself, not just the read, so a
+ *        claim landing between the two is still caught.
+ *
+ *        Scoped by organizationId as well as id so one tenant can never delete
  *        another's row by guessing a cuid. Does NOT delete from LinkedIn.
  *
  *        The `count` is returned rather than swallowed because the caller's
@@ -552,6 +738,208 @@ export async function deletePublishedPost(
   db: DbClient,
   organizationId: string,
   postId: string,
+): Promise<DeletePostRecordResult> {
+  const existing = await db.linkedInPost.findFirst({
+    where: { id: postId, organizationId },
+    select: { status: true, imageFileId: true },
+  });
+
+  if (!existing) return { count: 0, imageFileId: null, wasScheduled: false };
+
+  if (existing.status === STATUS.publishing) {
+    throw new Error(
+      "This post is being published right now and can no longer be cancelled.",
+    );
+  }
+
+  const { count } = await db.linkedInPost.deleteMany({
+    where: {
+      id: postId,
+      organizationId,
+      status: { not: STATUS.publishing },
+    },
+  });
+
+  return {
+    count,
+    imageFileId: existing.imageFileId,
+    wasScheduled:
+      existing.status === STATUS.scheduled || existing.status === STATUS.failed,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Scheduled-post worker
+//
+// Runs OUTSIDE the request lifecycle, so it cannot use protectedProcedure —
+// there is no session and no organizationId in a tRPC input. The sanctioned
+// path (docs/03-procedures-and-routers.md) is calling these services with the
+// prisma singleton, which is why every function here takes `db` first.
+//
+// Deliberately does NOT touch the usage counter: the post slot was spent at
+// SCHEDULE time by linkedinPosts.create. Incrementing here would charge an org
+// twice for one post.
+// ---------------------------------------------------------------------------
+
+export interface PublishDueResult {
+  claimed: number;
+  published: number;
+  failed: number;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: reclaimStalePublishingPosts
+ *
+ * WHAT:  Returns rows stranded in `publishing` to `scheduled`.
+ * WHY:   Only `scheduled` rows are ever claimed, so a worker that dies
+ *        mid-publish would strand its post forever. The reclaimed row keeps its
+ *        attemptCount, so a post that reliably kills the worker still hits
+ *        MAX_PUBLISH_ATTEMPTS and stops instead of looping.
+ * WHERE: Called at the top of every run by the trigger route.
+ */
+export async function reclaimStalePublishingPosts(
+  db: DbClient,
+  now: Date,
 ): Promise<{ count: number }> {
-  return db.linkedInPost.deleteMany({ where: { id: postId, organizationId } });
+  const cutoff = new Date(now.getTime() - PUBLISHING_STALE_MS);
+  return db.linkedInPost.updateMany({
+    where: { status: STATUS.publishing, claimedAt: { lt: cutoff } },
+    data: { status: STATUS.scheduled, claimedAt: null },
+  });
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: publishDueScheduledPosts
+ *
+ * WHAT:  Claims every post that is due and publishes it. The whole worker.
+ * WHY:   The claim is a single atomic UPDATE guarded on `status = 'scheduled'`
+ *        with `FOR UPDATE SKIP LOCKED`. That combination is what makes the
+ *        trigger endpoint safe to call concurrently: two overlapping runs
+ *        cannot claim the same row, so a post can never publish twice — the one
+ *        failure mode that would be visible to the user's audience and
+ *        impossible to undo.
+ *
+ *        Posts are published SEQUENTIALLY, never in parallel: LinkedIn
+ *        rate-limits member posting, and the app's own limit is 5/min.
+ * WHERE: Called by src/app/api/scheduled-posts/run/route.ts with the prisma
+ *        singleton.
+ */
+export async function publishDueScheduledPosts(
+  db: DbClient,
+  now: Date,
+): Promise<PublishDueResult> {
+  const claimed = await db.$queryRaw<Array<{ id: string }>>`
+    UPDATE "linkedin_post"
+       SET "status" = ${STATUS.publishing},
+           "attemptCount" = "attemptCount" + 1,
+           "claimedAt" = ${now}
+     WHERE "id" IN (
+       SELECT "id" FROM "linkedin_post"
+        WHERE "status" = ${STATUS.scheduled}
+          AND "scheduledFor" <= ${now}
+          AND "attemptCount" < ${MAX_PUBLISH_ATTEMPTS}
+        ORDER BY "scheduledFor" ASC
+        LIMIT ${PUBLISH_BATCH_SIZE}
+        FOR UPDATE SKIP LOCKED
+     )
+    RETURNING "id"`;
+
+  const result: PublishDueResult = {
+    claimed: claimed.length,
+    published: 0,
+    failed: 0,
+  };
+
+  for (const { id } of claimed) {
+    const post = await db.linkedInPost.findUnique({ where: { id } });
+    /* Deleted between the claim and now — nothing to publish, nothing to fix. */
+    if (!post) continue;
+
+    let token: Awaited<ReturnType<typeof getValidAccessToken>>;
+    try {
+      token = await getValidAccessToken(db, post.organizationId);
+    } catch (error) {
+      /* A missing or unrefreshable connection is TERMINAL by construction:
+       * retrying cannot conjure a token, and the fix is a human reconnecting.
+       * Catching the token step separately is what lets this be decided
+       * structurally instead of by matching on an error message. */
+      await markPostFailed(db, post, error, true);
+      result.failed += 1;
+      continue;
+    }
+
+    try {
+      const published = await publishPost({
+        accessToken: token.accessToken,
+        personUrn: token.personUrn,
+        commentary: post.commentary,
+        image: toPostImage(post),
+      });
+
+      await db.linkedInPost.update({
+        where: { id: post.id },
+        data: {
+          status: STATUS.published,
+          postUrn: published.postUrn,
+          imageUrn: published.imageUrn,
+          publishedAt: new Date(),
+          lastError: null,
+          claimedAt: null,
+        },
+      });
+
+      /* Audit here even though create already logged the scheduling: the org
+       * needs "your post went live at 09:00" as its own event. Calling
+       * logActivity directly is legal precisely because there is no procedure
+       * in this path to auto-audit it — the usual double-write warning does
+       * not apply. */
+      await logActivity(
+        {
+          userId: post.authorId,
+          organizationId: post.organizationId,
+          action: "publish",
+          entity: "linkedinPosts",
+          entityId: post.id,
+          description: "Published a scheduled LinkedIn post",
+        },
+        db,
+      );
+
+      result.published += 1;
+    } catch (error) {
+      /* attemptCount was already incremented by the claim, so comparing it here
+       * counts the attempt that just failed. */
+      await markPostFailed(
+        db,
+        post,
+        error,
+        post.attemptCount >= MAX_PUBLISH_ATTEMPTS,
+      );
+      result.failed += 1;
+    }
+  }
+
+  return result;
+}
+
+/* Records why a publish failed and decides whether to try again. A retryable
+ * row returns to `scheduled` and is picked up by a later run — which is where
+ * the backoff comes from, without a scheduler that knows anything about it. */
+async function markPostFailed(
+  db: DbClient,
+  post: LinkedInPost,
+  error: unknown,
+  terminal: boolean,
+): Promise<void> {
+  const message = error instanceof Error ? error.message : String(error);
+  await db.linkedInPost.update({
+    where: { id: post.id },
+    data: {
+      status: terminal ? STATUS.failed : STATUS.scheduled,
+      /* Bounded — this is vendor error text rendered back to the user, and a
+       * 5xx HTML page would otherwise land whole in the column. */
+      lastError: message.slice(0, 500),
+      claimedAt: null,
+    },
+  });
 }

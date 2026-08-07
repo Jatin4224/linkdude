@@ -17,6 +17,7 @@
 
 import {
   BarChart3,
+  CalendarDays,
   Circle,
   CreditCard,
   Folder,
@@ -40,6 +41,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
   Sparkles,
   UserSearch,
+  CalendarDays,
 };
 
 export type NavIconName = keyof typeof NAV_ICONS;

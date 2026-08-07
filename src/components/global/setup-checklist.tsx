@@ -23,9 +23,11 @@
 import {
   CheckIcon,
   CircleIcon,
+  ClockIcon,
   CreditCardIcon,
   DatabaseIcon,
   ExternalLinkIcon,
+  ImageIcon,
   KeyRoundIcon,
   PlayCircleIcon,
   ShieldCheckIcon,
@@ -44,6 +46,8 @@ const SETUP_ICONS: Record<string, LucideIcon> = {
   KeyRound: KeyRoundIcon,
   ShieldCheck: ShieldCheckIcon,
   CreditCard: CreditCardIcon,
+  Image: ImageIcon,
+  Clock: ClockIcon,
 };
 
 function iconFor(name: string): LucideIcon {

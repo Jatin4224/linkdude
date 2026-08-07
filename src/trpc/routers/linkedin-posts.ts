@@ -27,10 +27,12 @@ import { permissions } from "@/lib/better-auth/permissions";
 import {
   publishPostSchema,
   listPostsSchema,
+  listCalendarPostsSchema,
   deletePostSchema,
 } from "@/lib/types";
-import { isLinkedInConfigured } from "@/lib/config";
+import { isImageKitConfigured, isLinkedInConfigured } from "@/lib/config";
 import * as linkedinService from "@/services/linkedin.service";
+import * as imagekitService from "@/services/imagekit.service";
 
 const withOrganization = z.object({ organizationId: z.string().min(1) });
 
@@ -49,10 +51,11 @@ export const linkedinPostsRouter = createTRPCRouter({
   create: protectedProcedure({
     requirePermission: permissions.LINKEDIN_POSTS_CREATE,
     /* Publishing runs inside the factory's mutation tx, and the image path adds
-     * two LinkedIn round trips plus a multi-megabyte binary upload on top of the
-     * post call. The 10s default expires mid-upload, which surfaces as a failed
-     * publish for large images while small ones slip in under the wire. Sized
-     * for a full-size upload (LINKEDIN_MAX_IMAGE_BYTES) on a slow connection. */
+     * an ImageKit fetch plus two LinkedIn round trips on top of the post call.
+     * The 10s default expires mid-upload, which surfaces as a failed publish for
+     * large images while small ones slip in under the wire. The scheduled branch
+     * needs none of this budget — it writes one row — but the timeout is a
+     * property of the procedure, so it is sized for the slow path. */
     txTimeout: 60_000,
   })
     .input(publishPostSchema.extend(withOrganization.shape))
@@ -65,6 +68,11 @@ export const linkedinPostsRouter = createTRPCRouter({
         });
       }
 
+      /* Resolving the token on BOTH branches is deliberate. Scheduling against
+       * a broken connection would queue a post that can only fail hours later,
+       * when nobody is watching — better to refuse it here, while the user is
+       * still looking at the composer. It also supplies accountId, which the
+       * scheduled row needs to know who will publish it. */
       let token: Awaited<
         ReturnType<typeof linkedinService.getValidAccessToken>
       >;
@@ -82,6 +90,20 @@ export const linkedinPostsRouter = createTRPCRouter({
             error instanceof Error
               ? error.message
               : "Connect a LinkedIn account to publish.",
+        });
+      }
+
+      /* SCHEDULED BRANCH — no LinkedIn call. The quota was just spent by this
+       * same `create` verb, which is the entire reason scheduling lives here
+       * instead of on a `schedule` procedure of its own. */
+      if (input.scheduledFor) {
+        return linkedinService.createScheduledPost(ctx.db, {
+          organizationId: input.organizationId,
+          accountId: token.accountId,
+          authorId: ctx.user.id,
+          commentary: input.commentary,
+          scheduledFor: input.scheduledFor,
+          image: input.image,
         });
       }
 
@@ -110,8 +132,62 @@ export const linkedinPostsRouter = createTRPCRouter({
         commentary: input.commentary,
         postUrn: published.postUrn,
         imageUrn: published.imageUrn,
+        image: input.image,
       });
     }),
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: linkedinPosts.uploadAuth
+   *
+   * WHAT:  Mints short-lived signed credentials for one browser upload.
+   * WHY:   A QUERY, not a mutation — it creates nothing and must not consume
+   *        post quota (a user may swap the image five times before publishing).
+   *        Being a query is also why it needs no RESOURCES verb: the
+   *        `<resource>.<verb>` guardrail in protectedProcedure only governs
+   *        mutations. Gated on LINKEDIN_POSTS_CREATE anyway, because minting an
+   *        upload token is only ever a step toward composing a post.
+   * WHERE: Called by the global image-upload component before it POSTs a file
+   *        directly to ImageKit.
+   */
+  uploadAuth: protectedProcedure({
+    requirePermission: permissions.LINKEDIN_POSTS_CREATE,
+  })
+    .input(withOrganization)
+    .query(async () => {
+      if (!isImageKitConfigured()) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "Image uploads are not configured. Add IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY, and IMAGEKIT_URL_ENDPOINT to attach images.",
+        });
+      }
+      return imagekitService.getUploadAuthParams();
+    }),
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: linkedinPosts.listCalendar
+   *
+   * WHAT:  Everything planned or published inside the visible date window.
+   * WHY:   Range-bounded rather than paged — a calendar renders a fixed window,
+   *        so the range IS the page. Returns scheduled and published rows
+   *        together because the grid draws them side by side.
+   * WHERE: Backs the month grid on /dashboard/calendar.
+   */
+  listCalendar: protectedProcedure({
+    /* Gated on the CALENDAR's permission, not the composer's, so one grant
+     * governs both seeing the page and loading it. Splitting them would let an
+     * admin grant a sidebar link to an empty screen. */
+    requirePermission: permissions.CONTENT_CALENDAR_READ,
+  })
+    .input(listCalendarPostsSchema.and(withOrganization))
+    .query(async ({ ctx, input }) =>
+      linkedinService.listCalendarPosts(
+        ctx.db,
+        input.organizationId,
+        input.from,
+        input.to,
+      ),
+    ),
 
   /**
    * SOURCE OF TRUTH KEYWORDS: linkedinPosts.list
@@ -136,9 +212,12 @@ export const linkedinPostsRouter = createTRPCRouter({
   /**
    * SOURCE OF TRUTH KEYWORDS: linkedinPosts.delete
    *
-   * WHAT:  Removes our local record of a post.
-   * WHY:   Explicitly does NOT delete from LinkedIn — the post stays live on the
-   *        member's feed. Named `delete` so the auto-wired counter decrements.
+   * WHAT:  Cancels a scheduled post, or forgets the record of a published one.
+   * WHY:   ONE procedure for both because they are the same thing to the quota
+   *        system — `delete` refunds a post slot either way — and which case
+   *        applies is a property of the row, not a choice the caller makes.
+   *        For a published post it explicitly does NOT delete from LinkedIn:
+   *        the post stays live on the member's feed.
    *
    *        Returns the `count` from the delete, NOT `{ id }`. The counter math
    *        in protectedProcedure reads a `count` field off the result and falls
@@ -152,17 +231,44 @@ export const linkedinPostsRouter = createTRPCRouter({
   })
     .input(deletePostSchema.extend(withOrganization.shape))
     .mutation(async ({ ctx, input }) => {
-      const { count } = await linkedinService.deletePublishedPost(
-        ctx.db,
-        input.organizationId,
-        input.postId,
-      );
-      if (count === 0) {
+      let result: Awaited<
+        ReturnType<typeof linkedinService.deletePublishedPost>
+      >;
+      try {
+        result = await linkedinService.deletePublishedPost(
+          ctx.db,
+          input.organizationId,
+          input.postId,
+        );
+      } catch (error) {
+        /* The worker already claimed this row and may be mid-call to LinkedIn.
+         * CONFLICT rather than NOT_FOUND: the post exists, it is simply past
+         * the point of no return. */
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            error instanceof Error
+              ? error.message
+              : "That post can no longer be cancelled.",
+        });
+      }
+
+      if (result.count === 0) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "That post record no longer exists.",
         });
       }
-      return { id: input.postId, count };
+
+      /* Cleanup AFTER the row is gone, and deliberately not awaited into the
+       * transaction's success: deleteImage never throws, and an orphaned
+       * ImageKit file is cheaper than a cancel that fails because a third-party
+       * DELETE timed out. Only scheduled posts own their asset — a published
+       * post's image already lives on LinkedIn. */
+      if (result.wasScheduled && result.imageFileId) {
+        await imagekitService.deleteImage(result.imageFileId);
+      }
+
+      return { id: input.postId, count: result.count };
     }),
 });

@@ -6,28 +6,33 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_IMAGE_MIME_TYPES, LinkedInImageMimeType,
- *   LINKEDIN_MAX_IMAGE_BYTES, LINKEDIN_MAX_IMAGE_LABEL, postImageSchema,
- *   PostImageValues, LINKEDIN_OAUTH_ERROR_CODES, LinkedInOAuthErrorCode,
- *   normalizeLinkedInOAuthError,
- *   publishPostSchema, PublishPostValues, disconnectIntegrationSchema,
- *   listPostsSchema, deletePostSchema, LinkedInConnectionStatus
+ *   LinkedInImageBinary, LINKEDIN_OAUTH_ERROR_CODES, LinkedInOAuthErrorCode,
+ *   normalizeLinkedInOAuthError, LINKEDIN_POST_STATUSES, LinkedInPostStatus,
+ *   isSchedulableStatus, scheduledForSchema, publishPostSchema,
+ *   PublishPostValues, disconnectIntegrationSchema, listPostsSchema,
+ *   deletePostSchema, listCalendarPostsSchema, ListCalendarPostsValues,
+ *   LinkedInConnectionStatus
  *
- * WHAT:  Input contracts for publishing to LinkedIn and for managing the
- *        connection, plus the client-safe connection-status shape.
- * WHY:   Image payloads cross the wire as base64 because feature 1 streams
- *        media straight to LinkedIn at publish time with no storage provider in
- *        between — so the size ceiling has to be enforced here, before a
- *        multi-megabyte string reaches the server. LinkedInConnectionStatus is
- *        declared as its own type to guarantee tokens can never be widened into
- *        a client response by an accidental `select`.
+ * WHAT:  Input contracts for publishing and scheduling LinkedIn posts, the post
+ *        lifecycle states, and the client-safe connection-status shape.
+ * WHY:   Images are referenced by ImageKit handle rather than carried as bytes
+ *        (see src/lib/types/imagekit.ts) — a scheduled post publishes days after
+ *        it was written and cannot hold its image in a request payload.
+ *        LinkedInConnectionStatus is declared as its own type to guarantee
+ *        tokens can never be widened into a client response by an accidental
+ *        `select`.
  * WHERE: Consumed by src/services/linkedin.service.ts, the linkedinPosts and
- *        integrations routers, and the composer UI.
+ *        integrations routers, and the composer + calendar UI.
  */
 
 import { z } from "zod";
 import { LINKEDIN_MAX_COMMENTARY } from "@/lib/config/linkedin";
+import { MIN_SCHEDULE_LEAD_MS } from "@/lib/config/scheduler";
+import { postImageSchema } from "./imagekit";
 
-/* LinkedIn's Images API accepts these for member posts. */
+/* LinkedIn's Images API accepts these for member posts. Still enforced at the
+ * file picker even though ImageKit would store anything — LinkedIn is the
+ * consumer, so its constraint is the real one. */
 export const LINKEDIN_IMAGE_MIME_TYPES = [
   "image/png",
   "image/jpeg",
@@ -35,39 +40,69 @@ export const LINKEDIN_IMAGE_MIME_TYPES = [
 ] as const;
 export type LinkedInImageMimeType = (typeof LINKEDIN_IMAGE_MIME_TYPES)[number];
 
-/* 3 MB of raw image. The binding constraint is the SERVERLESS REQUEST BODY
- * ceiling, not LinkedIn: the image crosses the wire base64-encoded inside the
- * tRPC payload, and base64 inflates ~33%, so 3 MB of pixels becomes ~4 MB of
- * JSON. Vercel rejects request bodies over 4.5 MB, so a higher cap here passes
- * local dev (which has no limit) and then fails only in production. Raising
- * this REQUIRES moving the upload off the JSON payload first. */
-export const LINKEDIN_MAX_IMAGE_BYTES = 3 * 1024 * 1024;
-
-/* Derived so the ceiling is stated in exactly one place — the zod message and
- * the composer's pre-flight toast both read it rather than restating a number
- * that then drifts when the limit changes. */
-export const LINKEDIN_MAX_IMAGE_LABEL = `${LINKEDIN_MAX_IMAGE_BYTES / (1024 * 1024)} MB`;
+/**
+ * SOURCE OF TRUTH KEYWORDS: LinkedInImageBinary
+ *
+ * WHAT:  Raw image bytes on their way to LinkedIn's upload endpoint.
+ * WHY:   The publish path fetches the transformed image from ImageKit and hands
+ *        LinkedIn the result. Bytes exist only for that hop — they are never an
+ *        input contract, never persisted, and never cross the tRPC boundary.
+ * WHERE: Produced by the publish path, consumed by uploadImage.
+ */
+export interface LinkedInImageBinary {
+  mimeType: string;
+  bytes: ArrayBuffer;
+}
 
 /**
- * SOURCE OF TRUTH KEYWORDS: postImageSchema, PostImageValues
+ * SOURCE OF TRUTH KEYWORDS: LINKEDIN_POST_STATUSES, LinkedInPostStatus,
+ *   isSchedulableStatus
  *
- * WHAT:  An image attached to a post, carried as base64.
- * WHY:   Validating the decoded byte length (not the string length) is the only
- *        honest size check — base64 overstates the real payload by a third, so
- *        a naive string cap would reject valid images.
+ * WHAT:  The lifecycle of a LinkedInPost row.
+ * WHY:   One row covers the whole life of a post rather than a separate drafts
+ *        table, so status is what distinguishes "goes out Tuesday" from "went
+ *        out". Mirrors the bare-String convention in schema.prisma — this
+ *        codebase has no Prisma enums, so this array is the enforcement point.
+ *
+ *        `publishing` exists as a distinct state so the worker's claim is
+ *        visible in the database: it is what makes double-publish impossible
+ *        across overlapping runs, and what the stale-reaper looks for.
+ * WHERE: Written by the linkedinPosts router and the scheduled-post worker;
+ *        read by the calendar to decide how a post renders.
  */
-export const postImageSchema = z.object({
-  mimeType: z.enum(LINKEDIN_IMAGE_MIME_TYPES),
-  /* Bare base64 — the `data:` prefix is stripped client-side before submit. */
-  data: z
-    .string()
-    .min(1, "Image data is empty")
-    .refine(
-      (value) => Math.floor((value.length * 3) / 4) <= LINKEDIN_MAX_IMAGE_BYTES,
-      `Image must be ${LINKEDIN_MAX_IMAGE_LABEL} or smaller`,
-    ),
-});
-export type PostImageValues = z.infer<typeof postImageSchema>;
+export const LINKEDIN_POST_STATUSES = [
+  "scheduled",
+  "publishing",
+  "published",
+  "failed",
+  "canceled",
+] as const;
+export type LinkedInPostStatus = (typeof LINKEDIN_POST_STATUSES)[number];
+
+/* Statuses a user may still cancel. `publishing` is deliberately excluded —
+ * cancelling a row the worker already claimed would race the LinkedIn call and
+ * could delete a post that is about to go live. */
+export const CANCELABLE_POST_STATUSES: readonly LinkedInPostStatus[] = [
+  "scheduled",
+  "failed",
+];
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: scheduledForSchema
+ *
+ * WHAT:  When a post should publish.
+ * WHY:   The lead-time floor prevents a post from being scheduled into a poll
+ *        that is already in flight — which would race the user's own
+ *        confirmation toast. MIN_SCHEDULE_LEAD_MS lives in config/scheduler so
+ *        the worker's timing assumptions are stated in one place.
+ * WHERE: Optional field on publishPostSchema; drives the composer's date input.
+ */
+export const scheduledForSchema = z.coerce
+  .date()
+  .refine(
+    (value) => value.getTime() > Date.now() + MIN_SCHEDULE_LEAD_MS,
+    `Pick a time at least ${MIN_SCHEDULE_LEAD_MS / 60_000} minutes from now`,
+  );
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_OAUTH_ERROR_CODES, LinkedInOAuthErrorCode,
@@ -133,10 +168,17 @@ export function normalizeLinkedInOAuthError(
 /**
  * SOURCE OF TRUTH KEYWORDS: publishPostSchema, PublishPostValues
  *
- * WHAT:  Input contract for publishing a post to LinkedIn.
+ * WHAT:  Input contract for publishing a post to LinkedIn — now OR later.
  * WHY:   Capping commentary at LinkedIn's own 3000-character ceiling turns what
  *        would be a remote FIELD_LENGTH_TOO_LONG into a local field error the
  *        composer can render inline.
+ *
+ *        `scheduledFor` is an OPTIONAL FIELD rather than a separate schema and
+ *        separate endpoint, and that is load-bearing: scheduling stays
+ *        `linkedinPosts.create`, so the plan-limit gate and usage counter fire
+ *        exactly once — when the user commits to the post — whether it goes out
+ *        now or on Tuesday. A dedicated `schedule` verb would have spent no
+ *        quota, letting an org publish its plan limit twice over.
  * WHERE: Router input for linkedinPosts.create; resolver for the composer form.
  */
 export const publishPostSchema = z.object({
@@ -149,6 +191,8 @@ export const publishPostSchema = z.object({
       `Posts are limited to ${LINKEDIN_MAX_COMMENTARY} characters`,
     ),
   image: postImageSchema.optional(),
+  /* Absent ⇒ publish immediately. Present ⇒ queue it for the worker. */
+  scheduledFor: scheduledForSchema.optional(),
 });
 export type PublishPostValues = z.infer<typeof publishPostSchema>;
 
@@ -162,10 +206,40 @@ export const listPostsSchema = z.object({
 });
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: listCalendarPostsSchema, ListCalendarPostsValues
+ *
+ * WHAT:  The visible date window for the content calendar.
+ * WHY:   Bounded by month rather than paged: a calendar grid renders a fixed
+ *        window, so the range IS the page. The span is capped so a crafted
+ *        request can't ask for a decade of rows in one query.
+ * WHERE: Router input for linkedinPosts.listCalendar.
+ */
+export const listCalendarPostsSchema = z
+  .object({
+    from: z.coerce.date(),
+    to: z.coerce.date(),
+  })
+  .refine((value) => value.to.getTime() > value.from.getTime(), {
+    message: "`to` must be after `from`",
+    path: ["to"],
+  })
+  .refine(
+    /* 100 days covers a six-week grid with room to spare; anything larger is
+     * not a calendar view. */
+    (value) =>
+      value.to.getTime() - value.from.getTime() <= 100 * 24 * 60 * 60 * 1000,
+    { message: "Date range is too large", path: ["to"] },
+  );
+export type ListCalendarPostsValues = z.infer<typeof listCalendarPostsSchema>;
+
+/**
  * SOURCE OF TRUTH KEYWORDS: deletePostSchema
  *
- * WHAT:  Identifies a locally-recorded post to forget.
- * WHY:   Removes OUR record only — it does not delete the post from LinkedIn.
+ * WHAT:  Identifies a post row to remove — a scheduled post to cancel, or a
+ *        published record to forget.
+ * WHY:   One input for both because they are the same action to the quota
+ *        system: `linkedinPosts.delete` refunds a post slot either way. Which
+ *        one it is depends on the row's status, not on the caller.
  */
 export const deletePostSchema = z.object({
   postId: z.string().min(1),
