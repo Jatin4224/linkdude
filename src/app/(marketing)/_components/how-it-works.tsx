@@ -37,7 +37,11 @@ export function HowItWorks() {
             while the section is still below the fold. Reveal carries the
             positioning so the SVG itself stays a plain, sizeable box the
             observer can actually measure. */}
-        <Reveal className="pointer-events-none absolute inset-x-[16%] top-6 z-0 hidden md:block">
+        {/* top-3, not top-6: the step circles are size-12 so their centre line
+            is 24px down, and this box is 24px tall with the path across its
+            middle — so it has to start 12px up to land the line on the centre
+            rather than on the circles' lower edge. */}
+        <Reveal className="pointer-events-none absolute inset-x-[16%] top-3 z-0 hidden md:block">
           <StepConnector />
         </Reveal>
         <div className="relative z-10 grid gap-10 md:grid-cols-3">

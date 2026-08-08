@@ -46,24 +46,36 @@ export function StepConnector() {
       className="h-6 w-full overflow-visible"
     >
       <defs>
-        {/* Both ends fade to nothing, so the track needs no mask to stop
-            cleanly short of the first and last step. */}
-        <linearGradient id="step-track" x1="0" x2="1" y1="0" y2="0">
+        {/* userSpaceOnUse, NOT the objectBoundingBox default, on both the
+            gradient and the filter below. Every path here is a dead-straight
+            horizontal line, so its bounding box is 900 x 0 — and percentage
+            units resolved against a zero-height box collapse the paint region to
+            nothing, which renders the whole connector invisible rather than
+            merely wrong. Absolute user units side-step the degenerate box. */}
+        <linearGradient
+          id="step-track"
+          gradientUnits="userSpaceOnUse"
+          x1="0"
+          y1="12"
+          x2="900"
+          y2="12"
+        >
           <stop offset="0%" stopColor="var(--brand)" stopOpacity="0" />
-          <stop offset="15%" stopColor="var(--brand)" stopOpacity="0.35" />
-          <stop offset="85%" stopColor="var(--brand)" stopOpacity="0.35" />
+          <stop offset="15%" stopColor="var(--brand)" stopOpacity="0.55" />
+          <stop offset="85%" stopColor="var(--brand)" stopOpacity="0.55" />
           <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
         </linearGradient>
 
-        {/* The glow. A generous filter region because the blur spreads well
-            outside the 2px stroke, and a clipped filter shows as a hard edge
-            travelling with the pulse. */}
+        {/* Generous vertical room: the blur spreads well outside the 2px stroke,
+            and a clipped filter region shows up as a hard edge travelling along
+            with the pulse. */}
         <filter
           id="step-spark-glow"
-          x="-10%"
-          y="-400%"
-          width="120%"
-          height="900%"
+          filterUnits="userSpaceOnUse"
+          x="-40"
+          y="-30"
+          width="980"
+          height="84"
         >
           <feGaussianBlur stdDeviation="3" result="blurred" />
           <feMerge>

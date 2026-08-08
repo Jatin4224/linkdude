@@ -67,7 +67,10 @@ export function LandingHero() {
             variant="outline"
             className="relative gap-2 overflow-hidden border-brand-border"
           >
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" />
+            <span
+              aria-hidden="true"
+              className="size-1.5 rounded-full bg-brand"
+            />
             AI that writes like you, not like AI
             {/* One sheen pass every few seconds, then a long pause. Constant
                 motion at the edge of vision is noise; an occasional one reads
@@ -142,7 +145,8 @@ export function LandingHero() {
               height={256}
               priority
               aria-hidden="true"
-              className="h-auto w-full drop-shadow-2xl mask-[radial-gradient(closest-side,oklch(0_0_0)_70%,transparent_100%)]"
+
+              className="h-auto w-full bottom-20 right-20 absolute  drop-shadow-2xl mask-[radial-gradient(closest-side,oklch(0_0_0)_70%,transparent_100%)]"
             />
           </Reveal>
 
@@ -152,7 +156,9 @@ export function LandingHero() {
           >
             <div className="border-hairline-gradient flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg">
               <CalendarCheckIcon className="size-4 text-brand" />
-              <span className="text-xs font-medium">Scheduled · Tue 9:00 AM</span>
+              <span className="text-xs font-medium">
+                Scheduled · Tue 9:00 AM
+              </span>
             </div>
           </Reveal>
 

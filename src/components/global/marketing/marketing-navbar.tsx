@@ -61,8 +61,21 @@ export function MarketingNavbar() {
   return (
     <header
       data-scrolled={scrolled}
-      className="sticky top-0 z-50 border-b border-transparent transition-colors duration-200 data-[scrolled=true]:border-border data-[scrolled=true]:bg-background/80 supports-backdrop-filter:data-[scrolled=true]:backdrop-blur-md"
+      /* A translucent material rather than an opaque strip: content scrolls
+         under it and stays faintly visible, which is what keeps the page
+         reading as one surface. `saturate` compensates for the colour a heavy
+         blur drains out of whatever is behind it. */
+      className="sticky top-0 z-50 transition-colors duration-200 data-[scrolled=true]:bg-background/70 supports-backdrop-filter:data-[scrolled=true]:backdrop-blur-xl supports-backdrop-filter:data-[scrolled=true]:backdrop-saturate-150"
     >
+      {/* Scroll edge effect: a soft gradient where content passes under the bar,
+          instead of a 1px rule. A hard divider announces the chrome; a fade lets
+          it sit on top of the page. Only appears once there is something to
+          separate from. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-full h-8 bg-[linear-gradient(to_bottom,color-mix(in_oklch,var(--background)_70%,transparent),transparent)] opacity-0 transition-opacity duration-200 group-data-[scrolled=true]:opacity-100 in-data-[scrolled=true]:opacity-100"
+      />
+
       <nav className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-6 px-6">
         <PlatformLogo href="/" />
 

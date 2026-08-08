@@ -610,4 +610,18 @@
       transition: none;
     }
   }
+
+  /* Someone who has asked for less transparency has usually asked because the
+   * blur costs them legibility. Give the chrome a solid ground and drop the
+   * filter rather than merely thickening it, and take the grain out — noise over
+   * text is exactly what that setting exists to remove. */
+  @media (prefers-reduced-transparency: reduce) {
+    [data-scrolled="true"] {
+      background-color: var(--background);
+      backdrop-filter: none;
+    }
+    .bg-grain {
+      display: none;
+    }
+  }
 }

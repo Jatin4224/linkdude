@@ -36,9 +36,12 @@ import {
 import { MARKETING_HERO_POST } from "@/lib/config";
 import { LinkedInPostPreview } from "@/components/global/linkedin";
 
-/* Traditional physics rather than a duration: the card should still be settling
- * when the cursor moves again, which is what reads as weight. */
-const TILT_SPRING = { mass: 1, stiffness: 100, damping: 10 } as const;
+/* Critically damped — no overshoot. Bounce belongs to motion the user threw;
+ * this card is only following a cursor, and a wobble on every mouse move reads
+ * as loose rather than alive. `duration` here is the spring's response time (how
+ * fast it reaches the target), not a fixed length: Apple's move/reposition
+ * values, damping 1.0 / response 0.4. */
+const TILT_SPRING = { bounce: 0, duration: 0.4 } as const;
 
 /* Degrees at the far edge. Past ~7° the text starts to distort and the card
  * stops looking like a card. */

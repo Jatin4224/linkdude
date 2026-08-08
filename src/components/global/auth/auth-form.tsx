@@ -407,7 +407,15 @@ function AuthSubmit({
   isBusy: boolean;
 }) {
   return (
-    <Button type="submit" className="w-full" disabled={isBusy}>
+    /* `brand` rather than the default: this is the same commit action as every
+       CTA on the public site, and a white button here made auth look like a
+       different product from the page the user arrived from. */
+    <Button
+      type="submit"
+      variant="brand"
+      className="w-full"
+      disabled={isBusy}
+    >
       {isSubmitting ? <Loader2Icon className="size-4 animate-spin" /> : null}
       {label}
     </Button>

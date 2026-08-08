@@ -37,7 +37,10 @@ export interface RevealProps {
 export function Reveal({
   children,
   delay = 0,
-  threshold = 0.15,
+  /* Zero, with the timing handled by rootMargin below. A fractional threshold
+   * looks tidier but silently strands any element taller than the viewport can
+   * show that fraction of. */
+  threshold = 0,
   className,
 }: RevealProps) {
   const ref = React.useRef<HTMLDivElement | null>(null);
@@ -60,6 +63,25 @@ export function Reveal({
     /* No observer (a very old browser, or a non-DOM test renderer) → show the
      * content rather than leaving the page permanently invisible. */
     if (typeof IntersectionObserver === "undefined") {
+      reveal();
+      return;
+    }
+
+    /* Anything already on screen at mount is revealed outright, WITHOUT waiting
+     * for the observer. This is not an optimisation — it is the fix for a real
+     * failure: the observer's first callback can land before layout has settled
+     * and report "not intersecting", and an element that is already fully
+     * visible then never crosses a threshold again, so no second callback ever
+     * comes and the content stays invisible forever. Above the fold that means
+     * a blank hero. The transition still plays, because the element painted in
+     * its hidden state before this effect ran. */
+    const rect = node.getBoundingClientRect();
+    const onScreen = rect.top < window.innerHeight && rect.bottom > 0;
+    /* Already scrolled past before this mounted — a restored scroll position, or
+     * a fast scroll during hydration. The observer would only fire if the reader
+     * scrolled back up, leaving a hole behind them, so reveal it now. */
+    const scrolledPast = rect.bottom <= 0;
+    if (onScreen || scrolledPast) {
       reveal();
       return;
     }
