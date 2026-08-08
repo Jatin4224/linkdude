@@ -146,7 +146,7 @@ export function LandingHero() {
               priority
               aria-hidden="true"
 
-              className="h-auto w-full bottom-20 right-20 absolute  drop-shadow-2xl mask-[radial-gradient(closest-side,oklch(0_0_0)_70%,transparent_100%)]"
+              className="h-auto w-full bottom-20 right-20 absolute z-10  drop-shadow-2xl mask-[radial-gradient(closest-side,oklch(0_0_0)_70%,transparent_100%)]"
             />
           </Reveal>
 
@@ -154,7 +154,7 @@ export function LandingHero() {
             delay={180}
             className="absolute -right-3 -top-5 hidden sm:block"
           >
-            <div className="border-hairline-gradient flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg">
+            <div className="border-hairline-gradient z-10 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg">
               <CalendarCheckIcon className="size-4 text-brand" />
               <span className="text-xs font-medium">
                 Scheduled · Tue 9:00 AM
@@ -166,7 +166,7 @@ export function LandingHero() {
             delay={240}
             className="absolute -bottom-6 right-4 hidden sm:block"
           >
-            <div className="border-hairline-gradient flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg">
+            <div className="border-hairline-gradient z-10 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg">
               <GaugeIcon className="size-4 text-brand" />
               <span className="text-xs font-medium tabular-nums">
                 Profile score 82 / 100
