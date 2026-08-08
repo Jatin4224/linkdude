@@ -40,6 +40,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { playSound } from "@/lib/sound";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
@@ -188,6 +190,9 @@ export function PostComposer({
     onSuccess: (result) => {
       setCommentary(result.commentary);
       toast.success("Post generated.");
+      /* Silent unless the user opted in. Generation runs long enough that people
+         switch tabs while they wait — the cue is what brings them back. */
+      playSound("jobComplete");
     },
     onError: (error) => toast.error(error.message),
   });

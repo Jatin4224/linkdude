@@ -8,7 +8,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: ChatMessage, ChatMessageProps, ChatRole,
- *   ChatTyping, ChatTypingProps
+ *   ChatTyping, ChatTypingProps, BrandMark, assistant avatar, mascot
  *
  * WHAT:  One turn in a conversational surface — an avatar and a bubble, aligned
  *        by who is speaking — plus the "thinking" placeholder.
@@ -25,8 +25,9 @@
  */
 
 import * as React from "react";
-import { BotIcon, Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 
+import { BrandMark } from "@/components/global/platform-logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, initialsOf } from "@/lib/utils";
 
@@ -58,7 +59,15 @@ export function ChatMessage({
   const isUser = role === "user";
 
   const avatar = (
-    <Avatar className="size-8 shrink-0">
+    <Avatar
+      className={cn(
+        "size-8 shrink-0",
+        /* The ring gives the assistant a consistent edge whichever way its
+           avatar resolves, so the character reads as one speaker down the
+           whole transcript. */
+        !isUser && "ring-2 ring-brand/25",
+      )}
+    >
       {avatarUrl ? <AvatarImage src={avatarUrl} alt={name ?? ""} /> : null}
       <AvatarFallback
         className={cn(
@@ -71,7 +80,12 @@ export function ChatMessage({
         {isUser ? (
           initialsOf(name)
         ) : (
-          <BotIcon className="size-4" aria-hidden />
+          /* The mascot rather than a generic bot glyph: the assistant here is
+             the product's character, and a face the user recognises from the
+             sign-in screen turns a form into a conversation. Rendered through
+             BrandMark so the image is still imported in exactly one place and a
+             rebrand stays a one-line swap. */
+          <BrandMark className="size-8 rounded-full" />
         )}
       </AvatarFallback>
     </Avatar>

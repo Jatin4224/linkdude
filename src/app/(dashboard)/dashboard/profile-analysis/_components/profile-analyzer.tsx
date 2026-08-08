@@ -26,6 +26,8 @@
 import * as React from "react";
 import { toast } from "sonner";
 
+import { playSound } from "@/lib/sound";
+
 import { trpc } from "@/trpc/react-provider";
 import {
   useActiveOrganization,
@@ -78,6 +80,9 @@ export function ProfileAnalyzer() {
     onSuccess: async (result) => {
       setSelected(result);
       toast.success("Profile analyzed.");
+      /* Silent unless the user opted in. An analysis is a multi-second model
+         call, which is exactly the wait a cue is worth spending on. */
+      playSound("jobComplete");
       /* The new row belongs at the top of the history, and the analysis quota
          just moved — both are read from the server, so both are refetched. */
       await Promise.all([
