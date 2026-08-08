@@ -5,15 +5,19 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: PostStatusBadge, POST_STATUS_LABELS,
- *   POST_STATUS_CLASSES
+ * SOURCE OF TRUTH KEYWORDS: PostStatusBadge, PostStatusBadgeProps,
+ *   POST_STATUS_LABELS, POST_STATUS_CLASSES, LinkedInPostStatus
  *
  * WHAT:  Renders a LinkedInPost status as a labelled chip.
  * WHY:   The maps are typed against LinkedInPostStatus, so adding a status to
  *        the union is a COMPILE ERROR here until it has both copy and a colour —
  *        a new state can never silently render as a blank chip.
  *        Colours come from theme tokens only, so the chips follow light/dark.
- * WHERE: Used by the calendar grid and its day-detail panel.
+ *        Global rather than route-local because a post's state is now shown on
+ *        two routes; one definition means "Scheduled" is the same word and the
+ *        same colour wherever a post appears.
+ * WHERE: The calendar grid and its day-detail panel, and the dashboard home's
+ *        activity panel.
  */
 
 import type { LinkedInPostStatus } from "@/lib/types";
@@ -45,13 +49,13 @@ function asStatus(value: string): LinkedInPostStatus {
     : "scheduled";
 }
 
-export function PostStatusBadge({
-  status,
-  className,
-}: {
+export interface PostStatusBadgeProps {
+  /** Raw column value; anything outside the union falls back (see asStatus). */
   status: string;
-  className?: string;
-}) {
+  className?: string | undefined;
+}
+
+export function PostStatusBadge({ status, className }: PostStatusBadgeProps) {
   const key = asStatus(status);
   return (
     <span

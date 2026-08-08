@@ -48,8 +48,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { PostStatusBadge } from "@/components/global/post-status-badge";
 import { getCalendarPostDate, type CalendarPost } from "./calendar-types";
-import { PostStatusBadge } from "./post-status-badge";
 
 export interface ContentCalendarProps {
   /** A scheduler is wired up; without it nothing new can be scheduled. */
