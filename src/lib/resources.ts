@@ -56,7 +56,18 @@ export interface ResourceNav {
   label: string;
   href: string;
   icon: string;
-  section?: "main" | "settings" | (string & {});
+  section?: "create" | "workspace" | (string & {});
+  /**
+   * Position within the section, lowest first. Entries without one sort after
+   * those that have one, in declaration order.
+   *
+   * Explicit because RESOURCES is ordered by ARCHITECTURE — Better Auth
+   * surfaces, then billing, then the product — and letting that dictate the
+   * sidebar put Team above every feature a user actually opens daily. Nav order
+   * is a UI decision and deserves to be stated rather than inherited from where
+   * a resource happened to be declared.
+   */
+  order?: number;
   /** Defaults to 'read' when omitted. */
   requirePermission?: string;
   requireFlag?: boolean;
@@ -135,7 +146,8 @@ export const RESOURCES = {
       label: "Team",
       href: "/dashboard/team",
       icon: "Users",
-      section: "main",
+      section: "workspace",
+      order: 1,
     },
   },
 
@@ -233,7 +245,8 @@ export const RESOURCES = {
       label: "Audit Logs",
       href: "/dashboard/audit-logs",
       icon: "ScrollText",
-      section: "settings",
+      section: "workspace",
+      order: 4,
       requireFlag: true,
     },
   },
@@ -246,7 +259,8 @@ export const RESOURCES = {
       label: "Billing",
       href: "/dashboard/settings/billing",
       icon: "CreditCard",
-      section: "settings",
+      section: "workspace",
+      order: 2,
     },
   },
 
@@ -259,7 +273,8 @@ export const RESOURCES = {
       label: "Organization",
       href: "/dashboard/settings/organization",
       icon: "Settings",
-      section: "settings",
+      section: "workspace",
+      order: 3,
     },
   },
 
@@ -344,7 +359,8 @@ export const RESOURCES = {
       label: "Profile Analysis",
       href: "/dashboard/profile-analysis",
       icon: "UserSearch",
-      section: "main",
+      section: "create",
+      order: 4,
       /* REQUIRED, and deliberately 'create' rather than the more natural 'read'.
        *
        * Custom roles store one OrganizationRole row per literal
@@ -490,7 +506,8 @@ export const RESOURCES = {
       label: "Content Plan",
       href: "/dashboard/content-plan",
       icon: "Compass",
-      section: "main",
+      section: "create",
+      order: 3,
       /* 'create', not 'read' — same backfill trap documented on profileAnalysis
        * above. `contentPlan:read` exists nowhere in any current OrganizationRole
        * row, so gating the nav on it would hide this page from every existing
@@ -541,7 +558,8 @@ export const RESOURCES = {
       label: "Create Post",
       href: "/dashboard/post-generation",
       icon: "Sparkles",
-      section: "main",
+      section: "create",
+      order: 1,
     },
   },
 
@@ -559,7 +577,8 @@ export const RESOURCES = {
       label: "Calendar",
       href: "/dashboard/calendar",
       icon: "CalendarDays",
-      section: "main",
+      section: "create",
+      order: 2,
     },
   },
 } as const satisfies Record<string, ResourceDefinition>;
@@ -688,6 +707,8 @@ export interface SidebarNavItem {
   label: string;
   href: string;
   icon: string;
+  /** Resolved position within the section; see ResourceNav.order. */
+  order: number;
   /** Full `resource:action` the member must hold; owners always pass. */
   requirePermission: Permission;
   /** When true, the item is hidden unless the resource's plan flag is on. */
@@ -700,7 +721,11 @@ export interface SidebarNavSection {
 }
 
 /* Render order for the known sections; unknown sections append after. */
-const NAV_SECTION_ORDER: readonly string[] = ["main", "settings"];
+const NAV_SECTION_ORDER: readonly string[] = ["create", "workspace"];
+
+/* Sorts after every explicitly ordered item without tripping the
+ * noUncheckedIndexedAccess-style guards a `??` on each comparison would need. */
+const NAV_ORDER_LAST = Number.MAX_SAFE_INTEGER;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getSidebarNav
@@ -722,12 +747,13 @@ export function getSidebarNav(): SidebarNavSection[] {
      * is typed against the widened ResourceDefinition so TS sees `string`. This
      * is the same documented boundary the permission-constants builder uses. */
     const requirePermission = `${key}:${action}` as Permission;
-    const section = def.nav.section ?? "main";
+    const section = def.nav.section ?? "create";
     const item: SidebarNavItem = {
       key,
       label: def.nav.label,
       href: def.nav.href,
       icon: def.nav.icon,
+      order: def.nav.order ?? NAV_ORDER_LAST,
       requirePermission,
       requireFlag: def.nav.requireFlag ?? false,
     };
@@ -742,7 +768,9 @@ export function getSidebarNav(): SidebarNavSection[] {
   ];
   return orderedKeys.map((section) => ({
     section,
-    items: bySection.get(section) ?? [],
+    /* Array#sort is stable in every engine this targets, so equal `order`
+     * values keep their declaration order rather than shuffling per render. */
+    items: (bySection.get(section) ?? []).sort((a, b) => a.order - b.order),
   }));
 }
 

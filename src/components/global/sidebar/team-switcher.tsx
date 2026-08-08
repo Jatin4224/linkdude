@@ -39,11 +39,11 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { BrandMark } from "@/components/global/platform-logo";
 import { trpc } from "@/trpc/react-provider";
 import { authClient } from "@/lib/better-auth/auth-client";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { ROUTES } from "@/lib/config";
+import { initialsOf } from "@/lib/utils";
 
 export function TeamSwitcher() {
   const router = useRouter();
@@ -81,14 +81,22 @@ export function TeamSwitcher() {
               />
             }
           >
-            <BrandMark className="size-8 rounded-lg" />
+            {/* Org INITIALS, not the app mascot. BrandMark is the product's
+                logo — using it here made every organization in the switcher
+                look identical, which defeats the one job a switcher has. The
+                square (vs the round avatar in NavUser below) is the signal that
+                this row picks a workspace and that one picks an account. */}
+            <span
+              aria-hidden="true"
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-xs font-semibold text-brand-soft-foreground"
+            >
+              {initialsOf(activeOrganization?.name)}
+            </span>
             <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Workspace
+              </span>
               <span className="truncate font-medium">{label}</span>
-              {activeOrganization?.role ? (
-                <span className="truncate text-xs capitalize text-muted-foreground">
-                  {activeOrganization.role}
-                </span>
-              ) : null}
             </div>
             <ChevronsUpDown className="ml-auto" />
           </DropdownMenuTrigger>
@@ -102,18 +110,34 @@ export function TeamSwitcher() {
               <DropdownMenuLabel className="text-muted-foreground text-xs">
                 Organizations
               </DropdownMenuLabel>
-              {(organizations ?? []).map((org) => (
-                <DropdownMenuItem
-                  key={org.id}
-                  onClick={() => handleSwitch(org)}
-                  className="gap-2 p-2"
-                >
-                  <span className="truncate">{org.name}</span>
-                  {org.id === activeOrganization?.id ? (
-                    <Check className="ml-auto size-4" />
-                  ) : null}
-                </DropdownMenuItem>
-              ))}
+              {(organizations ?? []).map((org) => {
+                const isActive = org.id === activeOrganization?.id;
+                return (
+                  <DropdownMenuItem
+                    key={org.id}
+                    onClick={() => handleSwitch(org)}
+                    className="gap-2 p-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-md bg-brand-soft text-[10px] font-semibold text-brand-soft-foreground"
+                    >
+                      {initialsOf(org.name)}
+                    </span>
+                    <span className="truncate">{org.name}</span>
+                    {/* The role moved here from the trigger, where the eyebrow
+                        now names the row. It reads better beside the org it
+                        applies to anyway — it is your role IN this workspace,
+                        not a property of you. */}
+                    {isActive && activeOrganization?.role ? (
+                      <span className="ml-auto shrink-0 text-xs capitalize text-muted-foreground">
+                        {activeOrganization.role}
+                      </span>
+                    ) : null}
+                    {isActive ? <Check className="size-4 shrink-0" /> : null}
+                  </DropdownMenuItem>
+                );
+              })}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem

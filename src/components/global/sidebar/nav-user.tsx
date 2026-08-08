@@ -89,9 +89,9 @@ export function NavUser() {
               />
             }
           >
-            <Avatar className="size-8 rounded-lg">
+            <Avatar className="size-8 rounded-full">
               {image ? <AvatarImage src={image} alt={name} /> : null}
-              <AvatarFallback className="rounded-lg">
+              <AvatarFallback className="rounded-full">
                 {initialsOf(user.name, user.email)}
               </AvatarFallback>
             </Avatar>
@@ -112,9 +112,9 @@ export function NavUser() {
             {/* Plain header (not a Menu.GroupLabel, which base-ui requires to
                 sit inside a Menu.Group). */}
             <div className="flex items-center gap-2 px-2 py-1.5 text-left text-sm">
-              <Avatar className="size-8 rounded-lg">
+              <Avatar className="size-8 rounded-full">
                 {image ? <AvatarImage src={image} alt={name} /> : null}
-                <AvatarFallback className="rounded-lg">
+                <AvatarFallback className="rounded-full">
                   {initialsOf(user.name, user.email)}
                 </AvatarFallback>
               </Avatar>
