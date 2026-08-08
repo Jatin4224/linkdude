@@ -34,10 +34,10 @@ export function ProblemCards() {
         {MARKETING_PROBLEMS.map((problem, index) => {
           const Icon = getNavIcon(problem.icon);
           return (
-            <Reveal key={problem.title} delay={index * 90}>
-              <Card className="border-hairline-gradient h-full">
+            <Reveal key={problem.title} delay={index * 60}>
+              <Card className="surface-raised h-full border-border/80">
                 <CardContent className="flex flex-col gap-3 p-6">
-                  <span className="flex size-10 items-center justify-center rounded-lg bg-brand-soft">
+                  <span className="flex size-10 items-center justify-center rounded-lg bg-linear-to-br from-brand/30 to-brand/5 ring-1 ring-inset ring-brand-border">
                     <Icon className="size-5 text-brand-soft-foreground" />
                   </span>
                   <h3 className="font-semibold">{problem.title}</h3>

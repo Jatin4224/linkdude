@@ -35,6 +35,15 @@ export default function MarketingLayout({
         <style>{`[data-reveal]{opacity:1 !important;transform:none !important}`}</style>
       </noscript>
 
+      {/* Page-wide film grain. Fixed rather than absolute so it doesn't have to
+          span the full scroll height, and at 3% it is never seen directly — its
+          only job is to stop the large flat near-black areas from reading as
+          dead screen. */}
+      <div
+        aria-hidden="true"
+        className="bg-grain pointer-events-none fixed inset-0 z-50 opacity-[0.03] mix-blend-overlay"
+      />
+
       <MarketingNavbar />
       <main className="flex-1">{children}</main>
       <MarketingFooter />

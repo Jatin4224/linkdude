@@ -31,6 +31,7 @@ import { getResourceDefinition } from "@/lib/resources";
 import { MarketingSection } from "@/components/global/marketing";
 import { getNavIcon } from "@/components/global/sidebar/nav-icons";
 import { Reveal } from "@/components/global/reveal";
+import { Spotlight } from "@/components/global/spotlight";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -68,31 +69,35 @@ export function FeatureShowcase() {
                its nav entry — a missing icon must not blank the card. */
             const Icon = getNavIcon(resource.nav?.icon ?? "");
             return (
-              <Reveal key={feature.resource} delay={index * 90}>
-                <Card className="h-full transition-colors hover:border-brand-border">
-                  <CardContent className="flex flex-col gap-3 p-6">
-                    <div className="flex items-center gap-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft">
-                        <Icon className="size-5 text-brand-soft-foreground" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {resource.name}
-                        </p>
-                        <h3 className="truncate font-semibold">
-                          {feature.headline}
-                        </h3>
+              <Reveal key={feature.resource} delay={index * 60}>
+                {/* Spotlight is a transparent positioning shell — the Card keeps
+                    its own border, surface and radius. */}
+                <Spotlight className="h-full">
+                  <Card className="surface-raised h-full border-border/80 transition-[border-color,box-shadow] duration-200 ease-out hover:border-brand-border hover:shadow-lg">
+                    <CardContent className="flex flex-col gap-3 p-6">
+                      <div className="flex items-center gap-3">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-brand/30 to-brand/5 ring-1 ring-inset ring-brand-border">
+                          <Icon className="size-5 text-brand-soft-foreground" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {resource.name}
+                          </p>
+                          <h3 className="truncate font-semibold">
+                            {feature.headline}
+                          </h3>
+                        </div>
                       </div>
-                    </div>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      {feature.body}
-                    </p>
-                    <p className="flex items-start gap-2 text-xs text-muted-foreground">
-                      <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-brand" />
-                      {feature.proof}
-                    </p>
-                  </CardContent>
-                </Card>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {feature.body}
+                      </p>
+                      <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-brand" />
+                        {feature.proof}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </Spotlight>
               </Reveal>
             );
           })}

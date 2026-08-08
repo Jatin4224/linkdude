@@ -53,7 +53,7 @@ export function FinalCta() {
           />
         </Reveal>
 
-        <Reveal delay={80} className="flex flex-col items-center gap-6">
+        <Reveal delay={60} className="flex flex-col items-center gap-6">
           <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
             Your next thirty posts are one conversation away.
           </h2>

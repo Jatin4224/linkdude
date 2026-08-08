@@ -43,7 +43,7 @@ export function FaqSection() {
               {item.question}
               {/* base-ui exposes open state as data-panel-open — not Radix's
                   data-state="open". */}
-              <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[panel-open]:rotate-180" />
+              <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out group-data-panel-open:rotate-180" />
             </CollapsibleTrigger>
             <CollapsibleContent className="pb-5 pr-8 text-sm leading-relaxed text-muted-foreground">
               {item.answer}

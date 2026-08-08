@@ -48,6 +48,7 @@ import {
   type PlanKey,
 } from "@/lib/config";
 import { MarketingSection } from "@/components/global/marketing";
+import { Spotlight } from "@/components/global/spotlight";
 import { BillingIntervalToggle, getPlanIcon } from "@/components/global/billing";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -109,80 +110,91 @@ export function PricingSection() {
           const yearly = interval === "yearly";
 
           return (
-            <Card
-              key={plan}
-              className={cn(
-                "relative h-full",
-                highlighted && "border-hairline-gradient lg:scale-[1.02]",
-              )}
-            >
+            <div key={plan} className="relative">
+              {/* The badge sits OUTSIDE the spotlight shell: that shell clips to
+                  its radius, and a badge straddling the top edge would be cut in
+                  half by it. */}
               {highlighted ? (
-                <Badge className="absolute -top-2.5 left-6 z-10">
+                <Badge className="absolute -top-2.5 left-6 z-20">
                   Most popular
                 </Badge>
               ) : null}
 
-              <CardContent className="flex h-full flex-col gap-5 p-6">
-                <div className="flex items-center gap-2.5">
-                  <Icon className="size-5 text-brand" />
-                  <span className="font-semibold">{def.name}</span>
-                </div>
+              <Spotlight
+                className={cn(
+                  "h-full",
+                  /* One turning ring on the page, spent on the tier we want
+                     read first. */
+                  highlighted && "border-conic-brand lg:scale-[1.02]",
+                )}
+              >
+                <Card className="surface-raised h-full border-border/80">
+                  <CardContent className="flex h-full flex-col gap-5 p-6">
+                    <div className="flex items-center gap-2.5">
+                      <Icon className="size-5 text-brand" />
+                      <span className="font-semibold">{def.name}</span>
+                    </div>
 
-                <div className="flex flex-col gap-1">
-                  {contactSales ? (
-                    <p className="text-3xl font-semibold">Custom</p>
-                  ) : (
-                    <>
-                      <p className="text-3xl font-semibold tabular-nums">
-                        {yearly
-                          ? formatPlanMonthlyEquivalent(plan)
-                          : formatPlanPrice(plan, "monthly")}
-                        <span className="text-base font-normal text-muted-foreground">
-                          /mo
-                        </span>
-                      </p>
-                      {/* Yearly shows the per-month equivalent with the real
-                          billing terms underneath — quoting the annual total as
-                          a monthly price would be a lie. */}
-                      <p className="text-xs text-muted-foreground">
-                        {yearly
-                          ? `${formatPlanPrice(plan, "yearly")} billed yearly`
-                          : "Billed monthly"}
-                      </p>
-                    </>
-                  )}
-                </div>
+                    <div className="flex flex-col gap-1">
+                      {contactSales ? (
+                        <p className="text-3xl font-semibold">Custom</p>
+                      ) : (
+                        <>
+                          <p className="text-3xl font-semibold tabular-nums">
+                            {yearly
+                              ? formatPlanMonthlyEquivalent(plan)
+                              : formatPlanPrice(plan, "monthly")}
+                            <span className="text-base font-normal text-muted-foreground">
+                              /mo
+                            </span>
+                          </p>
+                          {/* Yearly shows the per-month equivalent with the real
+                              billing terms underneath — quoting the annual total
+                              as a monthly price would be a lie. */}
+                          <p className="text-xs text-muted-foreground">
+                            {yearly
+                              ? `${formatPlanPrice(plan, "yearly")} billed yearly`
+                              : "Billed monthly"}
+                          </p>
+                        </>
+                      )}
+                    </div>
 
-                {def.trialDays > 0 ? (
-                  <Badge variant="secondary" className="w-fit">
-                    {def.trialDays}-day trial
-                  </Badge>
-                ) : plan === "free" ? (
-                  <Badge variant="secondary" className="w-fit">
-                    No card required
-                  </Badge>
-                ) : null}
+                    {def.trialDays > 0 ? (
+                      <Badge variant="secondary" className="w-fit">
+                        {def.trialDays}-day trial
+                      </Badge>
+                    ) : plan === "free" ? (
+                      <Badge variant="secondary" className="w-fit">
+                        No card required
+                      </Badge>
+                    ) : null}
 
-                <ul className="flex flex-col gap-2.5">
-                  {planBullets(plan).map((bullet) => (
-                    <li key={bullet} className="flex items-start gap-2 text-sm">
-                      <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand" />
-                      <span className="text-muted-foreground">{bullet}</span>
-                    </li>
-                  ))}
-                </ul>
+                    <ul className="flex flex-col gap-2.5">
+                      {planBullets(plan).map((bullet) => (
+                        <li
+                          key={bullet}
+                          className="flex items-start gap-2 text-sm"
+                        >
+                          <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand" />
+                          <span className="text-muted-foreground">{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
 
-                <Button
-                  variant={highlighted ? "brand" : "outline"}
-                  size="lg"
-                  className="mt-auto w-full"
-                  nativeButton={false}
-                  render={<Link href={GET_STARTED_HREF} />}
-                >
-                  {contactSales ? "Talk to us" : GET_STARTED_LABEL}
-                </Button>
-              </CardContent>
-            </Card>
+                    <Button
+                      variant={highlighted ? "brand" : "outline"}
+                      size="lg"
+                      className="mt-auto w-full"
+                      nativeButton={false}
+                      render={<Link href={GET_STARTED_HREF} />}
+                    >
+                      {contactSales ? "Talk to us" : GET_STARTED_LABEL}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Spotlight>
+            </div>
           );
         })}
       </div>

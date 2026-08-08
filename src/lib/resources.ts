@@ -933,6 +933,24 @@ export function formatBytesLimit(bytes: number): string {
  *        so the whole pricing page formats numbers one way.
  * WHERE: The comparison table cells and the free-tier stat band.
  */
+/**
+ * SOURCE OF TRUTH KEYWORDS: getRawResourceLimit
+ *
+ * WHAT:  The authored cap for a (resource, plan) — a number, or the literal
+ *        'unlimited' sentinel.
+ * WHY:   Sits between the two existing readers: getResourceLimitForPlan maps the
+ *        sentinel to Infinity for comparisons, formatResourceLimit renders it as
+ *        text. A UI that has to ANIMATE the number needs it as a number while
+ *        still knowing when there isn't one.
+ * WHERE: The count-up stat band on the landing page.
+ */
+export function getRawResourceLimit(
+  resource: LimitResourceKey,
+  plan: PlanKey,
+): number | "unlimited" {
+  return RESOURCES[resource].limit.perPlan[plan];
+}
+
 export function formatResourceLimit(
   resource: LimitResourceKey,
   plan: PlanKey,

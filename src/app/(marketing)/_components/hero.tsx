@@ -26,14 +26,13 @@ import BRAND_MASCOT from "@/app/assets/images/linkdin-dude.png";
 import {
   GET_STARTED_HREF,
   GET_STARTED_LABEL,
-  MARKETING_HERO_POST,
   MARKETING_SECTION_IDS,
 } from "@/lib/config";
 import { formatResourceAllowance } from "@/lib/resources";
-import { LinkedInPostPreview } from "@/components/global/linkedin";
 import { Reveal } from "@/components/global/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { HeroPostMockup } from "./hero-post-mockup";
 
 export function LandingHero() {
   return (
@@ -41,8 +40,18 @@ export function LandingHero() {
       id={MARKETING_SECTION_IDS.top}
       className="relative isolate overflow-hidden"
     >
-      {/* Backdrop: a fading grid for structure, a brand glow for warmth. Both
-          decorative, both behind everything, neither focusable. */}
+      {/* Backdrop, back to front: two drifting aurora blobs, a fading grid for
+          structure, then a brand glow. All decorative, all behind everything,
+          none focusable. Only `transform` animates, so the drift runs on the
+          compositor and doesn't compete with the page still loading. */}
+      <div
+        aria-hidden="true"
+        className="animate-aurora-a aurora-blob aurora-brand pointer-events-none absolute -top-40 left-[8%] -z-30 size-120 opacity-50"
+      />
+      <div
+        aria-hidden="true"
+        className="animate-aurora-b aurora-blob aurora-accent pointer-events-none absolute -top-24 right-[4%] -z-30 size-96 opacity-35"
+      />
       <div
         aria-hidden="true"
         className="bg-grid-lines pointer-events-none absolute inset-0 -z-20 opacity-60"
@@ -54,12 +63,19 @@ export function LandingHero() {
 
       <div className="mx-auto grid w-full max-w-6xl items-center gap-14 px-6 pb-24 pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:pb-32 lg:pt-28">
         <Reveal className="flex flex-col items-start gap-6">
-          <Badge variant="outline" className="gap-2 border-brand-border">
+          <Badge
+            variant="outline"
+            className="relative gap-2 overflow-hidden border-brand-border"
+          >
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" />
+            AI that writes like you, not like AI
+            {/* One sheen pass every few seconds, then a long pause. Constant
+                motion at the edge of vision is noise; an occasional one reads
+                as light moving across a surface. */}
             <span
               aria-hidden="true"
-              className="size-1.5 rounded-full bg-brand"
+              className="animate-sheen pointer-events-none absolute inset-y-0 -left-full w-1/2 bg-[linear-gradient(to_right,transparent,color-mix(in_oklch,var(--brand)_28%,transparent),transparent)]"
             />
-            AI that writes like you, not like AI
           </Badge>
 
           <h1 className="text-gradient-brand text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
@@ -107,13 +123,8 @@ export function LandingHero() {
             subject of the screen, so it stays narrower than its grid column
             instead of stretching to fill it. */}
         <div className="relative isolate mx-auto w-full max-w-sm lg:mr-0">
-          <Reveal delay={120} className="relative z-10">
-            {/* The slight tilt reads as an object on a desk rather than a
-                screenshot pasted into the layout; it straightens on hover. */}
-            <LinkedInPostPreview
-              {...MARKETING_HERO_POST}
-              className="shadow-xl transition-transform duration-500 hover:rotate-0 motion-safe:-rotate-1"
-            />
+          <Reveal delay={60} className="relative z-10">
+            <HeroPostMockup />
           </Reveal>
 
           {/* The mascot peeks out from BEHIND the card's lower-left corner —
@@ -121,7 +132,7 @@ export function LandingHero() {
               ever covering a word of the post. Hidden below lg, where the column
               is too narrow for it to clear the text. */}
           <Reveal
-            delay={260}
+            delay={120}
             className="pointer-events-none absolute -bottom-10 -left-20 -z-10 hidden w-36 lg:block xl:-left-24 xl:w-40"
           >
             <Image
@@ -136,7 +147,7 @@ export function LandingHero() {
           </Reveal>
 
           <Reveal
-            delay={340}
+            delay={180}
             className="absolute -right-3 -top-5 hidden sm:block"
           >
             <div className="border-hairline-gradient flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg">
@@ -146,7 +157,7 @@ export function LandingHero() {
           </Reveal>
 
           <Reveal
-            delay={420}
+            delay={240}
             className="absolute -bottom-6 right-4 hidden sm:block"
           >
             <div className="border-hairline-gradient flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg">

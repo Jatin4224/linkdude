@@ -19,6 +19,7 @@
 import { MARKETING_SECTION_IDS, MARKETING_STEPS } from "@/lib/config";
 import { MarketingSection } from "@/components/global/marketing";
 import { Reveal } from "@/components/global/reveal";
+import { StepConnector } from "./step-connector";
 
 export function HowItWorks() {
   return (
@@ -27,20 +28,34 @@ export function HowItWorks() {
       eyebrow="How it works"
       title="Connected in a minute. Posting the same day."
     >
-      <div className="relative">
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-[16%] top-6 -z-10 hidden h-px bg-[linear-gradient(to_right,transparent,var(--border),transparent)] md:block"
-        />
-        <div className="grid gap-10 md:grid-cols-3">
+      {/* `isolate` creates the stacking context the layers below sit in. Without
+          it the connector's z-0 competes with the page background and simply
+          disappears behind it. */}
+      <div className="relative isolate">
+        {/* Wrapped in its own Reveal purely so the path's draw-on is keyed to
+            `data-reveal="shown"` — the line draws when the steps arrive, not
+            while the section is still below the fold. Reveal carries the
+            positioning so the SVG itself stays a plain, sizeable box the
+            observer can actually measure. */}
+        <Reveal className="pointer-events-none absolute inset-x-[16%] top-6 z-0 hidden md:block">
+          <StepConnector />
+        </Reveal>
+        <div className="relative z-10 grid gap-10 md:grid-cols-3">
           {MARKETING_STEPS.map((step, index) => (
             <Reveal
               key={step.title}
-              delay={index * 110}
+              delay={index * 70}
               className="flex flex-col items-center gap-3 text-center"
             >
-              <span className="flex size-12 items-center justify-center rounded-full border border-brand-border bg-brand-soft font-semibold tabular-nums text-brand-soft-foreground">
-                {index + 1}
+              {/* Opaque background, not the translucent brand-soft: the charge
+                  passes behind these and should disappear under them, the way a
+                  wire disappears behind a terminal. */}
+              <span className="relative flex size-12 items-center justify-center rounded-full border border-brand-border bg-background font-semibold tabular-nums text-brand-soft-foreground shadow-[0_0_0_6px_var(--background)]">
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full bg-brand-soft"
+                />
+                <span className="relative">{index + 1}</span>
               </span>
               <h3 className="font-semibold">{step.title}</h3>
               <p className="max-w-xs text-sm text-muted-foreground">

@@ -7,7 +7,7 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: LandingHero, CapabilityMarquee, ProblemCards,
  *   FeatureShowcase, HowItWorks, FreeTierStats, PricingSection,
- *   PlanComparisonTable, FaqSection, FinalCta
+ *   PlanComparisonTable, FaqSection, FinalCta, HeroPostMockup, StepConnector
  *
  * WHAT:  Barrel for the landing page's sections.
  * WHY:   Route-local because these compose one page; page.tsx reads as the
