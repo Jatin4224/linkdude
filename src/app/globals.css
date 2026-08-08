@@ -67,9 +67,14 @@
   --sidebar-accent-foreground: oklch(0 0 0);
   --sidebar-border: oklch(0.94 0 0);
   --sidebar-ring: oklch(0 0 0);
-  --font-sans: Geist, sans-serif;
+  /* Resolves the next/font-hashed families exposed on <html> by layout.tsx.
+   * The literal names ("Geist") only ever matched for people who happened to
+   * have the font installed locally — everyone else silently fell back to the
+   * system sans, which is invisible at 14px body copy and obvious at display
+   * sizes on the landing page. */
+  --font-sans: var(--font-geist-sans), Geist, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Geist Mono, monospace;
+  --font-mono: var(--font-geist-mono), Geist Mono, monospace;
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 1px;
@@ -139,9 +144,14 @@
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.32 0 0);
   --sidebar-ring: oklch(0.72 0 0);
-  --font-sans: Geist, sans-serif;
+  /* Resolves the next/font-hashed families exposed on <html> by layout.tsx.
+   * The literal names ("Geist") only ever matched for people who happened to
+   * have the font installed locally — everyone else silently fell back to the
+   * system sans, which is invisible at 14px body copy and obvious at display
+   * sizes on the landing page. */
+  --font-sans: var(--font-geist-sans), Geist, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Geist Mono, monospace;
+  --font-mono: var(--font-geist-mono), Geist Mono, monospace;
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 1px;
@@ -228,6 +238,141 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    /* font-sans is explicit rather than inherited from preflight so the
+     * next/font family above is guaranteed to reach every surface. */
+    @apply bg-background font-sans text-foreground;
+  }
+}
+
+/*
+ * SOURCE OF TRUTH KEYWORDS: bg-brand-glow, bg-grid-lines, border-hairline-gradient,
+ *   text-gradient-brand, mask-fade-x, animate-marquee, data-reveal, Reveal,
+ *   marketing utilities, prefers-reduced-motion
+ * WHAT:  The presentation-only utilities the marketing surfaces compose from —
+ *        a brand radial glow, a fading grid backdrop, a gradient hairline
+ *        border, gradient display text, an edge-fade mask, the marquee
+ *        animation, and the scroll-reveal transition the Reveal component
+ *        toggles.
+ * WHY:   These are multi-declaration effects (masks, pseudo-element borders,
+ *        keyframes) that cannot be expressed as arbitrary Tailwind values
+ *        without unreadable class soup repeated at a dozen call sites. Every
+ *        colour is a theme token or a color-mix over one, so the page still has
+ *        zero hardcoded colours. The `oklch(0 0 0)` values inside mask-image are
+ *        NOT theme colours — a mask reads only the alpha channel, and that
+ *        literal is the standard opaque carrier.
+ * WHERE: src/components/global/marketing/*, src/components/global/reveal/*, and
+ *        src/app/(marketing)/_components/*.
+ */
+@layer utilities {
+  .bg-brand-glow {
+    background: radial-gradient(
+      60% 55% at 50% 0%,
+      color-mix(in oklch, var(--brand) 30%, transparent) 0%,
+      transparent 70%
+    );
+  }
+
+  .bg-grid-lines {
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        var(--border) 0 1px,
+        transparent 1px 64px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        var(--border) 0 1px,
+        transparent 1px 64px
+      );
+    mask-image: radial-gradient(
+      70% 60% at 50% 0%,
+      oklch(0 0 0) 0%,
+      transparent 100%
+    );
+  }
+
+  .mask-fade-x {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      oklch(0 0 0) 10%,
+      oklch(0 0 0) 90%,
+      transparent 100%
+    );
+  }
+
+  /* A real 1px gradient border: the ::before paints the gradient, then the
+   * two-layer mask punches out everything except the padding ring. */
+  .border-hairline-gradient {
+    position: relative;
+  }
+  .border-hairline-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      to bottom right,
+      color-mix(in oklch, var(--brand) 60%, transparent),
+      transparent 55%
+    );
+    mask:
+      linear-gradient(oklch(0 0 0) 0 0) content-box,
+      linear-gradient(oklch(0 0 0) 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .text-gradient-brand {
+    background: linear-gradient(
+      to bottom right,
+      var(--foreground) 30%,
+      color-mix(in oklch, var(--brand) 85%, var(--foreground))
+    );
+    background-clip: text;
+    color: transparent;
+  }
+
+  @keyframes marquee-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-marquee {
+    animation: marquee-scroll 42s linear infinite;
+  }
+
+  /* Reveal's pre-enter state. The content is in the server HTML either way —
+   * only opacity and offset change — so crawlers and copy-paste are unaffected. */
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(1rem);
+    transition:
+      opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  [data-reveal="shown"] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Last and equal-specificity, so it wins for BOTH reveal states: a
+   * reduced-motion visitor gets the finished page immediately, whatever the
+   * observer decides. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-reveal] {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+    .animate-marquee {
+      animation: none;
+    }
   }
 }

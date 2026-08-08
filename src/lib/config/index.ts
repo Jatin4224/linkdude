@@ -27,7 +27,12 @@
  *   ContentPlanStepDefinition, CONTENT_PLAN_SECTIONS,
  *   CONTENT_PLAN_SECTION_ENTRIES, serializeContentPlanAnswers,
  *   serializeContentPlanSection, contentPlanSectionCopyText,
- *   ContentPlanSectionDefinition
+ *   ContentPlanSectionDefinition, PLAN_PRICE_CURRENCY, PLAN_PRICE_LOCALE,
+ *   HIGHLIGHTED_PLAN, getPlanPriceAmount, formatPlanPrice,
+ *   getPlanMonthlyEquivalent, formatPlanMonthlyEquivalent,
+ *   getPlanYearlySavingPercent, MARKETING_SECTION_IDS, MARKETING_NAV,
+ *   MARKETING_FEATURES, MARKETING_FAQ, MARKETING_MATRIX_GROUPS,
+ *   GET_STARTED_HREF, GET_STARTED_LABEL
  *
  * WHAT:  Barrel re-export for the `src/lib/config/*` modules.
  * WHY:   Single import surface (`@/lib/config`) so consumers don't depend on
@@ -56,12 +61,45 @@ export {
   PLAN_KEYS,
   PLANS,
   PLAN_ORDER,
+  PLAN_PRICE_CURRENCY,
+  PLAN_PRICE_LOCALE,
+  HIGHLIGHTED_PLAN,
   isPaidPlan,
   getPlanPriceId,
   getPlanByPriceId,
   getNextPlan,
+  getPlanPriceAmount,
+  formatPlanPrice,
+  getPlanMonthlyEquivalent,
+  formatPlanMonthlyEquivalent,
+  getPlanYearlySavingPercent,
 } from "./plans";
 export type { PlanKey, PlanDefinition, BillingInterval } from "./plans";
+export {
+  MARKETING_SECTION_IDS,
+  MARKETING_NAV,
+  MARKETING_FEATURES,
+  MARKETING_PROBLEMS,
+  MARKETING_STEPS,
+  MARKETING_FAQ,
+  MARKETING_FOOTER_GROUPS,
+  MARKETING_MATRIX_GROUPS,
+  MARKETING_PLAN_BULLET_RESOURCES,
+  MARKETING_FREE_TIER_RESOURCES,
+  MARKETING_HERO_POST,
+  GET_STARTED_HREF,
+  GET_STARTED_LABEL,
+} from "./marketing";
+export type {
+  MarketingSectionId,
+  MarketingNavItem,
+  MarketingFeature,
+  MarketingProblem,
+  MarketingStep,
+  MarketingFaqItem,
+  MarketingFooterGroup,
+  MarketingMatrixGroup,
+} from "./marketing";
 export {
   getResendClient,
   RESEND_DEFAULT_FROM,

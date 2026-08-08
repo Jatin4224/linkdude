@@ -11,7 +11,9 @@
  *   ResourceRateLimit, PLAN_KEYS, RESOURCE_ENTRIES, LIMIT_RESOURCE_KEYS,
  *   FLAG_RESOURCE_KEYS, getResourceLimitForPlan, getResourceFlagForPlan,
  *   getResourceFromPath, getMutationFeatureMap, isResourceKey,
- *   interpolateAuditDescribe, getOrganizationStatement
+ *   interpolateAuditDescribe, getOrganizationStatement, formatBytesLimit,
+ *   formatResourceLimit, formatResourceAllowance, getPricingMatrix,
+ *   PricingCell, PricingMatrixRow
  *
  * WHAT:  Unified registry of every resource concept — permissions, limits, flags,
  *        sidebar nav, audit description templates, rate-limit overrides.
@@ -24,7 +26,12 @@
  *        (src/trpc/react-provider.tsx); depends on src/lib/config/plans.ts.
  */
 
-import { PLAN_KEYS, type PlanKey } from "@/lib/config/plans";
+import {
+  PLAN_KEYS,
+  PLAN_ORDER,
+  PLAN_PRICE_LOCALE,
+  type PlanKey,
+} from "@/lib/config/plans";
 
 /* PLAN_KEYS / PlanKey are the single source of truth in plans.ts (RESOURCES only
  * consumes them for perPlan exhaustiveness). Re-exported here so existing
@@ -630,6 +637,23 @@ export const RESOURCE_ENTRIES: ReadonlyArray<
 })();
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: getResourceDefinition
+ *
+ * WHAT:  Reads one RESOURCES entry as the widened ResourceDefinition.
+ * WHY:   Indexing RESOURCES with a variable ResourceKey yields a union of the
+ *        `as const` literal shapes, on which optional fields like `nav` and
+ *        `description` are unreachable — the same problem RESOURCE_ENTRIES
+ *        solves for iteration. This is that widening point for a single lookup,
+ *        so callers read `def.nav?.icon` instead of narrowing by hand.
+ * WHERE: Any surface that resolves a resource by key at runtime — e.g. the
+ *        marketing feature cards, which take their title and icon from the
+ *        registry so the landing page and the sidebar can never disagree.
+ */
+export function getResourceDefinition(resource: ResourceKey): ResourceDefinition {
+  return RESOURCES[resource];
+}
+
+/**
  * SOURCE OF TRUTH KEYWORDS: getOrganizationStatement
  *
  * WHAT:  Builds the resource→actions statement record consumed by Better Auth.
@@ -859,3 +883,162 @@ export const LIMIT_RESOURCE_KEYS = RESOURCE_ENTRIES.filter(isLimitEntry).map(
 export const FLAG_RESOURCE_KEYS = RESOURCE_ENTRIES.filter(isFlagEntry).map(
   ([k]) => k,
 ) satisfies readonly FlagResourceKey[];
+
+/* ---------- Pricing presentation ----------
+ *
+ * Everything below turns the registry above into human-readable copy. It is
+ * deliberately separate from getResourceLimitForPlan: that helper maps
+ * 'unlimited' to Infinity because the GATE layer needs a number to compare,
+ * and printing "Infinity" on a pricing page would be a bug. These read the
+ * perPlan value RAW instead.
+ */
+
+/* Largest-first so the loop picks the biggest unit the value divides into. */
+const BYTE_UNITS = [
+  { label: "TB", size: 1024 ** 4 },
+  { label: "GB", size: 1024 ** 3 },
+  { label: "MB", size: 1024 ** 2 },
+  { label: "KB", size: 1024 },
+] as const;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: formatBytesLimit
+ *
+ * WHAT:  Renders a byte count as the largest clean unit — 104857600 → "100 MB".
+ * WHY:   Storage caps are authored in bytes so the gate can compare them
+ *         directly; nobody wants to read "104,857,600" on a pricing table.
+ * WHERE: formatResourceLimit, for any limit whose unit is "bytes".
+ */
+export function formatBytesLimit(bytes: number): string {
+  for (const { label, size } of BYTE_UNITS) {
+    if (bytes >= size) {
+      const value = bytes / size;
+      /* Whole numbers stay whole ("5 GB"); anything else keeps one decimal. */
+      const rounded =
+        Number.isInteger(value) ? value.toString() : value.toFixed(1);
+      return `${rounded} ${label}`;
+    }
+  }
+  return `${bytes} B`;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: formatResourceLimit
+ *
+ * WHAT:  The bare cap for a (resource, plan) as display text — "500",
+ *        "Unlimited", "5 GB", "50,000".
+ * WHY:   Reads RESOURCES[...].limit.perPlan[plan] RAW rather than going through
+ *        getResourceLimitForPlan, which would hand back Infinity for the
+ *        enterprise tier. Digit grouping uses the same pinned locale as prices
+ *        so the whole pricing page formats numbers one way.
+ * WHERE: The comparison table cells and the free-tier stat band.
+ */
+export function formatResourceLimit(
+  resource: LimitResourceKey,
+  plan: PlanKey,
+): string {
+  const value = RESOURCES[resource].limit.perPlan[plan];
+  if (value === "unlimited") return "Unlimited";
+  if (RESOURCES[resource].limit.unit === "bytes") return formatBytesLimit(value);
+  return value.toLocaleString(PLAN_PRICE_LOCALE);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: formatResourceAllowance
+ *
+ * WHAT:  The cap WITH its unit, as a pricing-card bullet — "500 posts",
+ *        "Unlimited posts", "100 MB storage".
+ * WHY:   Pricing bullets are generated from the registry rather than typed by
+ *        hand, so editing a cap in RESOURCES updates the marketing claim in the
+ *        same commit and the two can never contradict each other.
+ * WHERE: Pricing card bullet lists and the hero's free-tier trust line.
+ */
+/* Units are authored plural in RESOURCES because that is how they read in a
+ * usage meter ("3 of 50 analyses"). Only the irregular ones need listing —
+ * everything else loses its trailing "s". */
+const SINGULAR_UNITS: Record<string, string> = {
+  analyses: "analysis",
+};
+
+function singularizeUnit(unit: string): string {
+  return SINGULAR_UNITS[unit] ?? unit.replace(/s$/, "");
+}
+
+export function formatResourceAllowance(
+  resource: LimitResourceKey,
+  plan: PlanKey,
+): string {
+  const limit = RESOURCES[resource].limit;
+  const { unit } = limit;
+  const amount = formatResourceLimit(resource, plan);
+  /* "100 MB bytes" would be nonsense — the byte formatter already carries the
+   * unit, so the noun becomes the thing being measured instead. */
+  if (unit === "bytes") return `${amount} storage`;
+  if (!unit) return amount;
+  /* A cap of exactly 1 is common on the free tier, and "1 plans" on the hero
+   * is the kind of detail that makes a landing page look unfinished. */
+  const label = limit.perPlan[plan] === 1 ? singularizeUnit(unit) : unit;
+  return `${amount} ${label}`;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: PricingCell, PricingMatrixRow, getPricingMatrix
+ *
+ * WHAT:  One row per plan-gated resource, with a pre-formatted cell per
+ *        purchasable plan — quantities carry their label plus an `unlimited`
+ *        marker, flags carry a boolean.
+ * WHY:   A discriminated union rather than a bare string so the table can render
+ *        a check/dash icon for flags and emphasise "Unlimited" for quantities,
+ *        without re-deriving what kind of resource it is looking at. Columns come
+ *        from PLAN_ORDER, so the hidden `portal` tier is excluded structurally
+ *        rather than by a filter every caller has to remember.
+ * WHERE: src/app/(marketing)/_components/plan-comparison-table.tsx.
+ */
+export type PricingCell =
+  | { kind: "quantity"; label: string; unlimited: boolean }
+  | { kind: "boolean"; included: boolean };
+
+export interface PricingMatrixRow {
+  key: ResourceKey;
+  name: string;
+  description?: string | undefined;
+  /* Partial on purpose: only PLAN_ORDER members get a cell, so the hidden
+   * `portal` tier is genuinely absent rather than filled with a placeholder.
+   * The renderer treats a missing cell as "not offered". */
+  cells: Readonly<Partial<Record<PlanKey, PricingCell>>>;
+}
+
+export function getPricingMatrix(): readonly PricingMatrixRow[] {
+  const rows: PricingMatrixRow[] = [];
+
+  for (const entry of RESOURCE_ENTRIES) {
+    const [key, def] = entry;
+    const cells: Partial<Record<PlanKey, PricingCell>> = {};
+
+    if (isLimitEntry(entry)) {
+      const [limitKey, limitDef] = entry;
+      for (const plan of PLAN_ORDER) {
+        cells[plan] = {
+          kind: "quantity",
+          label: formatResourceLimit(limitKey, plan),
+          unlimited: limitDef.limit.perPlan[plan] === "unlimited",
+        };
+      }
+    } else if (isFlagEntry(entry)) {
+      const [flagKey] = entry;
+      for (const plan of PLAN_ORDER) {
+        cells[plan] = {
+          kind: "boolean",
+          included: getResourceFlagForPlan(flagKey, plan),
+        };
+      }
+    } else {
+      /* Neither a limit nor a flag — nothing a buyer can compare. */
+      continue;
+    }
+
+    rows.push({ key, name: def.name, description: def.description, cells });
+  }
+
+  return rows;
+}

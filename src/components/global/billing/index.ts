@@ -7,7 +7,7 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: StripeElementsProvider, PaymentCardForm,
  *   PlanSelector, BillingIntervalToggle, PaymentMethodRow,
- *   AddPaymentMethodDialog, ChangePlanDialog
+ *   AddPaymentMethodDialog, ChangePlanDialog, PLAN_ICONS, getPlanIcon
  *
  * WHAT:  Barrel for the reusable Stripe/billing UI primitives.
  * WHY:   One import surface for the onboarding payment step and the billing
@@ -21,3 +21,5 @@ export { PlanSelector, BillingIntervalToggle } from "./plan-selector";
 export { PaymentMethodRow } from "./payment-method-row";
 export { AddPaymentMethodDialog } from "./add-payment-method-dialog";
 export { ChangePlanDialog } from "./change-plan-dialog";
+export { PLAN_ICONS, getPlanIcon } from "./plan-icons";
+export type { PlanIconName } from "./plan-icons";

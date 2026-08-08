@@ -1,0 +1,103 @@
+/*
+ *   *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: FeatureShowcase, MARKETING_FEATURES, RESOURCES,
+ *   getNavIcon, sticky scroll, Reveal, MarketingSection, product surfaces
+ *
+ * WHAT:  The product section — a pinned copy column beside four cards, one per
+ *        shipped surface.
+ * WHY:   The card TITLE and ICON come from RESOURCES[resource], not from the
+ *        copy file, so the name a visitor reads here is the exact label they
+ *        will later click in the sidebar. The sticky column is pure CSS
+ *        (`lg:sticky`) — a scroll-driven pin would need a listener and a
+ *        measurement pass to do something the browser already does for free.
+ * WHERE: src/app/(marketing)/page.tsx.
+ */
+
+import Link from "next/link";
+import { CheckIcon } from "lucide-react";
+
+import {
+  GET_STARTED_HREF,
+  GET_STARTED_LABEL,
+  MARKETING_FEATURES,
+  MARKETING_SECTION_IDS,
+} from "@/lib/config";
+import { getResourceDefinition } from "@/lib/resources";
+import { MarketingSection } from "@/components/global/marketing";
+import { getNavIcon } from "@/components/global/sidebar/nav-icons";
+import { Reveal } from "@/components/global/reveal";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+
+export function FeatureShowcase() {
+  return (
+    <MarketingSection id={MARKETING_SECTION_IDS.features}>
+      <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+        <div className="flex flex-col gap-6 lg:sticky lg:top-24 lg:self-start">
+          <p className="text-xs font-medium uppercase tracking-widest text-brand-soft-foreground">
+            The product
+          </p>
+          <h2 className="text-pretty text-3xl font-semibold tracking-tight sm:text-4xl">
+            Four surfaces. One workflow.
+          </h2>
+          <p className="text-pretty text-muted-foreground">
+            Plan the month, write the post, ship it on schedule, and fix the
+            profile it lands on. Each one is useful alone. Together they close
+            the loop.
+          </p>
+          <Button
+            variant="brand"
+            size="lg"
+            className="h-10 w-fit px-5"
+            nativeButton={false}
+            render={<Link href={GET_STARTED_HREF} />}
+          >
+            {GET_STARTED_LABEL}
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {MARKETING_FEATURES.map((feature, index) => {
+            const resource = getResourceDefinition(feature.resource);
+            /* Falls through getNavIcon's neutral default if a surface ever loses
+               its nav entry — a missing icon must not blank the card. */
+            const Icon = getNavIcon(resource.nav?.icon ?? "");
+            return (
+              <Reveal key={feature.resource} delay={index * 90}>
+                <Card className="h-full transition-colors hover:border-brand-border">
+                  <CardContent className="flex flex-col gap-3 p-6">
+                    <div className="flex items-center gap-3">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft">
+                        <Icon className="size-5 text-brand-soft-foreground" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          {resource.name}
+                        </p>
+                        <h3 className="truncate font-semibold">
+                          {feature.headline}
+                        </h3>
+                      </div>
+                    </div>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {feature.body}
+                    </p>
+                    <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-brand" />
+                      {feature.proof}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Reveal>
+            );
+          })}
+        </div>
+      </div>
+    </MarketingSection>
+  );
+}
