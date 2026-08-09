@@ -40,6 +40,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { playSound } from "@/lib/sound";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
@@ -64,6 +66,7 @@ import {
   LinkedInPostPreview,
 } from "@/components/global/linkedin";
 import { ImageUpload } from "@/components/global/image-upload";
+import { PostStatusBadge } from "@/components/global/post-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -187,6 +190,9 @@ export function PostComposer({
     onSuccess: (result) => {
       setCommentary(result.commentary);
       toast.success("Post generated.");
+      /* Silent unless the user opted in. Generation runs long enough that people
+         switch tabs while they wait — the cue is what brings them back. */
+      playSound("jobComplete");
     },
     onError: (error) => toast.error(error.message),
   });
@@ -254,11 +260,21 @@ export function PostComposer({
 
   return (
     <ContentLayout
-      title="Generate LinkedIn Post"
+      title="Create Post"
+      description="Generate a draft, edit it in place, publish or schedule"
+      icon={<SparklesIcon className="size-4" />}
       actions={<LinkedInConnectButton />}
     >
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-        <Card className="h-fit">
+      {/* items-start: both columns start at the top of the row. Without it a
+          short controls card and a tall preview column can disagree about where
+          the row begins, which reads as one card sitting lower than the other. */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+        {/* NOT sticky: `.surface-raised` sets `position: relative` so its
+            top-edge ::before has something to anchor to, and a second `position`
+            on the same element is a coin toss between the two utilities. If this
+            column should pin while the preview scrolls, the sticky belongs on a
+            plain wrapper around the card, not on the card itself. */}
+        <Card className="surface-raised h-fit">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <span className="flex size-7 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground">
@@ -312,8 +328,23 @@ export function PostComposer({
             />
           </LinkedInPostPreview>
 
+          {/* Moved ABOVE the action row: this is the reason the publish button
+              is disabled, and it used to sit underneath it — the reader hit the
+              dead button first and the explanation second. */}
+          {!isConnected ? (
+            /* Tinted rather than destructive: nothing is broken, publishing is
+               just the one thing still gated. */
+            <div className="flex items-start gap-2 rounded-lg border border-brand-border bg-brand-soft p-3">
+              <LinkIcon className="mt-0.5 size-4 shrink-0 text-brand-soft-foreground" />
+              <p className="text-sm text-brand-soft-foreground">
+                Connect your LinkedIn account to publish. You can still generate
+                and edit copy without one.
+              </p>
+            </div>
+          ) : null}
+
           {schedulingEnabled ? (
-            <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+            <div className="surface-raised flex flex-wrap items-center gap-3 rounded-lg border p-3">
               <div className="flex items-center gap-2">
                 <Switch
                   id="schedule-toggle"
@@ -350,16 +381,37 @@ export function PostComposer({
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p
-              className={
-                commentary.length > LINKEDIN_MAX_COMMENTARY
-                  ? "text-sm text-destructive"
-                  : "text-sm text-muted-foreground"
-              }
-            >
-              {commentary.length} / {LINKEDIN_MAX_COMMENTARY} characters
-            </p>
+          {/* The commit row, given its own surface so the primary action reads
+              as the end of the composer rather than another line of text. */}
+          <div className="surface-raised flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+            <div className="flex items-center gap-3">
+              <p
+                className={
+                  commentary.length > LINKEDIN_MAX_COMMENTARY
+                    ? "text-sm tabular-nums text-destructive"
+                    : "text-sm tabular-nums text-muted-foreground"
+                }
+              >
+                {commentary.length} / {LINKEDIN_MAX_COMMENTARY} characters
+              </p>
+              {/* A bar as well as the count: at 3,000 the number alone gives no
+                  sense of how much room is left until it is already gone. */}
+              <div
+                aria-hidden="true"
+                className="h-1.5 w-24 overflow-hidden rounded-full bg-muted"
+              >
+                <div
+                  className={
+                    commentary.length > LINKEDIN_MAX_COMMENTARY
+                      ? "h-full rounded-full bg-destructive transition-all"
+                      : "h-full rounded-full bg-brand transition-all"
+                  }
+                  style={{
+                    width: `${Math.min(100, (commentary.length / LINKEDIN_MAX_COMMENTARY) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
             <Button
               variant="brand"
               onClick={handleSubmit}
@@ -376,20 +428,8 @@ export function PostComposer({
             </Button>
           </div>
 
-          {!isConnected ? (
-            /* Tinted rather than destructive: nothing is broken, publishing is
-               just the one thing still gated. */
-            <div className="flex items-start gap-2 rounded-lg border border-brand-border bg-brand-soft p-3">
-              <LinkIcon className="mt-0.5 size-4 shrink-0 text-brand-soft-foreground" />
-              <p className="text-sm text-brand-soft-foreground">
-                Connect your LinkedIn account to publish. You can still generate
-                and edit copy without one.
-              </p>
-            </div>
-          ) : null}
-
           {recentPosts.data && recentPosts.data.length > 0 ? (
-            <Card>
+            <Card className="surface-raised">
               <CardHeader>
                 <CardTitle className="text-base">Recent posts</CardTitle>
               </CardHeader>
@@ -397,12 +437,19 @@ export function PostComposer({
                 {recentPosts.data.map((post, index) => (
                   <React.Fragment key={post.id}>
                     {index > 0 ? <Separator /> : null}
-                    <div className="flex flex-col gap-1">
-                      <p className="line-clamp-2 text-sm">{post.commentary}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {/* Nullable since scheduling landed, though this list
-                            only ever holds published rows. */}
-                        {post.publishedAt?.toLocaleString() ?? "—"}
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        {/* The same chip the calendar and dashboard use, so a
+                            post's state looks identical wherever it appears. */}
+                        <PostStatusBadge status={post.status} />
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {/* Nullable since scheduling landed, though this list
+                              only ever holds published rows. */}
+                          {post.publishedAt?.toLocaleString() ?? "—"}
+                        </span>
+                      </div>
+                      <p className="line-clamp-2 text-sm text-muted-foreground">
+                        {post.commentary}
                       </p>
                     </div>
                   </React.Fragment>

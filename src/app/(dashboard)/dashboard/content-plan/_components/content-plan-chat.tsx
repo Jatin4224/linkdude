@@ -33,6 +33,8 @@ import * as React from "react";
 import { CompassIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { playSound } from "@/lib/sound";
+
 import { trpc } from "@/trpc/react-provider";
 import {
   useActiveOrganization,
@@ -258,6 +260,10 @@ export function ContentPlanChat() {
       /* The plan quota just moved, and the row changed — both are server facts. */
       await Promise.all([refreshSession(), utils.usage.invalidate()]);
       toast.success("Your content plan is ready.");
+      /* Silent unless the user opted in. This is the longest job in the app —
+         long enough that people switch tabs — which is the whole reason a cue
+         earns its place here and nowhere else. */
+      playSound("jobComplete");
     } catch (error) {
       toast.error(
         error instanceof Error

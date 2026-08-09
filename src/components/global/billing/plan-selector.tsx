@@ -7,7 +7,7 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: PlanSelector, BillingIntervalToggle, PLAN_ICONS
+ * SOURCE OF TRUTH KEYWORDS: PlanSelector, BillingIntervalToggle, getPlanIcon
  *
  * WHAT:  Plan picker (icon + name + trial/popular badges) and a monthly/yearly
  *        toggle, driven by PLANS / PLAN_ORDER.
@@ -19,15 +19,7 @@
  */
 
 import * as React from "react";
-import {
-  CheckIcon,
-  PackageIcon,
-  RocketIcon,
-  ZapIcon,
-  Building2Icon,
-  ShieldCheckIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { CheckIcon } from "lucide-react";
 
 import {
   PLANS,
@@ -37,25 +29,19 @@ import {
 } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-
-/* Maps PLANS[plan].icon strings to lucide components. */
-const PLAN_ICONS: Record<string, LucideIcon> = {
-  Package: PackageIcon,
-  Rocket: RocketIcon,
-  Zap: ZapIcon,
-  Building: Building2Icon,
-  ShieldCheck: ShieldCheckIcon,
-};
+import { getPlanIcon } from "./plan-icons";
 
 export function BillingIntervalToggle({
   interval,
   onIntervalChange,
+  className,
 }: {
   interval: BillingInterval;
   onIntervalChange: (interval: BillingInterval) => void;
+  className?: string | undefined;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className={cn("grid grid-cols-2 gap-3", className)}>
       {(["monthly", "yearly"] as const).map((value) => {
         const selected = interval === value;
         return (
@@ -94,7 +80,7 @@ export function PlanSelector({
       {plans.map((plan) => {
         const def = PLANS[plan];
         const isSelected = plan === selectedPlan;
-        const Icon = PLAN_ICONS[def.icon] ?? PackageIcon;
+        const Icon = getPlanIcon(def.icon);
         return (
           <button
             key={plan}

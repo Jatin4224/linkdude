@@ -24,7 +24,10 @@
  */
 
 import * as React from "react";
+import { Loader2Icon, UserSearchIcon } from "lucide-react";
 import { toast } from "sonner";
+
+import { playSound } from "@/lib/sound";
 
 import { trpc } from "@/trpc/react-provider";
 import {
@@ -78,6 +81,9 @@ export function ProfileAnalyzer() {
     onSuccess: async (result) => {
       setSelected(result);
       toast.success("Profile analyzed.");
+      /* Silent unless the user opted in. An analysis is a multi-second model
+         call, which is exactly the wait a cue is worth spending on. */
+      playSound("jobComplete");
       /* The new row belongs at the top of the history, and the analysis quota
          just moved — both are read from the server, so both are refetched. */
       await Promise.all([
@@ -157,9 +163,13 @@ export function ProfileAnalyzer() {
   }
 
   return (
-    <ContentLayout title="Profile Analysis">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <Card className="h-fit">
+    <ContentLayout
+      title="Profile Analysis"
+      description="Score your profile and get paste-ready rewrites"
+      icon={<UserSearchIcon className="size-4" />}
+    >
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+        <Card className="surface-raised h-fit">
           <CardHeader>
             <CardTitle className="text-base">Paste your profile</CardTitle>
           </CardHeader>
@@ -200,12 +210,28 @@ export function ProfileAnalyzer() {
              headline line describe the INPUT that was analyzed. */
           <AnalysisResult analysis={selected} />
         ) : (
-          <Card className="h-fit">
-            <CardContent className="p-8 text-center">
-              <p className="text-sm text-muted-foreground">
+          /* A titled empty state rather than one grey sentence in a box: this
+             pane is half the screen and it is the first thing a new user sees,
+             so it should say what is coming rather than look like something
+             failed to load. */
+          <Card className="surface-raised h-fit">
+            <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+              <span className="flex size-12 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-foreground">
+                {analyze.isPending ? (
+                  <Loader2Icon className="size-5 animate-spin" />
+                ) : (
+                  <UserSearchIcon className="size-5" />
+                )}
+              </span>
+              <p className="font-medium">
                 {analyze.isPending
-                  ? "Reading your profile and writing the critique..."
-                  : "Your analysis will appear here — a score, rewritten headline and About, and the fixes worth making first."}
+                  ? "Reading your profile…"
+                  : "Your critique appears here"}
+              </p>
+              <p className="max-w-sm text-sm text-muted-foreground">
+                {analyze.isPending
+                  ? "Scoring the profile and writing the rewrites. This takes a few seconds."
+                  : "A score out of 100, a rewritten headline and About you can paste straight back in, and the fixes worth making first."}
               </p>
             </CardContent>
           </Card>

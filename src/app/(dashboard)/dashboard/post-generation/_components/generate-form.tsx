@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -152,16 +153,22 @@ export function GenerateForm({
                 name="topic"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Topic for the post?</FormLabel>
+                    <FormLabel>What&rsquo;s the post about?</FormLabel>
                     <FormControl>
+                      {/* Six rows, not ten: the generated post appears in the
+                          preview beside this, so a taller box here only pushed
+                          the tone/length controls and Generate below the fold. */}
                       <Textarea
                         {...field}
-                        rows={10}
-                        placeholder="Write what's on your mind..."
+                        rows={6}
+                        placeholder="A lesson you learned, an opinion you can defend, a mistake worth naming…"
                         disabled={busy}
                         className="resize-none"
                       />
                     </FormControl>
+                    <FormDescription>
+                      A sentence is plenty. Specifics beat topics.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -226,15 +233,17 @@ export function GenerateForm({
         </TabsContent>
       </Tabs>
 
-      {/* Shared across both tabs, so they sit outside the Tabs content. */}
-      <div className="flex flex-col gap-4">
+      {/* Shared across both tabs, so they sit outside the Tabs content. Side by
+          side rather than stacked: two short selects in one row keeps the whole
+          control panel above the fold instead of pushing Generate off it. */}
+      <div className="grid grid-cols-2 gap-3 border-t pt-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="tone-select">Tone</Label>
           <Select
             value={tone}
             onValueChange={(value) => onToneChange(value as PostTone)}
           >
-            <SelectTrigger id="tone-select" disabled={busy}>
+            <SelectTrigger id="tone-select" disabled={busy} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -253,7 +262,7 @@ export function GenerateForm({
             value={length}
             onValueChange={(value) => onLengthChange(value as PostLength)}
           >
-            <SelectTrigger id="length-select" disabled={busy}>
+            <SelectTrigger id="length-select" disabled={busy} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

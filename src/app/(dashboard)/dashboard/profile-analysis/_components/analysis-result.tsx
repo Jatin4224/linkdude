@@ -150,7 +150,7 @@ function RewriteBlock({
   feedback: SectionFeedback;
 }) {
   return (
-    <Card>
+    <Card className="surface-raised">
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle className="flex items-center gap-2 text-base">
           {title}
@@ -195,7 +195,7 @@ function SectionStats({ sections }: { sections: StoredProfileAnalysis["input"]["
         return (
           <div
             key={key}
-            className="flex flex-col gap-1 rounded-md border p-3"
+            className="surface-raised flex flex-col gap-1 rounded-lg border p-3"
           >
             <span className="text-2xl font-semibold tabular-nums">{count}</span>
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -233,7 +233,7 @@ function HeadlineChoices({
   const active = options[selected] ?? feedback.rewrite;
 
   return (
-    <Card>
+    <Card className="surface-raised">
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle className="flex items-center gap-2 text-base">
           Headline
@@ -315,7 +315,7 @@ function IssueList({
   ).length;
 
   return (
-    <Card>
+    <Card className="surface-raised">
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle className="flex items-center gap-2 text-base">
           <LightbulbIcon className="size-4 text-brand-soft-foreground" />
@@ -412,27 +412,47 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="border-t-2 border-t-brand">
-        <CardContent className="flex flex-col gap-4 p-4">
-          {/* The analyzed headline, so a history selection is identifiable at a
-              glance without opening the form it came from. */}
-          <p className="text-sm font-medium wrap-break-word">
-            {input.headline}
-          </p>
-          <SectionStats sections={input.sections} />
-          <Separator />
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-3xl font-semibold tabular-nums">
-              {result.score}
-            </span>
-            <span className="text-sm text-muted-foreground">/ 100</span>
-            <Badge variant="outline" className={band.className}>
+      <Card className="surface-raised border-t-2 border-t-brand">
+        <CardContent className="flex flex-col gap-5 p-5">
+          {/* Score and verdict lead. This is the finding the whole pane exists
+              to deliver, and it used to sit below the section counts at a size
+              smaller than they were — so the first thing the eye landed on was
+              how many certifications you have. */}
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-baseline gap-2">
+              <span className="text-5xl font-semibold leading-none tabular-nums">
+                {result.score}
+              </span>
+              <span className="text-lg text-muted-foreground">/ 100</span>
+            </div>
+            <Badge
+              variant="outline"
+              className={`${band.className} h-7 px-3 text-sm`}
+            >
               {band.label}
             </Badge>
           </div>
+
           <p className="text-sm leading-relaxed text-muted-foreground">
             {result.summary}
           </p>
+
+          <Separator />
+
+          {/* The analyzed headline, so a history selection is identifiable at a
+              glance without opening the form it came from. Labelled now, because
+              an unlabelled line of text next to a score reads as a caption for
+              the score rather than as the profile's own headline. */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Headline analyzed
+            </span>
+            <p className="text-sm font-medium wrap-break-word">
+              {input.headline}
+            </p>
+          </div>
+
+          <SectionStats sections={input.sections} />
         </CardContent>
       </Card>
 
@@ -478,7 +498,7 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
         );
       })}
 
-      <Card>
+      <Card className="surface-raised">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <ThumbsUpIcon className="size-4 text-brand-soft-foreground" />

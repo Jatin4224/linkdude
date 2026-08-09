@@ -5,25 +5,32 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: DashboardHomePage
+ * SOURCE OF TRUTH KEYWORDS: DashboardHomePage, ContentLayout, UsageSummary,
+ *   QuickActions, ActivityPanel, dashboard home
  *
- * WHAT:  Dashboard landing page — the post-onboarding home inside the sidebar
- *        shell.
- * WHY:   Thin starting point; real dashboards drop their widgets into
- *        ContentLayout. Kept intentionally minimal — this is a template base.
+ * WHAT:  The post-onboarding home — what's left of the plan, what to start, and
+ *        what the queue looks like.
+ * WHY:   Ordered by the questions a returning user actually arrives with: how
+ *        much have I got left, what do I do now, and is anything going out. The
+ *        quotas come first because they constrain the answer to the other two.
+ *
+ *        No entrance animation anywhere on this page, by design. This is the
+ *        most-visited route in the app, and motion on a screen someone opens
+ *        several times a day reads as latency rather than polish — the marketing
+ *        surfaces keep the reveals, the dashboard keeps the speed. The shared
+ *        card surface is the only thing carried across.
  * WHERE: Route /dashboard under the (dashboard) layout.
  */
 
 import type { Metadata } from "next";
+import { LayoutDashboardIcon } from "lucide-react";
 
 import { ContentLayout } from "@/components/global/page-header";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  ActivityPanel,
+  QuickActions,
+  UsageSummary,
+} from "./_components";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -31,21 +38,14 @@ export const metadata: Metadata = {
 
 export default function DashboardHomePage() {
   return (
-    <ContentLayout title="Dashboard">
-      <Card>
-        <CardHeader>
-          <CardTitle>Welcome</CardTitle>
-          <CardDescription>
-            This is your dashboard. Add your product’s features here — declare
-            them in src/lib/resources.ts and they appear in the sidebar
-            automatically.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Use the sidebar to manage your team, organization settings, and
-          billing.
-        </CardContent>
-      </Card>
+    <ContentLayout
+      title="Dashboard"
+      description="Your plan, your queue, and what to do next"
+      icon={<LayoutDashboardIcon className="size-4" />}
+    >
+      <UsageSummary />
+      <QuickActions />
+      <ActivityPanel />
     </ContentLayout>
   );
 }

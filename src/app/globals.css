@@ -67,9 +67,14 @@
   --sidebar-accent-foreground: oklch(0 0 0);
   --sidebar-border: oklch(0.94 0 0);
   --sidebar-ring: oklch(0 0 0);
-  --font-sans: Geist, sans-serif;
+  /* Resolves the next/font-hashed families exposed on <html> by layout.tsx.
+   * The literal names ("Geist") only ever matched for people who happened to
+   * have the font installed locally — everyone else silently fell back to the
+   * system sans, which is invisible at 14px body copy and obvious at display
+   * sizes on the landing page. */
+  --font-sans: var(--font-geist-sans), Geist, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Geist Mono, monospace;
+  --font-mono: var(--font-geist-mono), Geist Mono, monospace;
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 1px;
@@ -139,9 +144,14 @@
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.32 0 0);
   --sidebar-ring: oklch(0.72 0 0);
-  --font-sans: Geist, sans-serif;
+  /* Resolves the next/font-hashed families exposed on <html> by layout.tsx.
+   * The literal names ("Geist") only ever matched for people who happened to
+   * have the font installed locally — everyone else silently fell back to the
+   * system sans, which is invisible at 14px body copy and obvious at display
+   * sizes on the landing page. */
+  --font-sans: var(--font-geist-sans), Geist, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Geist Mono, monospace;
+  --font-mono: var(--font-geist-mono), Geist Mono, monospace;
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 1px;
@@ -208,6 +218,26 @@
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
 
+  /*
+   * SOURCE OF TRUTH KEYWORDS: --ease-out, --ease-in-out, --ease-drawer, easing,
+   *   cubic-bezier, transition timing, ease-out utility, motion curve
+   * WHAT:  The app's motion curves, overriding Tailwind's built-in `ease-out`
+   *        and `ease-in-out` utilities so every surface shares one set.
+   * WHY:   The CSS built-ins are too weak to read as intentional — they lack the
+   *        initial punch that makes an entrance feel responsive. These are the
+   *        standard strong variants, not hand-rolled approximations. Declared in
+   *        @theme rather than as loose variables so `ease-out` / `ease-in-out`
+   *        class names resolve to them and nobody has to remember a var().
+   *        `ease-in` is deliberately absent from the app's vocabulary: it delays
+   *        the first frame, which is exactly when the user is looking.
+   * WHERE: The Reveal transition and the marketing surfaces; also upgrades the
+   *        existing `ease-in-out` on components/ui/sheet.tsx.
+   */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  /* iOS-like drawer curve (Ionic), here for when a drawer lands. */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -228,6 +258,370 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    /* font-sans is explicit rather than inherited from preflight so the
+     * next/font family above is guaranteed to reach every surface. */
+    @apply bg-background font-sans text-foreground;
+  }
+}
+
+/*
+ * SOURCE OF TRUTH KEYWORDS: bg-brand-glow, bg-grid-lines, border-hairline-gradient,
+ *   text-gradient-brand, mask-fade-x, animate-marquee, data-reveal, Reveal,
+ *   marketing utilities, prefers-reduced-motion
+ * WHAT:  The presentation-only utilities the marketing surfaces compose from —
+ *        a brand radial glow, a fading grid backdrop, a gradient hairline
+ *        border, gradient display text, an edge-fade mask, the marquee
+ *        animation, and the scroll-reveal transition the Reveal component
+ *        toggles.
+ * WHY:   These are multi-declaration effects (masks, pseudo-element borders,
+ *        keyframes) that cannot be expressed as arbitrary Tailwind values
+ *        without unreadable class soup repeated at a dozen call sites. Every
+ *        colour is a theme token or a color-mix over one, so the page still has
+ *        zero hardcoded colours. The `oklch(0 0 0)` values inside mask-image are
+ *        NOT theme colours — a mask reads only the alpha channel, and that
+ *        literal is the standard opaque carrier.
+ * WHERE: src/components/global/marketing/*, src/components/global/reveal/*, and
+ *        src/app/(marketing)/_components/*.
+ */
+@layer utilities {
+  .bg-brand-glow {
+    background: radial-gradient(
+      60% 55% at 50% 0%,
+      color-mix(in oklch, var(--brand) 30%, transparent) 0%,
+      transparent 70%
+    );
+  }
+
+  .bg-grid-lines {
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        var(--border) 0 1px,
+        transparent 1px 64px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        var(--border) 0 1px,
+        transparent 1px 64px
+      );
+    mask-image: radial-gradient(
+      70% 60% at 50% 0%,
+      oklch(0 0 0) 0%,
+      transparent 100%
+    );
+  }
+
+  .mask-fade-x {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      oklch(0 0 0) 10%,
+      oklch(0 0 0) 90%,
+      transparent 100%
+    );
+  }
+
+  /* A real 1px gradient border: the ::before paints the gradient, then the
+   * two-layer mask punches out everything except the padding ring. */
+  .border-hairline-gradient {
+    position: relative;
+  }
+  .border-hairline-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      to bottom right,
+      color-mix(in oklch, var(--brand) 60%, transparent),
+      transparent 55%
+    );
+    mask:
+      linear-gradient(oklch(0 0 0) 0 0) content-box,
+      linear-gradient(oklch(0 0 0) 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .text-gradient-brand {
+    background: linear-gradient(
+      to bottom right,
+      var(--foreground) 30%,
+      color-mix(in oklch, var(--brand) 85%, var(--foreground))
+    );
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Film grain. An inline SVG feTurbulence rather than a PNG: it is ~200 bytes,
+   * needs no network request, and resolution-independent noise never tiles
+   * visibly. Very low opacity — the job is to stop large flat dark areas from
+   * looking like dead pixels, not to be seen. */
+  .bg-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+  }
+
+  /* Aurora: two slow, oversized blurred blobs drifting behind the fold. Only
+   * `transform` is animated, so the whole thing stays on the compositor. */
+  .aurora-blob {
+    border-radius: 9999px;
+    filter: blur(72px);
+    will-change: transform;
+  }
+  .aurora-brand {
+    background: radial-gradient(
+      circle at center,
+      color-mix(in oklch, var(--brand) 55%, transparent),
+      transparent 70%
+    );
+  }
+  .aurora-accent {
+    background: radial-gradient(
+      circle at center,
+      color-mix(in oklch, var(--chart-2) 45%, transparent),
+      transparent 70%
+    );
+  }
+
+  @keyframes aurora-drift-a {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(8%, 6%, 0) scale(1.12);
+    }
+  }
+  @keyframes aurora-drift-b {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1.08);
+    }
+    50% {
+      transform: translate3d(-10%, -5%, 0) scale(1);
+    }
+  }
+  .animate-aurora-a {
+    animation: aurora-drift-a 22s ease-in-out infinite;
+  }
+  .animate-aurora-b {
+    animation: aurora-drift-b 27s ease-in-out infinite;
+  }
+
+  /* Rotating conic ring for the highlighted plan. Same masked-::before trick as
+   * border-hairline-gradient, but the gradient itself turns — one moving
+   * element on the page, reserved for the thing we want looked at. */
+  @property --conic-angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+  }
+  @keyframes conic-spin {
+    to {
+      --conic-angle: 360deg;
+    }
+  }
+  .border-conic-brand {
+    position: relative;
+  }
+  .border-conic-brand::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: conic-gradient(
+      from var(--conic-angle),
+      transparent 0deg,
+      var(--brand) 60deg,
+      color-mix(in oklch, var(--brand) 30%, transparent) 130deg,
+      transparent 200deg,
+      transparent 360deg
+    );
+    mask:
+      linear-gradient(oklch(0 0 0) 0 0) content-box,
+      linear-gradient(oklch(0 0 0) 0 0);
+    mask-composite: exclude;
+    animation: conic-spin 6s linear infinite;
+    pointer-events: none;
+  }
+
+  /* Pointer-tracked glow. --spot-x/--spot-y are written on THIS element by the
+   * Spotlight component, never on a shared parent — a variable on a parent
+   * restyles every child on each pointer move. */
+  .spotlight-surface::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 200ms var(--ease-out);
+    background: radial-gradient(
+      18rem circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      color-mix(in oklch, var(--brand) 12%, transparent),
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+  .spotlight-surface[data-spotlight="on"]::after {
+    opacity: 1;
+  }
+
+  /* A single sheen crossing the badge, then a long pause. Constant motion in
+   * the corner of the eye is noise; one pass every few seconds reads as light. */
+  @keyframes sheen-sweep {
+    0% {
+      transform: translateX(-140%);
+    }
+    28%,
+    100% {
+      transform: translateX(240%);
+    }
+  }
+  .animate-sheen {
+    animation: sheen-sweep 5.5s var(--ease-in-out) infinite;
+  }
+
+  /* Draws an SVG path on: the dash pattern starts fully offset and unwinds. */
+  .draw-line {
+    stroke-dasharray: var(--draw-length, 1000);
+    stroke-dashoffset: var(--draw-length, 1000);
+    transition: stroke-dashoffset 1.4s var(--ease-in-out);
+  }
+  [data-reveal="shown"] .draw-line,
+  .draw-line[data-drawn="true"] {
+    stroke-dashoffset: 0;
+  }
+
+  /* The charge running along the connector. A 70-unit lit segment inside an
+   * 830-unit gap, so exactly one pulse is on the wire at a time; the cycle
+   * length equals the path length, which is what makes the loop seamless.
+   * linear, because a charge travelling a wire has no reason to ease. */
+  .animate-spark {
+    stroke-dasharray: 70 830;
+    animation: spark-run 3.4s linear infinite;
+  }
+  @keyframes spark-run {
+    from {
+      stroke-dashoffset: 900;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /*
+   * SOURCE OF TRUTH KEYWORDS: surface-raised, elevated card, top edge highlight,
+   *   card gradient, premium surface
+   * WHAT:  A card surface that reads as lit from above — a vertical gradient off
+   *        the card token plus a bright hairline along the top edge.
+   * WHY:   On a near-black background a flat `bg-card` and a 1px border give the
+   *        eye almost nothing to catch, and a grid of them reads as one dark
+   *        rectangle. The top highlight is the cheapest way to imply a light
+   *        source, which is what separates a panel from a hole. Built entirely
+   *        from color-mix over existing tokens, so it re-themes with everything
+   *        else. Uses ::before, leaving ::after free for the Spotlight glow.
+   * WHERE: The marketing feature cards, problem cards and pricing cards.
+   */
+  .surface-raised {
+    position: relative;
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--card) 88%, var(--foreground)),
+      var(--card) 55%
+    );
+  }
+  .surface-raised::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in oklch, var(--foreground) 22%, transparent) 20%,
+      color-mix(in oklch, var(--brand) 55%, transparent) 50%,
+      color-mix(in oklch, var(--foreground) 22%, transparent) 80%,
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  @keyframes marquee-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-marquee {
+    animation: marquee-scroll 42s linear infinite;
+  }
+
+  /* Reveal's pre-enter state. The content is in the server HTML either way —
+   * only opacity and offset change — so crawlers and copy-paste are unaffected.
+   * A transition rather than a keyframe animation: it retargets from wherever it
+   * is if something interrupts, where a keyframe would restart from zero. */
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity 600ms var(--ease-out),
+      transform 600ms var(--ease-out);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  [data-reveal="shown"] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Last and equal-specificity, so it wins for BOTH reveal states: a
+   * reduced-motion visitor gets the finished page immediately, whatever the
+   * observer decides. */
+  /* Reduced motion: every looping or position-based animation stops, and the
+   * reveal resolves instantly. Opacity-only effects that aid comprehension stay
+   * — the guidance is gentler motion, not a stripped page. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-reveal] {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+    .animate-marquee,
+    .animate-aurora-a,
+    .animate-aurora-b,
+    .animate-sheen,
+    .animate-spark,
+    .border-conic-brand::before {
+      animation: none;
+    }
+    /* Without the running pulse the spark path would sit as one static dash, so
+     * hide it and leave the drawn track to carry the connection. */
+    .animate-spark {
+      display: none;
+    }
+    .draw-line {
+      stroke-dashoffset: 0;
+      transition: none;
+    }
+  }
+
+  /* Someone who has asked for less transparency has usually asked because the
+   * blur costs them legibility. Give the chrome a solid ground and drop the
+   * filter rather than merely thickening it, and take the grain out — noise over
+   * text is exactly what that setting exists to remove. */
+  @media (prefers-reduced-transparency: reduce) {
+    [data-scrolled="true"] {
+      background-color: var(--background);
+      backdrop-filter: none;
+    }
+    .bg-grain {
+      display: none;
+    }
   }
 }

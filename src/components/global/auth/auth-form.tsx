@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/better-auth/auth-client";
-import { AUTH_ROUTES } from "@/lib/config";
+import { AUTH_ROUTES, ROUTES } from "@/lib/config";
 import { useDevEmailToast } from "@/hooks/use-dev-email-toast";
 import {
   signInSchema,
@@ -57,7 +57,12 @@ import {
  * SOURCE OF TRUTH KEYWORDS: AuthFormProps
  *
  * WHAT:  Props for AuthForm — mode + optional post-success callback URL
- *        (defaults to "/").
+ *        (defaults to ROUTES.dashboard).
+ * WHY:   The default used to be "/", which was an auth probe that forwarded on
+ *        to the dashboard. "/" is now the public landing page, so defaulting
+ *        there would drop a user who just signed in back onto the sales copy.
+ *        Targeting the dashboard directly is also one redirect shorter; the
+ *        dashboard layout still owns the no-org → onboarding hop.
  * WHERE: Used by the (auth) route pages.
  */
 export interface AuthFormProps {
@@ -76,7 +81,10 @@ const GOOGLE_OAUTH_ENABLED = Boolean(
  * WHAT:  Selects the concrete form by `mode`.
  * WHERE: Rendered by sign-in/page.tsx and sign-up/page.tsx.
  */
-export function AuthForm({ mode, callbackURL = "/" }: AuthFormProps) {
+export function AuthForm({
+  mode,
+  callbackURL = ROUTES.dashboard,
+}: AuthFormProps) {
   return mode === "sign-in" ? (
     <SignInForm callbackURL={callbackURL} />
   ) : (
@@ -399,7 +407,15 @@ function AuthSubmit({
   isBusy: boolean;
 }) {
   return (
-    <Button type="submit" className="w-full" disabled={isBusy}>
+    /* `brand` rather than the default: this is the same commit action as every
+       CTA on the public site, and a white button here made auth look like a
+       different product from the page the user arrived from. */
+    <Button
+      type="submit"
+      variant="brand"
+      className="w-full"
+      disabled={isBusy}
+    >
       {isSubmitting ? <Loader2Icon className="size-4 animate-spin" /> : null}
       {label}
     </Button>

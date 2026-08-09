@@ -11,7 +11,9 @@
  *   ResourceRateLimit, PLAN_KEYS, RESOURCE_ENTRIES, LIMIT_RESOURCE_KEYS,
  *   FLAG_RESOURCE_KEYS, getResourceLimitForPlan, getResourceFlagForPlan,
  *   getResourceFromPath, getMutationFeatureMap, isResourceKey,
- *   interpolateAuditDescribe, getOrganizationStatement
+ *   interpolateAuditDescribe, getOrganizationStatement, getRawResourceLimit,
+ *   formatResourceLimit, formatResourceAllowance, getPricingMatrix,
+ *   PricingCell, PricingMatrixRow
  *
  * WHAT:  Unified registry of every resource concept — permissions, limits, flags,
  *        sidebar nav, audit description templates, rate-limit overrides.
@@ -24,7 +26,12 @@
  *        (src/trpc/react-provider.tsx); depends on src/lib/config/plans.ts.
  */
 
-import { PLAN_KEYS, type PlanKey } from "@/lib/config/plans";
+import {
+  PLAN_KEYS,
+  PLAN_ORDER,
+  PLAN_PRICE_LOCALE,
+  type PlanKey,
+} from "@/lib/config/plans";
 
 /* PLAN_KEYS / PlanKey are the single source of truth in plans.ts (RESOURCES only
  * consumes them for perPlan exhaustiveness). Re-exported here so existing
@@ -49,7 +56,18 @@ export interface ResourceNav {
   label: string;
   href: string;
   icon: string;
-  section?: "main" | "settings" | (string & {});
+  section?: "create" | "workspace" | (string & {});
+  /**
+   * Position within the section, lowest first. Entries without one sort after
+   * those that have one, in declaration order.
+   *
+   * Explicit because RESOURCES is ordered by ARCHITECTURE — Better Auth
+   * surfaces, then billing, then the product — and letting that dictate the
+   * sidebar put Team above every feature a user actually opens daily. Nav order
+   * is a UI decision and deserves to be stated rather than inherited from where
+   * a resource happened to be declared.
+   */
+  order?: number;
   /** Defaults to 'read' when omitted. */
   requirePermission?: string;
   requireFlag?: boolean;
@@ -128,7 +146,8 @@ export const RESOURCES = {
       label: "Team",
       href: "/dashboard/team",
       icon: "Users",
-      section: "main",
+      section: "workspace",
+      order: 1,
     },
   },
 
@@ -144,69 +163,18 @@ export const RESOURCES = {
     permissions: ["create", "read", "update", "delete"],
   },
 
-  storage: {
-    name: "Storage",
-    description: "File storage capacity",
-    limit: {
-      perPlan: {
-        free: 100 * 1024 * 1024,
-        starter: 5 * 1024 * 1024 * 1024,
-        pro: 25 * 1024 * 1024 * 1024,
-        enterprise: "unlimited",
-        portal: "unlimited",
-      },
-      upgradeMessage: "Upgrade to {nextPlan} to expand your storage",
-      availableOnFreeTrial: true,
-      unit: "bytes",
-    },
-  },
-
-  apiCalls: {
-    name: "API Calls",
-    description: "Total API calls per month",
-    limit: {
-      perPlan: {
-        free: 1_000,
-        starter: 50_000,
-        pro: 500_000,
-        enterprise: "unlimited",
-        portal: "unlimited",
-      },
-      upgradeMessage: "Upgrade to {nextPlan} for more API calls",
-      availableOnFreeTrial: true,
-      unit: "calls",
-    },
-  },
-
-  customDomain: {
-    name: "Custom Domain",
-    description: "Map your own domain to your workspace",
-    flag: {
-      perPlan: {
-        free: false,
-        starter: true,
-        pro: true,
-        enterprise: true,
-        portal: true,
-      },
-      availableOnFreeTrial: false,
-    },
-  },
-
-  customBranding: {
-    name: "Custom Branding",
-    description: "Remove or customize platform branding",
-    flag: {
-      perPlan: {
-        free: false,
-        starter: true,
-        pro: true,
-        enterprise: true,
-        portal: true,
-      },
-      availableOnFreeTrial: false,
-    },
-  },
+  /* REMOVED: storage, apiCalls, customDomain, customBranding.
+   *
+   * They were starter-kit placeholders — priced rows with no router, no
+   * enforcement call site, and no UI. Because getPricingMatrix() walks every
+   * RESOURCE_ENTRIES member with a limit or flag, their only real effect was
+   * advertising four features on the public pricing table that the app does not
+   * implement, which becomes a refund conversation the moment money changes
+   * hands. `storage` could not have been enforced anyway: incrementUsage takes
+   * no amount, so a byte limit has nothing to count.
+   *
+   * Re-add an entry here (with its enforcement) when the feature actually
+   * exists — the pricing table picks it up automatically. */
 
   auditLogs: {
     name: "Audit Logs",
@@ -223,10 +191,14 @@ export const RESOURCES = {
       availableOnFreeTrial: false,
     },
     nav: {
+      /* Lives under settings/ because the page is a settings tab, not a
+       * top-level surface — the href must match the real route or the sidebar
+       * link 404s. */
       label: "Audit Logs",
-      href: "/dashboard/audit-logs",
+      href: "/dashboard/settings/audit-logs",
       icon: "ScrollText",
-      section: "settings",
+      section: "workspace",
+      order: 4,
       requireFlag: true,
     },
   },
@@ -239,7 +211,8 @@ export const RESOURCES = {
       label: "Billing",
       href: "/dashboard/settings/billing",
       icon: "CreditCard",
-      section: "settings",
+      section: "workspace",
+      order: 2,
     },
   },
 
@@ -252,7 +225,8 @@ export const RESOURCES = {
       label: "Organization",
       href: "/dashboard/settings/organization",
       icon: "Settings",
-      section: "settings",
+      section: "workspace",
+      order: 3,
     },
   },
 
@@ -337,7 +311,8 @@ export const RESOURCES = {
       label: "Profile Analysis",
       href: "/dashboard/profile-analysis",
       icon: "UserSearch",
-      section: "main",
+      section: "create",
+      order: 4,
       /* REQUIRED, and deliberately 'create' rather than the more natural 'read'.
        *
        * Custom roles store one OrganizationRole row per literal
@@ -483,7 +458,8 @@ export const RESOURCES = {
       label: "Content Plan",
       href: "/dashboard/content-plan",
       icon: "Compass",
-      section: "main",
+      section: "create",
+      order: 3,
       /* 'create', not 'read' — same backfill trap documented on profileAnalysis
        * above. `contentPlan:read` exists nowhere in any current OrganizationRole
        * row, so gating the nav on it would hide this page from every existing
@@ -534,7 +510,8 @@ export const RESOURCES = {
       label: "Create Post",
       href: "/dashboard/post-generation",
       icon: "Sparkles",
-      section: "main",
+      section: "create",
+      order: 1,
     },
   },
 
@@ -552,7 +529,8 @@ export const RESOURCES = {
       label: "Calendar",
       href: "/dashboard/calendar",
       icon: "CalendarDays",
-      section: "main",
+      section: "create",
+      order: 2,
     },
   },
 } as const satisfies Record<string, ResourceDefinition>;
@@ -630,6 +608,23 @@ export const RESOURCE_ENTRIES: ReadonlyArray<
 })();
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: getResourceDefinition
+ *
+ * WHAT:  Reads one RESOURCES entry as the widened ResourceDefinition.
+ * WHY:   Indexing RESOURCES with a variable ResourceKey yields a union of the
+ *        `as const` literal shapes, on which optional fields like `nav` and
+ *        `description` are unreachable — the same problem RESOURCE_ENTRIES
+ *        solves for iteration. This is that widening point for a single lookup,
+ *        so callers read `def.nav?.icon` instead of narrowing by hand.
+ * WHERE: Any surface that resolves a resource by key at runtime — e.g. the
+ *        marketing feature cards, which take their title and icon from the
+ *        registry so the landing page and the sidebar can never disagree.
+ */
+export function getResourceDefinition(resource: ResourceKey): ResourceDefinition {
+  return RESOURCES[resource];
+}
+
+/**
  * SOURCE OF TRUTH KEYWORDS: getOrganizationStatement
  *
  * WHAT:  Builds the resource→actions statement record consumed by Better Auth.
@@ -664,6 +659,8 @@ export interface SidebarNavItem {
   label: string;
   href: string;
   icon: string;
+  /** Resolved position within the section; see ResourceNav.order. */
+  order: number;
   /** Full `resource:action` the member must hold; owners always pass. */
   requirePermission: Permission;
   /** When true, the item is hidden unless the resource's plan flag is on. */
@@ -676,7 +673,11 @@ export interface SidebarNavSection {
 }
 
 /* Render order for the known sections; unknown sections append after. */
-const NAV_SECTION_ORDER: readonly string[] = ["main", "settings"];
+const NAV_SECTION_ORDER: readonly string[] = ["create", "workspace"];
+
+/* Sorts after every explicitly ordered item without tripping the
+ * noUncheckedIndexedAccess-style guards a `??` on each comparison would need. */
+const NAV_ORDER_LAST = Number.MAX_SAFE_INTEGER;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getSidebarNav
@@ -698,12 +699,13 @@ export function getSidebarNav(): SidebarNavSection[] {
      * is typed against the widened ResourceDefinition so TS sees `string`. This
      * is the same documented boundary the permission-constants builder uses. */
     const requirePermission = `${key}:${action}` as Permission;
-    const section = def.nav.section ?? "main";
+    const section = def.nav.section ?? "create";
     const item: SidebarNavItem = {
       key,
       label: def.nav.label,
       href: def.nav.href,
       icon: def.nav.icon,
+      order: def.nav.order ?? NAV_ORDER_LAST,
       requirePermission,
       requireFlag: def.nav.requireFlag ?? false,
     };
@@ -718,7 +720,9 @@ export function getSidebarNav(): SidebarNavSection[] {
   ];
   return orderedKeys.map((section) => ({
     section,
-    items: bySection.get(section) ?? [],
+    /* Array#sort is stable in every engine this targets, so equal `order`
+     * values keep their declaration order rather than shuffling per render. */
+    items: (bySection.get(section) ?? []).sort((a, b) => a.order - b.order),
   }));
 }
 
@@ -859,3 +863,153 @@ export const LIMIT_RESOURCE_KEYS = RESOURCE_ENTRIES.filter(isLimitEntry).map(
 export const FLAG_RESOURCE_KEYS = RESOURCE_ENTRIES.filter(isFlagEntry).map(
   ([k]) => k,
 ) satisfies readonly FlagResourceKey[];
+
+/* ---------- Pricing presentation ----------
+ *
+ * Everything below turns the registry above into human-readable copy. It is
+ * deliberately separate from getResourceLimitForPlan: that helper maps
+ * 'unlimited' to Infinity because the GATE layer needs a number to compare,
+ * and printing "Infinity" on a pricing page would be a bug. These read the
+ * perPlan value RAW instead.
+ */
+
+/* REMOVED: BYTE_UNITS / formatBytesLimit. They existed only to render the
+ * `bytes` unit, which `storage` was the sole author of — with that placeholder
+ * gone no limit is measured in bytes, so the formatter was unreachable and its
+ * `unit === "bytes"` branches were provably-dead comparisons. Reinstate both
+ * alongside a storage resource that is actually enforced. */
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: formatResourceLimit
+ *
+ * WHAT:  The bare cap for a (resource, plan) as display text — "500",
+ *        "Unlimited", "5 GB", "50,000".
+ * WHY:   Reads RESOURCES[...].limit.perPlan[plan] RAW rather than going through
+ *        getResourceLimitForPlan, which would hand back Infinity for the
+ *        enterprise tier. Digit grouping uses the same pinned locale as prices
+ *        so the whole pricing page formats numbers one way.
+ * WHERE: The comparison table cells and the free-tier stat band.
+ */
+/**
+ * SOURCE OF TRUTH KEYWORDS: getRawResourceLimit
+ *
+ * WHAT:  The authored cap for a (resource, plan) — a number, or the literal
+ *        'unlimited' sentinel.
+ * WHY:   Sits between the two existing readers: getResourceLimitForPlan maps the
+ *        sentinel to Infinity for comparisons, formatResourceLimit renders it as
+ *        text. A UI that has to ANIMATE the number needs it as a number while
+ *        still knowing when there isn't one.
+ * WHERE: The count-up stat band on the landing page.
+ */
+export function getRawResourceLimit(
+  resource: LimitResourceKey,
+  plan: PlanKey,
+): number | "unlimited" {
+  return RESOURCES[resource].limit.perPlan[plan];
+}
+
+export function formatResourceLimit(
+  resource: LimitResourceKey,
+  plan: PlanKey,
+): string {
+  const value = RESOURCES[resource].limit.perPlan[plan];
+  if (value === "unlimited") return "Unlimited";
+  return value.toLocaleString(PLAN_PRICE_LOCALE);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: formatResourceAllowance
+ *
+ * WHAT:  The cap WITH its unit, as a pricing-card bullet — "500 posts",
+ *        "Unlimited posts", "100 MB storage".
+ * WHY:   Pricing bullets are generated from the registry rather than typed by
+ *        hand, so editing a cap in RESOURCES updates the marketing claim in the
+ *        same commit and the two can never contradict each other.
+ * WHERE: Pricing card bullet lists and the hero's free-tier trust line.
+ */
+/* Units are authored plural in RESOURCES because that is how they read in a
+ * usage meter ("3 of 50 analyses"). Only the irregular ones need listing —
+ * everything else loses its trailing "s". */
+const SINGULAR_UNITS: Record<string, string> = {
+  analyses: "analysis",
+};
+
+function singularizeUnit(unit: string): string {
+  return SINGULAR_UNITS[unit] ?? unit.replace(/s$/, "");
+}
+
+export function formatResourceAllowance(
+  resource: LimitResourceKey,
+  plan: PlanKey,
+): string {
+  const limit = RESOURCES[resource].limit;
+  const { unit } = limit;
+  const amount = formatResourceLimit(resource, plan);
+  if (!unit) return amount;
+  /* A cap of exactly 1 is common on the free tier, and "1 plans" on the hero
+   * is the kind of detail that makes a landing page look unfinished. */
+  const label = limit.perPlan[plan] === 1 ? singularizeUnit(unit) : unit;
+  return `${amount} ${label}`;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: PricingCell, PricingMatrixRow, getPricingMatrix
+ *
+ * WHAT:  One row per plan-gated resource, with a pre-formatted cell per
+ *        purchasable plan — quantities carry their label plus an `unlimited`
+ *        marker, flags carry a boolean.
+ * WHY:   A discriminated union rather than a bare string so the table can render
+ *        a check/dash icon for flags and emphasise "Unlimited" for quantities,
+ *        without re-deriving what kind of resource it is looking at. Columns come
+ *        from PLAN_ORDER, so the hidden `portal` tier is excluded structurally
+ *        rather than by a filter every caller has to remember.
+ * WHERE: src/app/(marketing)/_components/plan-comparison-table.tsx.
+ */
+export type PricingCell =
+  | { kind: "quantity"; label: string; unlimited: boolean }
+  | { kind: "boolean"; included: boolean };
+
+export interface PricingMatrixRow {
+  key: ResourceKey;
+  name: string;
+  description?: string | undefined;
+  /* Partial on purpose: only PLAN_ORDER members get a cell, so the hidden
+   * `portal` tier is genuinely absent rather than filled with a placeholder.
+   * The renderer treats a missing cell as "not offered". */
+  cells: Readonly<Partial<Record<PlanKey, PricingCell>>>;
+}
+
+export function getPricingMatrix(): readonly PricingMatrixRow[] {
+  const rows: PricingMatrixRow[] = [];
+
+  for (const entry of RESOURCE_ENTRIES) {
+    const [key, def] = entry;
+    const cells: Partial<Record<PlanKey, PricingCell>> = {};
+
+    if (isLimitEntry(entry)) {
+      const [limitKey, limitDef] = entry;
+      for (const plan of PLAN_ORDER) {
+        cells[plan] = {
+          kind: "quantity",
+          label: formatResourceLimit(limitKey, plan),
+          unlimited: limitDef.limit.perPlan[plan] === "unlimited",
+        };
+      }
+    } else if (isFlagEntry(entry)) {
+      const [flagKey] = entry;
+      for (const plan of PLAN_ORDER) {
+        cells[plan] = {
+          kind: "boolean",
+          included: getResourceFlagForPlan(flagKey, plan),
+        };
+      }
+    } else {
+      /* Neither a limit nor a flag — nothing a buyer can compare. */
+      continue;
+    }
+
+    rows.push({ key, name: def.name, description: def.description, cells });
+  }
+
+  return rows;
+}

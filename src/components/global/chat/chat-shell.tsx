@@ -7,7 +7,8 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: ChatShell, ChatShellProps, useScrollToBottom
+ * SOURCE OF TRUTH KEYWORDS: ChatShell, ChatShellProps, useScrollToBottom,
+ *   CHAT_PATTERN_STYLE, CHAT_BACKGROUND, chat wallpaper
  *
  * WHAT:  The frame around a conversation — a scrolling message column that
  *        follows new turns, with a pinned composer area below it.
@@ -29,8 +30,23 @@
 
 import * as React from "react";
 
+import CHAT_BACKGROUND from "@/app/assets/images/chat-background.jpg";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+
+/* Built once at module scope rather than per render, and tiled rather than
+ * stretched — the artwork is a seamless doodle pattern, so scaling it to the
+ * container would blur it and expose the seams. A fixed tile width keeps the
+ * doodles the same physical size on every viewport, which is what makes it read
+ * as wallpaper instead of as a stretched image. */
+const CHAT_PATTERN_STYLE: React.CSSProperties = {
+  backgroundImage: `url(${CHAT_BACKGROUND.src})`,
+  backgroundRepeat: "repeat",
+  /* Small tile on purpose. At ~460px the individual doodles were large enough to
+   * be read as pictures, which turns wallpaper into a competing subject; dense
+   * and small, they blur into texture at a glance. */
+  backgroundSize: "300px auto",
+};
 
 export interface ChatShellProps {
   /** The message turns, oldest first. */
@@ -65,13 +81,32 @@ export function ChatShell({
   }, [scrollKey]);
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
+    <div
+      className={cn("relative isolate flex min-h-0 flex-1 flex-col", className)}
+    >
+      {/* The wallpaper sits on the SHELL, not inside the scroll area, so it
+          stays put while the transcript slides over it — the same way a chat
+          app's background does. Inside the scroller it would scroll with the
+          messages and read as a very long image rather than as a surface.
+          Decorative, so it is hidden from assistive tech and takes no pointer. */}
+      <div
+        aria-hidden="true"
+        style={CHAT_PATTERN_STYLE}
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.35]"
+      />
+
       {/* min-h-0 on both the wrapper and the ScrollArea: without it a flex child
           refuses to shrink below its content height and the column grows the
           page instead of scrolling itself. */}
       <ScrollArea className="min-h-0 flex-1">
+        {/* min-h-full + justify-end anchors the transcript to the BOTTOM, so a
+            conversation that has only just started sits above the composer
+            instead of stranding the first turn at the top with a screen of
+            empty wallpaper under it. The ScrollArea viewport is size-full, so
+            min-h-full resolves to the visible height; once the turns outgrow
+            that the column simply grows past it and scrolls as normal. */}
         <div
-          className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6"
+          className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-end gap-4 px-4 py-6"
           role="log"
           aria-live="polite"
           aria-label="Conversation"
