@@ -88,6 +88,9 @@ model User {
   profileAnalyses  ProfileAnalysis[]
   contentPlans     ContentPlan[]
 
+  // Signups-per-day rollups in the /portal analytics dashboard bucket on
+  // createdAt across the whole table; without this they seq-scan every user.
+  @@index([createdAt])
   @@map("user")
 }
 
@@ -112,6 +115,13 @@ model Session {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Session rows are the only sign-in record in the schema, so the portal's
+  // retention panel reads them directly: createdAt = "logins per day",
+  // expiresAt > now() = "currently active". userId supports per-user lookups
+  // that previously had no index at all.
+  @@index([createdAt])
+  @@index([userId])
+  @@index([expiresAt])
   @@map("session")
 }
 
@@ -206,6 +216,8 @@ model Organization {
   profileLookups    ProfileLookup[]
   contentPlans      ContentPlan[]
 
+  // New-workspaces-per-day in the portal analytics dashboard.
+  @@index([createdAt])
   @@map("organization")
 }
 
@@ -223,6 +235,11 @@ model Member {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // This join table carried NO indexes despite being read on every org-scoped
+  // request (the membership check in protectedProcedure) and counted per-org
+  // by the portal's organization list.
+  @@index([organizationId])
+  @@index([userId])
   @@map("member")
 }
 
@@ -298,6 +315,11 @@ model Subscription {
 
   organization Organization @relation(fields: [referenceId], references: [id], onDelete: Cascade)
 
+  // The revenue panel counts by status and buckets new subscriptions by day;
+  // referenceId is the org lookup the billing router does on every read.
+  @@index([referenceId])
+  @@index([status])
+  @@index([createdAt])
   @@map("subscription")
 }
 
@@ -400,6 +422,9 @@ model ActivityLog {
   @@index([organizationId, createdAt])
   @@index([action])
   @@index([entity])
+  // Platform-wide "events of type X per day" for the portal engagement chart —
+  // the single-column entity index alone would filter after scanning by date.
+  @@index([entity, createdAt])
   @@map("activity_log")
 }
 
@@ -522,6 +547,9 @@ model LinkedInPost {
   author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, publishedAt])
+  // Platform-wide "posts created per day": the composite indexes above are all
+  // org-scoped, so a cross-tenant rollup has nothing to use without this.
+  @@index([createdAt])
   @@index([accountId])
   @@index([authorId])
   // The worker's claim query: find due rows by status + time.
