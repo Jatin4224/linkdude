@@ -11,7 +11,7 @@
  *   ResourceRateLimit, PLAN_KEYS, RESOURCE_ENTRIES, LIMIT_RESOURCE_KEYS,
  *   FLAG_RESOURCE_KEYS, getResourceLimitForPlan, getResourceFlagForPlan,
  *   getResourceFromPath, getMutationFeatureMap, isResourceKey,
- *   interpolateAuditDescribe, getOrganizationStatement, formatBytesLimit,
+ *   interpolateAuditDescribe, getOrganizationStatement, getRawResourceLimit,
  *   formatResourceLimit, formatResourceAllowance, getPricingMatrix,
  *   PricingCell, PricingMatrixRow
  *
@@ -163,69 +163,18 @@ export const RESOURCES = {
     permissions: ["create", "read", "update", "delete"],
   },
 
-  storage: {
-    name: "Storage",
-    description: "File storage capacity",
-    limit: {
-      perPlan: {
-        free: 100 * 1024 * 1024,
-        starter: 5 * 1024 * 1024 * 1024,
-        pro: 25 * 1024 * 1024 * 1024,
-        enterprise: "unlimited",
-        portal: "unlimited",
-      },
-      upgradeMessage: "Upgrade to {nextPlan} to expand your storage",
-      availableOnFreeTrial: true,
-      unit: "bytes",
-    },
-  },
-
-  apiCalls: {
-    name: "API Calls",
-    description: "Total API calls per month",
-    limit: {
-      perPlan: {
-        free: 1_000,
-        starter: 50_000,
-        pro: 500_000,
-        enterprise: "unlimited",
-        portal: "unlimited",
-      },
-      upgradeMessage: "Upgrade to {nextPlan} for more API calls",
-      availableOnFreeTrial: true,
-      unit: "calls",
-    },
-  },
-
-  customDomain: {
-    name: "Custom Domain",
-    description: "Map your own domain to your workspace",
-    flag: {
-      perPlan: {
-        free: false,
-        starter: true,
-        pro: true,
-        enterprise: true,
-        portal: true,
-      },
-      availableOnFreeTrial: false,
-    },
-  },
-
-  customBranding: {
-    name: "Custom Branding",
-    description: "Remove or customize platform branding",
-    flag: {
-      perPlan: {
-        free: false,
-        starter: true,
-        pro: true,
-        enterprise: true,
-        portal: true,
-      },
-      availableOnFreeTrial: false,
-    },
-  },
+  /* REMOVED: storage, apiCalls, customDomain, customBranding.
+   *
+   * They were starter-kit placeholders — priced rows with no router, no
+   * enforcement call site, and no UI. Because getPricingMatrix() walks every
+   * RESOURCE_ENTRIES member with a limit or flag, their only real effect was
+   * advertising four features on the public pricing table that the app does not
+   * implement, which becomes a refund conversation the moment money changes
+   * hands. `storage` could not have been enforced anyway: incrementUsage takes
+   * no amount, so a byte limit has nothing to count.
+   *
+   * Re-add an entry here (with its enforcement) when the feature actually
+   * exists — the pricing table picks it up automatically. */
 
   auditLogs: {
     name: "Audit Logs",
@@ -242,8 +191,11 @@ export const RESOURCES = {
       availableOnFreeTrial: false,
     },
     nav: {
+      /* Lives under settings/ because the page is a settings tab, not a
+       * top-level surface — the href must match the real route or the sidebar
+       * link 404s. */
       label: "Audit Logs",
-      href: "/dashboard/audit-logs",
+      href: "/dashboard/settings/audit-logs",
       icon: "ScrollText",
       section: "workspace",
       order: 4,
@@ -921,34 +873,11 @@ export const FLAG_RESOURCE_KEYS = RESOURCE_ENTRIES.filter(isFlagEntry).map(
  * perPlan value RAW instead.
  */
 
-/* Largest-first so the loop picks the biggest unit the value divides into. */
-const BYTE_UNITS = [
-  { label: "TB", size: 1024 ** 4 },
-  { label: "GB", size: 1024 ** 3 },
-  { label: "MB", size: 1024 ** 2 },
-  { label: "KB", size: 1024 },
-] as const;
-
-/**
- * SOURCE OF TRUTH KEYWORDS: formatBytesLimit
- *
- * WHAT:  Renders a byte count as the largest clean unit — 104857600 → "100 MB".
- * WHY:   Storage caps are authored in bytes so the gate can compare them
- *         directly; nobody wants to read "104,857,600" on a pricing table.
- * WHERE: formatResourceLimit, for any limit whose unit is "bytes".
- */
-export function formatBytesLimit(bytes: number): string {
-  for (const { label, size } of BYTE_UNITS) {
-    if (bytes >= size) {
-      const value = bytes / size;
-      /* Whole numbers stay whole ("5 GB"); anything else keeps one decimal. */
-      const rounded =
-        Number.isInteger(value) ? value.toString() : value.toFixed(1);
-      return `${rounded} ${label}`;
-    }
-  }
-  return `${bytes} B`;
-}
+/* REMOVED: BYTE_UNITS / formatBytesLimit. They existed only to render the
+ * `bytes` unit, which `storage` was the sole author of — with that placeholder
+ * gone no limit is measured in bytes, so the formatter was unreachable and its
+ * `unit === "bytes"` branches were provably-dead comparisons. Reinstate both
+ * alongside a storage resource that is actually enforced. */
 
 /**
  * SOURCE OF TRUTH KEYWORDS: formatResourceLimit
@@ -985,7 +914,6 @@ export function formatResourceLimit(
 ): string {
   const value = RESOURCES[resource].limit.perPlan[plan];
   if (value === "unlimited") return "Unlimited";
-  if (RESOURCES[resource].limit.unit === "bytes") return formatBytesLimit(value);
   return value.toLocaleString(PLAN_PRICE_LOCALE);
 }
 
@@ -1017,9 +945,6 @@ export function formatResourceAllowance(
   const limit = RESOURCES[resource].limit;
   const { unit } = limit;
   const amount = formatResourceLimit(resource, plan);
-  /* "100 MB bytes" would be nonsense — the byte formatter already carries the
-   * unit, so the noun becomes the thing being measured instead. */
-  if (unit === "bytes") return `${amount} storage`;
   if (!unit) return amount;
   /* A cap of exactly 1 is common on the free tier, and "1 plans" on the hero
    * is the kind of detail that makes a landing page look unfinished. */

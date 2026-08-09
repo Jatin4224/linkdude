@@ -16,6 +16,7 @@ These docs explain how this boilerplate is shaped and why. The README tells you 
 10. `10-profile-analyzer.md` — a second feature: structured AI output, a paid vendor, and a cache
 11. `11-personalized-content-plan.md` — a third: a scripted chat, a derived transcript, and a large AI response
 12. `12-calendar-and-scheduled-posts.md` — a fourth: the first background job, a storage provider, and the quota trap that comes with both
+13. `13-redis-implementation.md` — Redis from zero: what it is, why rate limiting needs it, and how it's wired here
 
 ## If you only have five minutes
 

@@ -270,11 +270,7 @@ export const MARKETING_MATRIX_GROUPS: readonly MarketingMatrixGroup[] = [
   },
   {
     label: "Team & workspace",
-    resources: ["member", "auditLogs", "customBranding", "customDomain"],
-  },
-  {
-    label: "Platform",
-    resources: ["storage", "apiCalls"],
+    resources: ["member", "auditLogs"],
   },
 ];
 
