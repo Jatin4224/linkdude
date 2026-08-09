@@ -238,3 +238,16 @@ export type {
   GenerateContentPlanValues,
   StoredContentPlan,
 } from "./content-plan";
+export { ANALYTICS_RANGE_DAYS, analyticsRangeSchema } from "./portal-analytics";
+export type {
+  AnalyticsRangeDays,
+  AnalyticsRangeValues,
+  MetricDelta,
+  PlatformMetrics,
+  GrowthPoint,
+  EngagementPoint,
+  RetentionPoint,
+  RetentionMetrics,
+  PlanBreakdownRow,
+  RevenueMetrics,
+} from "./portal-analytics";

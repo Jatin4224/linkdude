@@ -21,6 +21,7 @@
 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { BRANDING } from "@/lib/config";
 import {
@@ -90,6 +91,12 @@ export default function RootLayout({
             <TRPCReactProvider>{children}</TRPCReactProvider>
           )}
           <Toaster position="bottom-right" />
+          {/* Web traffic — visitors, page views, referrers — for the /portal
+              dashboard's traffic panel. Deliberately OUTSIDE the setup-checklist
+              branch: marketing pages are the traffic worth measuring, and they
+              render even while the app itself is unconfigured. No-ops in
+              development and off Vercel, so it needs no env guard. */}
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
