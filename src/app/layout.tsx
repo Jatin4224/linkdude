@@ -94,9 +94,14 @@ export default function RootLayout({
           {/* Web traffic — visitors, page views, referrers — for the /portal
               dashboard's traffic panel. Deliberately OUTSIDE the setup-checklist
               branch: marketing pages are the traffic worth measuring, and they
-              render even while the app itself is unconfigured. No-ops in
-              development and off Vercel, so it needs no env guard. */}
-          <Analytics />
+              render even while the app itself is unconfigured.
+
+              Production-only because the component renders a raw <script>
+              element, which React 19 warns about on every client render
+              ("Encountered a script tag while rendering React component").
+              Vercel Analytics ignores localhost traffic anyway, so gating it
+              costs no data and keeps the dev console readable. */}
+          {process.env.NODE_ENV === "production" ? <Analytics /> : null}
         </ThemeProvider>
       </body>
     </html>

@@ -270,17 +270,38 @@ export async function upsertConnection(
 }
 
 /**
- * SOURCE OF TRUTH KEYWORDS: disconnectAccount
+ * SOURCE OF TRUTH KEYWORDS: disconnectAccount, canceled, SetNull
  *
- * WHAT:  Drops an organization's LinkedIn connection.
+ * WHAT:  Drops an organization's LinkedIn connection and cancels anything still
+ *        queued against it.
  * WHY:   deleteMany rather than delete so disconnecting an already-disconnected
  *        org is idempotent instead of throwing P2025.
+ *
+ *        Scheduled posts are cancelled FIRST, in the same transaction. The
+ *        relation is onDelete: SetNull, so post rows now survive a disconnect —
+ *        which is what preserves published history, but would otherwise leave
+ *        queued posts waiting forever on a connection that no longer exists.
+ *        The worker only claims `scheduled` rows, so moving them to `canceled`
+ *        is what stops it retrying them to MAX_PUBLISH_ATTEMPTS and marking
+ *        them `failed` with an error the user cannot act on.
+ *
+ *        `publishing` is deliberately excluded: the worker has already claimed
+ *        that row and may be mid-call to LinkedIn. Same reasoning as
+ *        CANCELABLE_POST_STATUSES.
+ * WHERE: integrations.disconnect.
  */
 export async function disconnectAccount(
   db: DbClient,
   organizationId: string,
-): Promise<void> {
+): Promise<{ canceledPosts: number }> {
+  const { count } = await db.linkedInPost.updateMany({
+    where: { organizationId, status: STATUS.scheduled },
+    data: { status: STATUS.canceled },
+  });
+
   await db.linkedInAccount.deleteMany({ where: { organizationId } });
+
+  return { canceledPosts: count };
 }
 
 /**

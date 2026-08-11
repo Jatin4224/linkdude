@@ -491,7 +491,9 @@ model LinkedInAccount {
 model LinkedInPost {
   id             String @id @default(cuid())
   organizationId String // Tenant scope
-  accountId      String // The LinkedInAccount that published it
+  // The LinkedInAccount that published it. NULLABLE so disconnecting an
+  // account does not erase the org's post history — see the relation below.
+  accountId      String?
   authorId       String // The app user who hit Publish
 
   commentary String  @db.Text // The post body as published
@@ -543,7 +545,14 @@ model LinkedInPost {
   updatedAt DateTime @default(now()) @updatedAt
 
   organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  account      LinkedInAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  // SetNull, NOT Cascade. Under Cascade, disconnecting LinkedIn silently
+  // deleted every post row the org had — including PUBLISHED ones that are
+  // still live on the member's feed, wiping the only record this app has of
+  // them (LinkedIn gates reading posts back behind r_member_social). It also
+  // destroyed queued posts without refunding their quota. Orphaning the rows
+  // keeps the history; disconnectAccount cancels anything still scheduled so
+  // no post is left waiting on a connection that no longer exists.
+  account      LinkedInAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, publishedAt])
