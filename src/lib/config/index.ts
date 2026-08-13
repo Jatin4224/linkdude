@@ -150,6 +150,7 @@ export {
   IMAGEKIT_UPLOAD_ENDPOINT,
   IMAGEKIT_AUTH_EXPIRY_SECONDS,
   LINKEDIN_IMAGE_TRANSFORM,
+  buildTransformedUrl,
 } from "./imagekit";
 export type { ImageKitCredentials } from "./imagekit";
 export {

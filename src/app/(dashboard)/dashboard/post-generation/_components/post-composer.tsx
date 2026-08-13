@@ -217,10 +217,17 @@ export function PostComposer({
     onError: (error) => toast.error(error.message),
   });
 
-  /* Fetched on demand, never cached: an upload token is short-lived, and a
-   * reused one fails at ImageKit rather than here. */
+  /* Opted OUT of the app-wide 30s staleTime (see src/trpc/tanstack-config.ts):
+   * `.fetch()` is fetchQuery, so a fresh cache entry is returned WITHOUT a round
+   * trip — and ImageKit burns an upload token on first use, so the second image
+   * within the window would replay a spent token and fail at the vendor.
+   * staleTime 0 forces the round trip; gcTime 0 stops a signed credential from
+   * lingering in the client cache after it is used. */
   async function fetchUploadAuth() {
-    return utils.linkedinPosts.uploadAuth.fetch({ organizationId: orgId });
+    return utils.linkedinPosts.uploadAuth.fetch(
+      { organizationId: orgId },
+      { staleTime: 0, gcTime: 0 },
+    );
   }
 
   function handleGenerate(values: GeneratePostValues) {

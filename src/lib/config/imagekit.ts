@@ -22,6 +22,11 @@
  *        endpoint on the linkedinPosts router.
  */
 
+import {
+  buildImageTransform,
+  DEFAULT_IMAGE_EDIT,
+} from "@/lib/types/imagekit";
+
 /* ImageKit's own upload ceiling for images on every plan. The old 3 MB limit
  * existed only because base64 rode inside the tRPC payload and Vercel rejects
  * bodies over 4.5 MB; direct browser→ImageKit upload removes that constraint
@@ -43,7 +48,11 @@ export const IMAGEKIT_UPLOAD_ENDPOINT =
 
 /* Signed upload tokens are short-lived: the window only has to cover picking a
  * file and uploading it, and a narrow window limits the blast radius if one
- * leaks out of the client. */
+ * leaks out of the client.
+ *
+ * A DURATION, not a deadline. The ImageKit SDK's getAuthenticationParameters
+ * takes an absolute Unix second, so the caller adds this to the current time —
+ * passing it straight through backdates every token to 1970. */
 export const IMAGEKIT_AUTH_EXPIRY_SECONDS = 15 * 60;
 
 /**
@@ -52,13 +61,47 @@ export const IMAGEKIT_AUTH_EXPIRY_SECONDS = 15 * 60;
  * WHAT:  The default ImageKit `tr:` string applied to post images.
  * WHY:   1200x627 is LinkedIn's recommended link-post aspect; `pad_resize`
  *        letterboxes rather than cropping, so a portrait upload is never
- *        silently beheaded. Applied when a post carries no custom transform,
- *        which is every post until the image editor ships — at which point the
- *        editor writes LinkedInPost.imageTransform and this stays the fallback.
+ *        silently beheaded. Applied when a post carries no custom transform.
+ *
+ *        DERIVED from the editor's default state rather than written as a
+ *        literal, so the fallback and the editor's own starting point are the
+ *        same string by construction — opening the editor on an untouched image
+ *        cannot show controls that disagree with the pixels already published.
+ *        Evaluates to "w-1200,h-627,cm-pad_resize".
  * WHERE: Read by the publish path in src/services/linkedin.service.ts and by
  *        the composer preview so both render identical pixels.
  */
-export const LINKEDIN_IMAGE_TRANSFORM = "w-1200,h-627,cm-pad_resize";
+export const LINKEDIN_IMAGE_TRANSFORM = buildImageTransform(DEFAULT_IMAGE_EDIT);
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildTransformedUrl
+ *
+ * WHAT:  Splices a `tr:` transformation into an ImageKit delivery URL.
+ * WHY:   ImageKit renders transforms on demand from the URL — no re-upload, no
+ *        processing backend, and the original is never modified. That is what
+ *        lets a post store its edits as a string (LinkedInPost.imageTransform)
+ *        and keeps every edit reversible.
+ *
+ *        Uses the QUERY form (`?tr=`) rather than the path form (`/tr:.../`):
+ *        the path form requires knowing where the endpoint ends and the file
+ *        path begins, which breaks on custom domains and sub-folders. The query
+ *        form is position-independent and therefore can't be spliced wrong.
+ *
+ *        Lives HERE rather than in the service because it reads no env and the
+ *        BROWSER needs it: the composer preview and the image editor both build
+ *        this URL live, and importing the `server-only` service would break the
+ *        client bundle. One implementation, both sides.
+ * WHERE: Re-exported by src/services/imagekit.service.ts for the publish path;
+ *        imported directly by the composer preview and the image editor.
+ */
+export function buildTransformedUrl(
+  imageUrl: string,
+  transform: string,
+): string {
+  const url = new URL(imageUrl);
+  url.searchParams.set("tr", transform);
+  return url.toString();
+}
 
 export interface ImageKitCredentials {
   publicKey: string;

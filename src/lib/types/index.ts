@@ -134,11 +134,26 @@ export {
   uploadAuthParamsSchema,
   imageKitUploadResponseSchema,
   IMAGEKIT_TRANSFORM_MAX,
+  IMAGE_ASPECT_PRESETS,
+  IMAGE_FIT_MODES,
+  IMAGE_FOCUS_MODES,
+  IMAGE_ROTATIONS,
+  IMAGE_SHARPEN_MAX,
+  IMAGE_BLUR_MAX,
+  imageEditSchema,
+  DEFAULT_IMAGE_EDIT,
+  buildImageTransform,
+  parseImageTransform,
 } from "./imagekit";
 export type {
   PostImageValues,
   UploadAuthParams,
   ImageKitUploadResponse,
+  ImageAspectPreset,
+  ImageFitMode,
+  ImageFocusMode,
+  ImageRotation,
+  ImageEditValues,
 } from "./imagekit";
 export {
   analyzeProfileSchema,

@@ -107,10 +107,14 @@ export function LinkedInPostPreview({
             {/* Local object/data URL for an unsaved attachment — next/image
                 can't optimize a blob, so a plain img is correct here. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
+            {/* object-CONTAIN, not cover: the delivered transform letterboxes
+                (cm-pad_resize) specifically so nothing is cropped, and covering
+                here would crop in the preview the very edges publishing keeps —
+                the preview would flatter the result it exists to predict. */}
             <img
               src={imageUrl}
               alt="Attached media"
-              className="max-h-96 w-full object-cover"
+              className="max-h-96 w-full object-contain"
             />
           </div>
         ) : null}
