@@ -13,6 +13,14 @@ const buttonVariants = cva(
          * in globals.css so the accent is a token swap, not a per-button class. */
         brand:
           "bg-brand text-brand-foreground hover:bg-brand-hover focus-visible:border-brand focus-visible:ring-brand/40",
+        /* Tinted companion to `brand`. For secondary actions that still belong
+         * to the channel accent — carries colour without competing with the
+         * solid CTA next to it. Same brand ramp, so one token swap moves both. */
+        soft: "border-brand-border bg-brand-soft text-brand-soft-foreground hover:bg-[color-mix(in_oklch,var(--brand-soft),var(--brand)_14%)] focus-visible:border-brand focus-visible:ring-brand/30",
+        /* Generative actions. Deliberately the loudest variant in the set — it
+         * marks the handful of places the app writes something for you, so it
+         * must not spread to ordinary CTAs (those stay `brand`). */
+        ai: "bg-ai text-ai-foreground hover:bg-ai-hover focus-visible:border-ai focus-visible:ring-ai/40",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

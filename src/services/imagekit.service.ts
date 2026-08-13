@@ -33,7 +33,12 @@ import {
   IMAGEKIT_AUTH_EXPIRY_SECONDS,
   IMAGEKIT_POST_FOLDER,
 } from "@/lib/config/imagekit";
-import type { LinkedInImageBinary, UploadAuthParams } from "@/lib/types";
+import {
+  imageKitUploadResponseSchema,
+  type LinkedInImageBinary,
+  type PostImageValues,
+  type UploadAuthParams,
+} from "@/lib/types";
 
 /* One client per process. Constructed lazily rather than at module scope so an
  * install with no ImageKit keys can still import this file — every other
@@ -65,10 +70,18 @@ function getImageKitClient(): ImageKit {
  */
 export function getUploadAuthParams(): UploadAuthParams {
   const { publicKey, urlEndpoint } = getImageKitCredentials();
-  const { token, expire, signature } = getImageKitClient().helper
-    /* Token is auto-generated (UUID v4) when omitted — no reason to invent our
-     * own identifier for a credential that lives fifteen minutes. */
-    .getAuthenticationParameters(undefined, IMAGEKIT_AUTH_EXPIRY_SECONDS);
+  /* Token is auto-generated (UUID v4) when omitted — no reason to invent our
+   * own identifier for a credential that lives fifteen minutes. */
+  const { token, expire, signature } =
+    getImageKitClient().helper.getAuthenticationParameters(
+      undefined,
+      /* The SDK wants the absolute SECOND at which the token dies, not how long
+       * it lives. Handing it the duration itself dates the token to 1970, and
+       * ImageKit rejects the upload with a 400 the client can only report as an
+       * opaque vendor error — the signature is computed over that same bad
+       * value, so nothing catches it on our side. */
+      Math.floor(Date.now() / 1000) + IMAGEKIT_AUTH_EXPIRY_SECONDS,
+    );
 
   return {
     token,
@@ -80,27 +93,11 @@ export function getUploadAuthParams(): UploadAuthParams {
   };
 }
 
-/**
- * SOURCE OF TRUTH KEYWORDS: buildTransformedUrl
- *
- * WHAT:  Splices a `tr:` transformation into an ImageKit delivery URL.
- * WHY:   ImageKit renders transforms on demand from the URL — no re-upload, no
- *        processing backend, and the original is never modified. That is what
- *        lets a post store its edits as a string (LinkedInPost.imageTransform)
- *        and keeps every edit reversible.
- *
- *        Uses the QUERY form (`?tr=`) rather than the path form (`/tr:.../`):
- *        the path form requires knowing where the endpoint ends and the file
- *        path begins, which breaks on custom domains and sub-folders. The query
- *        form is position-independent and therefore can't be spliced wrong.
- * WHERE: Called by the publish path and mirrored by the composer preview so the
- *        user sees exactly the pixels LinkedIn receives.
- */
-export function buildTransformedUrl(imageUrl: string, transform: string): string {
-  const url = new URL(imageUrl);
-  url.searchParams.set("tr", transform);
-  return url.toString();
-}
+/* Re-exported, not redefined: the implementation moved to lib/config/imagekit
+ * so the browser can use it too (the composer preview and the image editor both
+ * build this URL live, and this file is `server-only`). Publish-path callers
+ * keep reaching it through `imagekitService.buildTransformedUrl`. */
+export { buildTransformedUrl } from "@/lib/config/imagekit";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: fetchImageBinary
@@ -127,6 +124,41 @@ export async function fetchImageBinary(
    * only trustworthy source for what LinkedIn should be told it is receiving. */
   const mimeType = response.headers.get("content-type") ?? "image/jpeg";
   return { mimeType, bytes: await response.arrayBuffer() };
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: uploadImageBytes
+ *
+ * WHAT:  Uploads bytes to ImageKit from the SERVER and returns the stored
+ *        reference.
+ * WHY:   Every other upload in this app goes browser→ImageKit directly, which is
+ *        why this did not exist until now. An AI-generated image has no browser
+ *        to come from: the bytes are produced by a model call on this server, so
+ *        this is the one upload that legitimately originates here.
+ *
+ *        Takes base64 because that is what the AI SDK's GeneratedFile hands back
+ *        — converting to a buffer only to have the SDK re-encode it would be
+ *        work for nothing. Lands in the same folder as browser uploads so post
+ *        media stays lifecycled as one set regardless of how it got there.
+ * WHERE: Called by the AI image-edit router after ai.service.editImage returns.
+ */
+export async function uploadImageBytes(
+  base64: string,
+  fileName: string,
+): Promise<PostImageValues> {
+  const response = await getImageKitClient().files.upload({
+    file: base64,
+    fileName,
+    folder: IMAGEKIT_POST_FOLDER,
+    /* Same reason as the browser path: never overwrite an existing asset. A
+     * collision here would silently rewrite an image another post is using. */
+    useUniqueFileName: true,
+  });
+
+  /* Parsed, not cast — the same vendor boundary the browser upload validates,
+   * so a changed response shape fails here with a clear message. */
+  const parsed = imageKitUploadResponseSchema.parse(response);
+  return { fileId: parsed.fileId, url: parsed.url };
 }
 
 /**

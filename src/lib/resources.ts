@@ -266,6 +266,45 @@ export const RESOURCES = {
     },
   },
 
+  aiImageEdit: {
+    name: "AI Image Edit",
+    description: "Rewrite a post image from a text instruction",
+    /* No `delete` verb, deliberately, for the reason profileAnalysis documents
+     * below: the counter-bump wiring decrements on `<resource>.delete`, which is
+     * right for a quota counting THINGS HELD and wrong for one counting MODEL
+     * SPEND. Reverting to the original does not un-spend the generation, so
+     * there is no verb here that could refund it. */
+    permissions: ["create"],
+    /* Its own budget, an order of magnitude tighter than aiGeneration: an image
+     * generation costs far more than a few hundred tokens of post copy, and it
+     * is the one action here that can be repeated indefinitely on a whim
+     * ("make it warmer", "now bluer") without ever publishing. */
+    limit: {
+      perPlan: {
+        /* 2, and the tightest free allowance in the app for a reason: every
+         * edit is ~$0.039 of vendor spend billed to us the moment it returns,
+         * and image generation has NO free tier at Google — the whole feature
+         * runs on a paid key. Same reasoning profileAnalysis applies at 3, one
+         * step further because an image costs more than a critique and the
+         * dialog's Try-again makes iterating a single click. */
+        free: 2,
+        starter: 50,
+        pro: 300,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to edit more images with AI",
+      availableOnFreeTrial: true,
+      unit: "image edits",
+    },
+    rateLimit: {
+      /* Tighter than text generation: each call is an image round trip through
+       * this server, so a burst costs bandwidth and function time as well as
+       * vendor spend. */
+      create: { count: 3, window: "1 m" },
+    },
+  },
+
   profileAnalysis: {
     name: "Profile Analysis",
     description: "Analyze a LinkedIn profile and suggest improvements",
@@ -620,7 +659,9 @@ export const RESOURCE_ENTRIES: ReadonlyArray<
  *        marketing feature cards, which take their title and icon from the
  *        registry so the landing page and the sidebar can never disagree.
  */
-export function getResourceDefinition(resource: ResourceKey): ResourceDefinition {
+export function getResourceDefinition(
+  resource: ResourceKey,
+): ResourceDefinition {
   return RESOURCES[resource];
 }
 

@@ -541,6 +541,18 @@ model LinkedInPost {
   // nothing else. Composed with imageUrl at publish time.
   imageTransform String?
 
+  // The image BEFORE any AI edit, kept so an AI edit stays revertible.
+  //
+  // A `tr:` transform is non-destructive by nature — it is a string layered over
+  // an untouched asset. An AI edit is not: it returns NEW BYTES that become a
+  // new ImageKit asset, so without these columns the user's source photo would
+  // be unrecoverable the moment they accepted a generation.
+  //
+  // Null when no AI edit has been applied, which is every post until then. Not a
+  // second attachment: nothing reads these at publish time.
+  originalFileId String?
+  originalUrl    String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
