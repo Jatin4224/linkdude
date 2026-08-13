@@ -54,6 +54,22 @@
   --brand-soft-foreground: oklch(0.45 0.13 252);
   --brand-border: oklch(0.88 0.045 252);
 
+  /*
+   * SOURCE OF TRUTH KEYWORDS: ai, ai-foreground, ai-hover, generative accent,
+   *   --color-ai, bg-ai, Button ai variant, sparkle, AI edit, orange accent
+   * WHAT:  The generative-AI accent — a bright orange fill with a hover step and
+   *        a dark foreground that stays readable on top of it.
+   * WHY:   AI actions sit next to channel (brand blue) actions, and two blues in
+   *        one row read as the same kind of thing. Orange is the complement, so
+   *        "the machine does this for you" is separable at a glance. Dark
+   *        foreground, not white: white on a bright orange fails contrast.
+   * WHERE: Consumed via the Button `ai` variant — currently the AI image edit
+   *        trigger in the post composer.
+   */
+  --ai: oklch(0.72 0.175 55);
+  --ai-foreground: oklch(0.22 0.05 55);
+  --ai-hover: oklch(0.67 0.17 50);
+
   --chart-1: oklch(0.81 0.17 75.35);
   --chart-2: oklch(0.55 0.22 264.53);
   --chart-3: oklch(0.72 0 0);
@@ -131,6 +147,12 @@
   --brand-soft-foreground: oklch(0.8 0.09 252);
   --brand-border: oklch(0.34 0.06 252);
 
+  /* Pushed brighter than light mode: on a near-black card the same orange looks
+   * muddy, and this fill is meant to be the loudest thing in its row. */
+  --ai: oklch(0.76 0.175 60);
+  --ai-foreground: oklch(0.2 0.05 55);
+  --ai-hover: oklch(0.82 0.16 65);
+
   --chart-1: oklch(0.81 0.17 75.35);
   --chart-2: oklch(0.58 0.21 260.84);
   --chart-3: oklch(0.56 0 0);
@@ -200,6 +222,9 @@
   --color-brand-soft: var(--brand-soft);
   --color-brand-soft-foreground: var(--brand-soft-foreground);
   --color-brand-border: var(--brand-border);
+  --color-ai: var(--ai);
+  --color-ai-foreground: var(--ai-foreground);
+  --color-ai-hover: var(--ai-hover);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

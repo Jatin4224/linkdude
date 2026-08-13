@@ -68,6 +68,7 @@ import {
 } from "@/components/global/linkedin";
 import { ImageUpload } from "@/components/global/image-upload";
 import { ImageEditor } from "@/components/global/image-editor";
+import { AiImageEdit } from "@/components/global/ai-image-edit";
 import { PostStatusBadge } from "@/components/global/post-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +81,8 @@ import { GenerateForm } from "./generate-form";
 export interface PostComposerProps {
   /** ImageKit is configured — without it, attaching an image is impossible. */
   imageUploadsEnabled: boolean;
+  /** The active AI vendor has an image model AND a key. Not every one does. */
+  aiImageEditsEnabled: boolean;
   /** A scheduler is wired up — without it, a scheduled post would never fire. */
   schedulingEnabled: boolean;
   /** Preselected day from the calendar's "add post here" action. */
@@ -126,6 +129,7 @@ function earliestSchedule(): string {
 
 export function PostComposer({
   imageUploadsEnabled,
+  aiImageEditsEnabled,
   schedulingEnabled,
   initialScheduledFor,
 }: PostComposerProps) {
@@ -232,6 +236,22 @@ export function PostComposer({
     );
   }
 
+  const editImage = trpc.aiImageEdit.create.useMutation();
+
+  /* Passed to the dialog rather than the dialog calling tRPC itself, so that
+   * component stays as generic as its image-upload sibling. Usage is
+   * invalidated because an edit spends a metered generation. */
+  async function generateImageEdit(prompt: string): Promise<PostImageValues> {
+    if (!image) throw new Error("Attach an image first.");
+    const edited = await editImage.mutateAsync({
+      organizationId: orgId,
+      image,
+      prompt,
+    });
+    await utils.usage.invalidate();
+    return edited;
+  }
+
   function handleGenerate(values: GeneratePostValues) {
     if (!enabled) return;
     generate.mutate({ ...values, organizationId: orgId });
@@ -253,7 +273,10 @@ export function PostComposer({
    * path uses, not a hand-rolled template, so the preview cannot flatter the
    * result by encoding the URL even slightly differently. */
   const imagePreviewUrl = image
-    ? buildTransformedUrl(image.url, image.transform ?? LINKEDIN_IMAGE_TRANSFORM)
+    ? buildTransformedUrl(
+        image.url,
+        image.transform ?? LINKEDIN_IMAGE_TRANSFORM,
+      )
     : null;
 
   const isConnected =
@@ -331,6 +354,14 @@ export function PostComposer({
                     <ImageEditor
                       value={image}
                       onChange={setImage}
+                      disabled={publish.isPending || !enabled}
+                    />
+                  ) : null}
+                  {image && aiImageEditsEnabled ? (
+                    <AiImageEdit
+                      value={image}
+                      onChange={setImage}
+                      onGenerate={generateImageEdit}
                       disabled={publish.isPending || !enabled}
                     />
                   ) : null}

@@ -153,7 +153,7 @@ export function ImageEditor({
           `asChild`, and a plain controlled button sidesteps the difference. */}
       <Button
         type="button"
-        variant="outline"
+        variant="soft"
         size="sm"
         disabled={disabled}
         className={className}

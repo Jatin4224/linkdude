@@ -262,7 +262,11 @@ export function GenerateForm({
             value={length}
             onValueChange={(value) => onLengthChange(value as PostLength)}
           >
-            <SelectTrigger id="length-select" disabled={busy} className="w-full">
+            <SelectTrigger
+              id="length-select"
+              disabled={busy}
+              className="w-full"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

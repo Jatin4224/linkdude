@@ -25,16 +25,22 @@ import "server-only";
  *        the service convention.
  */
 
-import { generateText as generateWithModel, generateObject } from "ai";
+import {
+  generateText as generateWithModel,
+  generateImage,
+  generateObject,
+} from "ai";
 import type { z } from "zod";
 
 import {
   getAiModel,
+  getAiImageModel,
   getAiProvider,
   AI_MAX_TOKENS,
   AI_MAX_RETRIES,
   AI_TIMEOUT_MS,
 } from "@/lib/config/ai";
+import type { LinkedInImageBinary } from "@/lib/types/linkedin";
 import {
   generatedPostSchema,
   type GeneratePostValues,
@@ -178,6 +184,65 @@ export async function generateStructured<T>({
   });
 
   return object;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: AI_IMAGE_TIMEOUT_MS, editImage, EditedImage
+ *
+ * WHAT:  Rewrites an existing image from a text instruction and returns the new
+ *        bytes.
+ * WHY:   Image editing, not image generation: the source rides in the prompt, so
+ *        the model alters what is already there instead of inventing a fresh
+ *        picture from the description. AI SDK v7 takes both in one call, which
+ *        is why there is no multimodal message plumbing here.
+ *
+ *        Returns BYTES rather than uploading them, so this file keeps its single
+ *        responsibility — talking to models — and the caller decides where the
+ *        result is stored.
+ *
+ *        Longer than AI_TIMEOUT_MS because an image round trip is slower than
+ *        post copy, and expressed as an abort signal rather than a `timeout`
+ *        option: generateImage takes no timeout, unlike generateText. The
+ *        caller's txTimeout must exceed this.
+ * WHERE: Called by the AI image-edit router, which uploads the result.
+ */
+const AI_IMAGE_TIMEOUT_MS = 90_000;
+
+export interface EditedImage {
+  /** Base64 payload, ready to hand to ImageKit without re-encoding. */
+  base64: string;
+  mediaType: string;
+}
+
+export async function editImage(
+  source: LinkedInImageBinary,
+  instruction: string,
+): Promise<EditedImage> {
+  const { image, warnings } = await generateImage({
+    model: getAiImageModel(),
+    /* The object form is what makes this an EDIT — a bare string prompt would
+     * generate an unrelated picture from the words alone. */
+    prompt: {
+      images: [new Uint8Array(source.bytes)],
+      text: instruction,
+    },
+    /* Zero, unlike every text call, which retries once. The dominant failure
+     * here is a quota refusal, and quota does not clear between attempts — the
+     * retry only makes the user wait through a second doomed round trip (the
+     * vendor's own "retry in 24s" hint is what the SDK sleeps for) while the
+     * caller's transaction stays open. */
+    maxRetries: 0,
+    abortSignal: AbortSignal.timeout(AI_IMAGE_TIMEOUT_MS),
+  });
+
+  /* Surfaced rather than swallowed: a provider that silently ignored the source
+   * image would return a plausible-looking picture that is not an edit at all,
+   * and the user would only notice by eye. */
+  if (warnings.length > 0) {
+    console.warn("[ai] image edit returned warnings", { warnings });
+  }
+
+  return { base64: image.base64, mediaType: image.mediaType };
 }
 
 /* Tone is the product in a personal-branding tool, so each value gets an
