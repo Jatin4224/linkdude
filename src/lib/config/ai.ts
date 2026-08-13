@@ -7,7 +7,8 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: AI_PROVIDERS, AI_PROVIDER, getAiProvider,
  *   getAiModel, isAiConfigured, AI_MODEL, AI_MAX_TOKENS, AiProvider,
- *   AiProviderDefinition, GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY
+ *   AiProviderDefinition, GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY,
+ *   getAiImageModel, isAiImageConfigured, GOOGLE_IMAGE_MODEL_ID
  *
  * WHAT:  The registry of AI vendors the app can run on, plus the accessors that
  *        resolve the active one. Built on the Vercel AI SDK, so every vendor is
@@ -25,7 +26,7 @@
 
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
-import type { LanguageModel } from "ai";
+import type { ImageModel, LanguageModel } from "ai";
 
 import {
   aiProviderSchema,
@@ -43,6 +44,12 @@ import {
  * pin a specific id once this runs on a paid tier with reserved capacity. */
 const GOOGLE_MODEL_ID = "gemini-flash-latest";
 const ANTHROPIC_MODEL_ID = "claude-opus-5";
+
+/* Pinned, unlike GOOGLE_MODEL_ID above: the image aliases Google ships are all
+ * `-preview` today, and a preview id that shifts under us changes what users'
+ * pictures come back looking like. A stable id is worth more here than the
+ * freshest one — an image edit is judged by eye, not by a benchmark. */
+const GOOGLE_IMAGE_MODEL_ID = "gemini-2.5-flash-image";
 
 /* A LinkedIn post caps at 3000 characters, so generation never needs a large
  * budget. Kept well under the streaming threshold so non-streaming calls stay
@@ -90,6 +97,7 @@ export const AI_PROVIDERS: Record<AiProvider, AiProviderDefinition> = {
     /* url_context reads only URLs already present in the prompt, so the model
      * can fetch the article the user pasted and nothing else. */
     createWebFetchTools: () => ({ url_context: google.tools.urlContext({}) }),
+    createImageModel: () => google.image(GOOGLE_IMAGE_MODEL_ID),
   },
   anthropic: {
     label: "Anthropic Claude",
@@ -106,6 +114,10 @@ export const AI_PROVIDERS: Record<AiProvider, AiProviderDefinition> = {
     createWebFetchTools: () => ({
       web_fetch: anthropic.tools.webFetch_20260209({ maxUses: 3 }),
     }),
+    /* Claude produces text, never images. Null rather than a throwing stub so
+     * the capability is answerable BEFORE a call is made — that is what lets the
+     * UI hide the control instead of surfacing a vendor error on click. */
+    createImageModel: null,
   },
 };
 
@@ -167,4 +179,47 @@ export function getAiModel(): LanguageModel {
     );
   }
   return provider.createModel();
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: isAiImageConfigured
+ *
+ * WHAT:  True when the active vendor can edit images AND its key is set.
+ * WHY:   TWO conditions, not one. A configured key is not enough — Anthropic has
+ *        a key and no image model — so this is the only honest answer to "can
+ *        this deployment do an AI image edit". Read in a server component and
+ *        passed down, exactly like isImageKitConfigured, because a client-side
+ *        env read would answer false on a correctly configured install.
+ * WHERE: Guard in the AI image router, and the flag that decides whether the
+ *        composer renders the AI edit control at all.
+ */
+export function isAiImageConfigured(): boolean {
+  const provider = getAiProvider();
+  return Boolean(
+    provider.createImageModel && process.env[provider.apiKeyEnvVar],
+  );
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: getAiImageModel
+ *
+ * WHAT:  The active vendor's image-model handle.
+ * WHY:   Names WHICH of the two failure modes happened — no image model on this
+ *        vendor, or no key — because the fixes are completely different: one is
+ *        an AI_PROVIDER change, the other is an env var.
+ * WHERE: Called by src/services/ai.service.ts.
+ */
+export function getAiImageModel(): ImageModel {
+  const provider = getAiProvider();
+  if (!provider.createImageModel) {
+    throw new Error(
+      `[ai] ${provider.label} has no image model. Set AI_PROVIDER to a vendor that supports image generation to enable AI image edits.`,
+    );
+  }
+  if (!process.env[provider.apiKeyEnvVar]) {
+    throw new Error(
+      `[ai] ${provider.apiKeyEnvVar} is not set. AI image editing is unavailable until it is configured. Get a key at ${provider.consoleUrl}.`,
+    );
+  }
+  return provider.createImageModel();
 }

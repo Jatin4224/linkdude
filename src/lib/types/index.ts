@@ -96,12 +96,15 @@ export {
   postLengthSchema,
   generatePostSchema,
   generatedPostSchema,
+  aiImageEditSchema,
+  AI_IMAGE_PROMPT_MAX,
 } from "./ai";
 export type {
   PostTone,
   PostLength,
   GeneratePostValues,
   GeneratedPost,
+  AiImageEditValues,
 } from "./ai";
 export {
   LINKEDIN_IMAGE_MIME_TYPES,
@@ -130,6 +133,7 @@ export type {
  * still has its image when the worker fires days later. */
 export {
   postImageSchema,
+  originalImageSchema,
   imageTransformSchema,
   uploadAuthParamsSchema,
   imageKitUploadResponseSchema,
@@ -147,6 +151,7 @@ export {
 } from "./imagekit";
 export type {
   PostImageValues,
+  OriginalImageValues,
   UploadAuthParams,
   ImageKitUploadResponse,
   ImageAspectPreset,

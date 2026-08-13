@@ -52,12 +52,25 @@ export const imageTransformSchema = z
  *        alone would strand the file. The url is validated as a real URL so a
  *        malformed value fails here rather than at fetch time inside the worker.
  */
+/* The pre-AI-edit asset. Same shape as the attachment minus the transform,
+ * because a transform belongs to the CURRENT framing decision, not to the
+ * source — reverting restores the bytes and lets the framing be re-chosen. */
+export const originalImageSchema = z.object({
+  fileId: z.string().min(1),
+  url: z.url(),
+});
+export type OriginalImageValues = z.infer<typeof originalImageSchema>;
+
 export const postImageSchema = z.object({
   fileId: z.string().min(1),
   url: z.url(),
   /* The `tr:` string for this post's edits. Absent until the image editor
    * ships, at which point the publish path uses it instead of the default. */
   transform: imageTransformSchema.optional(),
+  /* Present ONLY after an AI edit, pointing at what was replaced. A `tr:`
+   * transform never sets this: it changes no bytes, so there is nothing to
+   * keep a copy of. */
+  original: originalImageSchema.optional(),
 });
 export type PostImageValues = z.infer<typeof postImageSchema>;
 

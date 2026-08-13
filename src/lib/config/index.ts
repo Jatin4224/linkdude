@@ -124,6 +124,8 @@ export {
   getAiProvider,
   getAiModel,
   isAiConfigured,
+  getAiImageModel,
+  isAiImageConfigured,
   AI_MODEL,
   AI_MAX_TOKENS,
   AI_MAX_RETRIES,

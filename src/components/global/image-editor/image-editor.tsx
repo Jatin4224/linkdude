@@ -212,7 +212,13 @@ export function ImageEditor({
                         >
                           <FormControl>
                             <SelectTrigger className="w-full">
-                              <SelectValue />
+                              {/* Base UI's Select.Value renders the raw VALUE
+                                  unless given children — unlike Radix, which
+                                  mirrors the chosen item's text. Without this
+                                  the trigger reads "linkedin", not the label. */}
+                              <SelectValue>
+                                {IMAGE_ASPECT_PRESETS[field.value].label}
+                              </SelectValue>
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -239,7 +245,9 @@ export function ImageEditor({
                         >
                           <FormControl>
                             <SelectTrigger className="w-full">
-                              <SelectValue />
+                              <SelectValue>
+                                {IMAGE_FIT_MODES[field.value].label}
+                              </SelectValue>
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -271,7 +279,9 @@ export function ImageEditor({
                         >
                           <FormControl>
                             <SelectTrigger className="w-full">
-                              <SelectValue />
+                              <SelectValue>
+                                {IMAGE_FOCUS_MODES[field.value].label}
+                              </SelectValue>
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -312,7 +322,7 @@ export function ImageEditor({
                         >
                           <FormControl>
                             <SelectTrigger className="w-full">
-                              <SelectValue />
+                              <SelectValue>{field.value}&deg;</SelectValue>
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
