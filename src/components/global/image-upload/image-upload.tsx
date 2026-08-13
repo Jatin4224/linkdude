@@ -166,10 +166,14 @@ export function ImageUpload({
         {isUploading ? "Uploading…" : value ? replaceLabel : addLabel}
       </Button>
       {value ? (
+        /* Muted until hovered, then destructive-tinted: removal is the one
+         * irreversible action in this row, so it stays quiet but warns on
+         * approach instead of sitting there as loud as the safe actions. */
         <Button
           type="button"
           variant="ghost"
           size="sm"
+          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           onClick={() => onChange(null)}
           disabled={busy}
         >

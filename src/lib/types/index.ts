@@ -96,12 +96,15 @@ export {
   postLengthSchema,
   generatePostSchema,
   generatedPostSchema,
+  aiImageEditSchema,
+  AI_IMAGE_PROMPT_MAX,
 } from "./ai";
 export type {
   PostTone,
   PostLength,
   GeneratePostValues,
   GeneratedPost,
+  AiImageEditValues,
 } from "./ai";
 export {
   LINKEDIN_IMAGE_MIME_TYPES,
@@ -130,15 +133,32 @@ export type {
  * still has its image when the worker fires days later. */
 export {
   postImageSchema,
+  originalImageSchema,
   imageTransformSchema,
   uploadAuthParamsSchema,
   imageKitUploadResponseSchema,
   IMAGEKIT_TRANSFORM_MAX,
+  IMAGE_ASPECT_PRESETS,
+  IMAGE_FIT_MODES,
+  IMAGE_FOCUS_MODES,
+  IMAGE_ROTATIONS,
+  IMAGE_SHARPEN_MAX,
+  IMAGE_BLUR_MAX,
+  imageEditSchema,
+  DEFAULT_IMAGE_EDIT,
+  buildImageTransform,
+  parseImageTransform,
 } from "./imagekit";
 export type {
   PostImageValues,
+  OriginalImageValues,
   UploadAuthParams,
   ImageKitUploadResponse,
+  ImageAspectPreset,
+  ImageFitMode,
+  ImageFocusMode,
+  ImageRotation,
+  ImageEditValues,
 } from "./imagekit";
 export {
   analyzeProfileSchema,
@@ -238,3 +258,16 @@ export type {
   GenerateContentPlanValues,
   StoredContentPlan,
 } from "./content-plan";
+export { ANALYTICS_RANGE_DAYS, analyticsRangeSchema } from "./portal-analytics";
+export type {
+  AnalyticsRangeDays,
+  AnalyticsRangeValues,
+  MetricDelta,
+  PlatformMetrics,
+  GrowthPoint,
+  EngagementPoint,
+  RetentionPoint,
+  RetentionMetrics,
+  PlanBreakdownRow,
+  RevenueMetrics,
+} from "./portal-analytics";

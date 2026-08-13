@@ -28,6 +28,7 @@ import { portalRouter } from "./portal";
 import { devRouter } from "./dev";
 import { userRouter } from "./user";
 import { aiGenerationRouter } from "./ai-generation";
+import { aiImageEditRouter } from "./ai-image-edit";
 import { profileAnalysisRouter } from "./profile-analysis";
 import { profileLookupRouter } from "./profile-lookup";
 import { contentPlanRouter } from "./content-plan";
@@ -58,6 +59,9 @@ export const appRouter = createTRPCRouter({
   /* Router keys MUST match their RESOURCES key — the `<resource>.<verb>` path
    * shape is what auto-wires quotas, counters, audit, and permissions. */
   aiGeneration: aiGenerationRouter,
+  /* Key must match the RESOURCES entry — that string is what wires the quota,
+   * counter, rate limit and permission gate. */
+  aiImageEdit: aiImageEditRouter,
   profileAnalysis: profileAnalysisRouter,
   profileLookup: profileLookupRouter,
   contentPlan: contentPlanRouter,

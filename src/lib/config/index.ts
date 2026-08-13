@@ -126,6 +126,8 @@ export {
   getAiProvider,
   getAiModel,
   isAiConfigured,
+  getAiImageModel,
+  isAiImageConfigured,
   AI_MODEL,
   AI_MAX_TOKENS,
   AI_MAX_RETRIES,
@@ -152,6 +154,7 @@ export {
   IMAGEKIT_UPLOAD_ENDPOINT,
   IMAGEKIT_AUTH_EXPIRY_SECONDS,
   LINKEDIN_IMAGE_TRANSFORM,
+  buildTransformedUrl,
 } from "./imagekit";
 export type { ImageKitCredentials } from "./imagekit";
 export {

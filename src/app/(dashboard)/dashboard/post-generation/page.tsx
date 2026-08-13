@@ -19,7 +19,11 @@
 
 import type { Metadata } from "next";
 
-import { isImageKitConfigured, isSchedulerConfigured } from "@/lib/config";
+import {
+  isAiImageConfigured,
+  isImageKitConfigured,
+  isSchedulerConfigured,
+} from "@/lib/config";
 import { PostComposer } from "./_components/post-composer";
 
 export const metadata: Metadata = {
@@ -46,6 +50,7 @@ export default async function PostGenerationPage({
   return (
     <PostComposer
       imageUploadsEnabled={isImageKitConfigured()}
+      aiImageEditsEnabled={isAiImageConfigured()}
       schedulingEnabled={isSchedulerConfigured()}
       {...(initial ? { initialScheduledFor: initial } : {})}
     />

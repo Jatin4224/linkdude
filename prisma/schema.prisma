@@ -88,6 +88,9 @@ model User {
   profileAnalyses  ProfileAnalysis[]
   contentPlans     ContentPlan[]
 
+  // Signups-per-day rollups in the /portal analytics dashboard bucket on
+  // createdAt across the whole table; without this they seq-scan every user.
+  @@index([createdAt])
   @@map("user")
 }
 
@@ -112,6 +115,13 @@ model Session {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Session rows are the only sign-in record in the schema, so the portal's
+  // retention panel reads them directly: createdAt = "logins per day",
+  // expiresAt > now() = "currently active". userId supports per-user lookups
+  // that previously had no index at all.
+  @@index([createdAt])
+  @@index([userId])
+  @@index([expiresAt])
   @@map("session")
 }
 
@@ -206,6 +216,8 @@ model Organization {
   profileLookups    ProfileLookup[]
   contentPlans      ContentPlan[]
 
+  // New-workspaces-per-day in the portal analytics dashboard.
+  @@index([createdAt])
   @@map("organization")
 }
 
@@ -223,6 +235,11 @@ model Member {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // This join table carried NO indexes despite being read on every org-scoped
+  // request (the membership check in protectedProcedure) and counted per-org
+  // by the portal's organization list.
+  @@index([organizationId])
+  @@index([userId])
   @@map("member")
 }
 
@@ -298,6 +315,11 @@ model Subscription {
 
   organization Organization @relation(fields: [referenceId], references: [id], onDelete: Cascade)
 
+  // The revenue panel counts by status and buckets new subscriptions by day;
+  // referenceId is the org lookup the billing router does on every read.
+  @@index([referenceId])
+  @@index([status])
+  @@index([createdAt])
   @@map("subscription")
 }
 
@@ -400,6 +422,9 @@ model ActivityLog {
   @@index([organizationId, createdAt])
   @@index([action])
   @@index([entity])
+  // Platform-wide "events of type X per day" for the portal engagement chart —
+  // the single-column entity index alone would filter after scanning by date.
+  @@index([entity, createdAt])
   @@map("activity_log")
 }
 
@@ -466,7 +491,9 @@ model LinkedInAccount {
 model LinkedInPost {
   id             String @id @default(cuid())
   organizationId String // Tenant scope
-  accountId      String // The LinkedInAccount that published it
+  // The LinkedInAccount that published it. NULLABLE so disconnecting an
+  // account does not erase the org's post history — see the relation below.
+  accountId      String?
   authorId       String // The app user who hit Publish
 
   commentary String  @db.Text // The post body as published
@@ -514,14 +541,36 @@ model LinkedInPost {
   // nothing else. Composed with imageUrl at publish time.
   imageTransform String?
 
+  // The image BEFORE any AI edit, kept so an AI edit stays revertible.
+  //
+  // A `tr:` transform is non-destructive by nature — it is a string layered over
+  // an untouched asset. An AI edit is not: it returns NEW BYTES that become a
+  // new ImageKit asset, so without these columns the user's source photo would
+  // be unrecoverable the moment they accepted a generation.
+  //
+  // Null when no AI edit has been applied, which is every post until then. Not a
+  // second attachment: nothing reads these at publish time.
+  originalFileId String?
+  originalUrl    String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  account      LinkedInAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  // SetNull, NOT Cascade. Under Cascade, disconnecting LinkedIn silently
+  // deleted every post row the org had — including PUBLISHED ones that are
+  // still live on the member's feed, wiping the only record this app has of
+  // them (LinkedIn gates reading posts back behind r_member_social). It also
+  // destroyed queued posts without refunding their quota. Orphaning the rows
+  // keeps the history; disconnectAccount cancels anything still scheduled so
+  // no post is left waiting on a connection that no longer exists.
+  account      LinkedInAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, publishedAt])
+  // Platform-wide "posts created per day": the composite indexes above are all
+  // org-scoped, so a cross-tenant rollup has nothing to use without this.
+  @@index([createdAt])
   @@index([accountId])
   @@index([authorId])
   // The worker's claim query: find due rows by status + time.

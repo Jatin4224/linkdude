@@ -53,13 +53,21 @@ export const integrationsRouter = createTRPCRouter({
    * WHY:   `provider` is on the input so the registry's audit template
    *        ("Disconnected the {input.provider} account") interpolates, and so
    *        adding the next provider needs no new endpoint.
+   *
+   *        `canceledPosts` is returned rather than swallowed so the UI can tell
+   *        the user what disconnecting actually cost them. Silently cancelling
+   *        queued posts is how someone discovers days later that Tuesday's post
+   *        never went out.
    */
   disconnect: protectedProcedure({
     requirePermission: permissions.INTEGRATIONS_DISCONNECT,
   })
     .input(disconnectIntegrationSchema.extend(withOrganization.shape))
     .mutation(async ({ ctx, input }) => {
-      await linkedinService.disconnectAccount(ctx.db, input.organizationId);
-      return { provider: input.provider };
+      const { canceledPosts } = await linkedinService.disconnectAccount(
+        ctx.db,
+        input.organizationId,
+      );
+      return { provider: input.provider, canceledPosts };
     }),
 });

@@ -25,8 +25,9 @@
  */
 
 import { z } from "zod";
-import type { generateText, LanguageModel, ToolSet } from "ai";
+import type { generateText, ImageModel, LanguageModel, ToolSet } from "ai";
 import { LINKEDIN_MAX_COMMENTARY } from "@/lib/config/linkedin";
+import { postImageSchema } from "./imagekit";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AI_PROVIDER_KEYS, AiProvider, aiProviderSchema
@@ -80,6 +81,14 @@ export interface AiProviderDefinition {
   readonly providerOptions: AiProviderOptions;
   /** Vendor tool that lets the model read a URL already present in the prompt. */
   readonly createWebFetchTools: () => ToolSet;
+  /**
+   * Image model for edit-an-image-from-a-prompt, or `null` when this vendor has
+   * none. NOT every provider does — Anthropic generates no images — and a null
+   * here is what hides the AI-edit control on such a deployment instead of
+   * offering a button that always errors. Kept beside the language model rather
+   * than in a second registry so switching AI_PROVIDER moves both at once.
+   */
+  readonly createImageModel: (() => ImageModel) | null;
 }
 
 /**
@@ -155,3 +164,32 @@ export const generatedPostSchema = z.object({
   commentary: z.string().trim().min(1).max(LINKEDIN_MAX_COMMENTARY),
 });
 export type GeneratedPost = z.infer<typeof generatedPostSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: AI_IMAGE_PROMPT_MAX, aiImageEditSchema,
+ *   AiImageEditValues
+ *
+ * WHAT:  Input contract for an AI image edit — the attached image plus what the
+ *        user wants changed about it.
+ * WHY:   The image rides as a REFERENCE, never as bytes: the server already
+ *        knows how to fetch from ImageKit, and putting bytes in the tRPC payload
+ *        is the exact mistake the direct-upload path was built to undo.
+ *
+ *        The prompt is bounded and trimmed like every other model input here —
+ *        an unbounded string is spend, not a description.
+ * WHERE: Router input for the AI image edit; resolver for the AI edit dialog.
+ */
+export const AI_IMAGE_PROMPT_MAX = 500;
+
+export const aiImageEditSchema = z.object({
+  image: postImageSchema,
+  prompt: z
+    .string()
+    .trim()
+    .min(3, "Describe the change you want")
+    .max(
+      AI_IMAGE_PROMPT_MAX,
+      `Keep the instruction under ${AI_IMAGE_PROMPT_MAX} characters`,
+    ),
+});
+export type AiImageEditValues = z.infer<typeof aiImageEditSchema>;
