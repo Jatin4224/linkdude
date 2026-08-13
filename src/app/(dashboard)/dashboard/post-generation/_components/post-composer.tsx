@@ -54,6 +54,7 @@ import {
   type PostTone,
 } from "@/lib/types";
 import {
+  buildTransformedUrl,
   IMAGEKIT_MAX_IMAGE_BYTES,
   IMAGEKIT_MAX_IMAGE_LABEL,
   LINKEDIN_IMAGE_TRANSFORM,
@@ -66,6 +67,7 @@ import {
   LinkedInPostPreview,
 } from "@/components/global/linkedin";
 import { ImageUpload } from "@/components/global/image-upload";
+import { ImageEditor } from "@/components/global/image-editor";
 import { PostStatusBadge } from "@/components/global/post-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -247,10 +249,11 @@ export function PostComposer({
     });
   }
 
-  /* What LinkedIn will actually receive — the same transform the publish path
-   * applies, so the preview cannot flatter the result. */
+  /* What LinkedIn will actually receive — built by the SAME function the publish
+   * path uses, not a hand-rolled template, so the preview cannot flatter the
+   * result by encoding the URL even slightly differently. */
   const imagePreviewUrl = image
-    ? `${image.url}?tr=${image.transform ?? LINKEDIN_IMAGE_TRANSFORM}`
+    ? buildTransformedUrl(image.url, image.transform ?? LINKEDIN_IMAGE_TRANSFORM)
     : null;
 
   const isConnected =
@@ -311,15 +314,27 @@ export function PostComposer({
             imageUrl={imagePreviewUrl}
             actions={
               imageUploadsEnabled ? (
-                <ImageUpload
-                  value={image}
-                  onChange={setImage}
-                  getAuthParams={fetchUploadAuth}
-                  accept={LINKEDIN_IMAGE_MIME_TYPES}
-                  maxBytes={IMAGEKIT_MAX_IMAGE_BYTES}
-                  maxBytesLabel={IMAGEKIT_MAX_IMAGE_LABEL}
-                  disabled={publish.isPending || !enabled}
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <ImageUpload
+                    value={image}
+                    onChange={setImage}
+                    getAuthParams={fetchUploadAuth}
+                    accept={LINKEDIN_IMAGE_MIME_TYPES}
+                    maxBytes={IMAGEKIT_MAX_IMAGE_BYTES}
+                    maxBytesLabel={IMAGEKIT_MAX_IMAGE_LABEL}
+                    disabled={publish.isPending || !enabled}
+                  />
+                  {/* Only with an image attached: an editor over nothing has
+                      no subject, and a disabled button would just ask the
+                      reader to work out why. */}
+                  {image ? (
+                    <ImageEditor
+                      value={image}
+                      onChange={setImage}
+                      disabled={publish.isPending || !enabled}
+                    />
+                  ) : null}
+                </div>
               ) : null
             }
           >

@@ -142,7 +142,12 @@ export const imageEditSchema = z.object({
   aspect: z.enum(IMAGE_ASPECT_KEYS),
   fit: z.enum(IMAGE_FIT_KEYS),
   focus: z.enum(IMAGE_FOCUS_KEYS),
-  rotate: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+  rotate: z.union([
+    z.literal(0),
+    z.literal(90),
+    z.literal(180),
+    z.literal(270),
+  ]),
   /* Toggles, not sliders: `e-contrast` is a contrast STRETCH and `e-grayscale`
    * is absolute — neither takes a magnitude. */
   grayscale: z.boolean(),

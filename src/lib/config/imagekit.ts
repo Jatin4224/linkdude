@@ -22,10 +22,7 @@
  *        endpoint on the linkedinPosts router.
  */
 
-import {
-  buildImageTransform,
-  DEFAULT_IMAGE_EDIT,
-} from "@/lib/types/imagekit";
+import { buildImageTransform, DEFAULT_IMAGE_EDIT } from "@/lib/types/imagekit";
 
 /* ImageKit's own upload ceiling for images on every plan. The old 3 MB limit
  * existed only because base64 rode inside the tRPC payload and Vercel rejects
@@ -120,8 +117,8 @@ export interface ImageKitCredentials {
 export function isImageKitConfigured(): boolean {
   return Boolean(
     process.env["IMAGEKIT_PUBLIC_KEY"] &&
-      process.env["IMAGEKIT_PRIVATE_KEY"] &&
-      process.env["IMAGEKIT_URL_ENDPOINT"],
+    process.env["IMAGEKIT_PRIVATE_KEY"] &&
+    process.env["IMAGEKIT_URL_ENDPOINT"],
   );
 }
 
