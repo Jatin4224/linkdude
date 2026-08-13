@@ -33,6 +33,7 @@ import { prisma } from "@/lib/config";
 import { ac, roles } from "@/lib/better-auth/permissions";
 import { APP_URL, APP_NAME, APP_DOMAIN } from "@/lib/config/branding";
 import { REGISTRATION_OPEN } from "@/lib/config/registration";
+import { EMAIL_AUTH_ENABLED } from "@/lib/config/auth-methods";
 import { isDevEmailFallbackActive } from "@/lib/config/resend";
 import {
   sendVerificationEmail as sendVerificationEmailService,
@@ -63,7 +64,7 @@ function resolveGoogleProvider():
         google: {
           clientId: string;
           clientSecret: string;
-          disableImplicitSignUp: true;
+          disableImplicitSignUp: boolean;
         };
       };
     }
@@ -77,7 +78,15 @@ function resolveGoogleProvider():
         google: {
           clientId,
           clientSecret,
-          disableImplicitSignUp: true,
+          /* Blocking implicit sign-up closes the account-linking takeover where
+           * an attacker pre-registers victim@gmail.com with a password and
+           * Better Auth later merges that row into the real victim's Google
+           * sign-in. That attack needs an email+password sign-up to plant the
+           * row with — so when email auth is off, the guard has nothing left to
+           * defend and would only dead-end every new Google user. Registration
+           * itself stays gated by the databaseHooks.user.create.before hook
+           * below, which covers implicitly-created social accounts too. */
+          disableImplicitSignUp: EMAIL_AUTH_ENABLED,
         },
       },
     };
@@ -148,7 +157,11 @@ export const auth = betterAuth({
    * dead-end because no verification mail can be delivered. Setting the key —
    * or any non-development NODE_ENV — restores enforcement automatically. */
   emailAndPassword: {
-    enabled: true,
+    /* Server-side half of NEXT_PUBLIC_EMAIL_AUTH_ENABLED. Hiding the form is
+     * cosmetic on its own — /api/auth/sign-up/email stays curl-able. Disabling
+     * it here takes the sign-up, sign-in, forgot-password and reset-password
+     * endpoints down with one flag, so the UI and the API can't disagree. */
+    enabled: EMAIL_AUTH_ENABLED,
     requireEmailVerification: !isDevEmailFallbackActive(),
     async sendResetPassword({
       user,

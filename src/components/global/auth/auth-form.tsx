@@ -7,21 +7,27 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: AuthForm, AuthFormProps, GOOGLE_OAUTH_ENABLED,
- *   authClient, signInSchema, signUpSchema, GoogleGlyph
+ * SOURCE OF TRUTH KEYWORDS: AuthForm, AuthFormProps, GoogleOnlyForm,
+ *   EMAIL_AUTH_ENABLED, GOOGLE_AUTH_ENABLED, authClient, signInSchema,
+ *   signUpSchema, GoogleGlyph
  *
  * WHAT:  Reusable email+password+Google auth surface. `AuthForm` is a thin
  *        dispatcher that mounts a concrete RHF form per mode (sign-in or
- *        sign-up). The layout is a bare centered column (no card): centered
- *        heading, the form, a "Or continue with" Google button below the
- *        primary action, then a cross-link footer.
+ *        sign-up), or the Google-only panel when email auth is switched off.
+ *        The layout is a bare centered column (no card): centered heading, the
+ *        form, a "Or continue with" Google button below the primary action,
+ *        then a cross-link footer.
  * WHY:   CLAUDE.md mandates zod + react-hook-form for every input surface, so
  *        both forms resolve against the shared schemas in src/lib/types. Two
  *        concrete forms (not one generic) give exact RHF `Path<>` inference
  *        without `any`.
+ *
+ *        The EMAIL_AUTH_ENABLED branch sits in the dispatcher rather than
+ *        inside each form so the email forms — and their RHF/zod hooks — never
+ *        mount at all in Google-only mode.
  * WHERE: Mounted by src/app/(auth)/sign-in|sign-up/page.tsx inside AuthShell;
  *        talks to authClient (src/lib/better-auth/auth-client.ts); schemas live
- *        in src/lib/types/auth.ts.
+ *        in src/lib/types/auth.ts; flags live in src/lib/config/auth-methods.ts.
  */
 
 import * as React from "react";
@@ -43,7 +49,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/better-auth/auth-client";
-import { AUTH_ROUTES, ROUTES } from "@/lib/config";
+import {
+  AUTH_ROUTES,
+  EMAIL_AUTH_ENABLED,
+  GOOGLE_AUTH_ENABLED,
+  ROUTES,
+} from "@/lib/config";
 import { useDevEmailToast } from "@/hooks/use-dev-email-toast";
 import {
   signInSchema,
@@ -70,21 +81,20 @@ export interface AuthFormProps {
   callbackURL?: string;
 }
 
-/* Mirrors auth.ts: Google is only wired when the public client ID is set. */
-const GOOGLE_OAUTH_ENABLED = Boolean(
-  process.env["NEXT_PUBLIC_GOOGLE_CLIENT_ID"],
-);
-
 /**
  * SOURCE OF TRUTH KEYWORDS: AuthForm
  *
- * WHAT:  Selects the concrete form by `mode`.
+ * WHAT:  Selects the concrete surface — the Google-only panel when email auth
+ *        is switched off, otherwise the RHF form for `mode`.
  * WHERE: Rendered by sign-in/page.tsx and sign-up/page.tsx.
  */
 export function AuthForm({
   mode,
   callbackURL = ROUTES.dashboard,
 }: AuthFormProps) {
+  if (!EMAIL_AUTH_ENABLED)
+    return <GoogleOnlyForm mode={mode} callbackURL={callbackURL} />;
+
   return mode === "sign-in" ? (
     <SignInForm callbackURL={callbackURL} />
   ) : (
@@ -366,6 +376,54 @@ function SignUpForm({ callbackURL }: { callbackURL: string }) {
   );
 }
 
+/* ---------- Google only ---------- */
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: GoogleOnlyForm
+ *
+ * WHAT:  The whole auth surface when NEXT_PUBLIC_EMAIL_AUTH_ENABLED=false —
+ *        heading, error slot, and a single Google button.
+ * WHY:   With one method there is nothing to "continue with", so the divider is
+ *        dropped and the button becomes the primary action. Both routes render
+ *        the same thing on purpose: implicit sign-up is on in this mode (see
+ *        auth.ts), so one button both creates the account and signs an existing
+ *        user in — which is why the label is "Continue with", and why the
+ *        sign-in ↔ sign-up cross-link footer is omitted rather than pointing at
+ *        an identical page.
+ * WHERE: Returned by AuthForm when EMAIL_AUTH_ENABLED is false.
+ */
+function GoogleOnlyForm({
+  mode,
+  callbackURL,
+}: {
+  mode: AuthFormMode;
+  callbackURL: string;
+}) {
+  const { error, setError, google } = useAuthEffects();
+  const isSignUp = mode === "sign-up";
+
+  return (
+    <div className="flex flex-col gap-6">
+      <AuthHeading
+        title={isSignUp ? "Create an account" : "Welcome back"}
+        description={
+          isSignUp
+            ? "Sign up with your Google account to get started."
+            : "Sign in with your Google account to continue."
+        }
+      />
+      <AuthError error={error} />
+      <GoogleButton
+        label="Continue with Google"
+        onClick={() => google.run(callbackURL, setError)}
+        isPending={google.isPending}
+        isBusy={google.isPending}
+        withDivider={false}
+      />
+    </div>
+  );
+}
+
 /* ---------- Shared bits ---------- */
 
 function AuthHeading({
@@ -427,22 +485,30 @@ function GoogleButton({
   onClick,
   isPending,
   isBusy,
+  /* The divider only earns its place when there is another method above it to
+     be an alternative TO — Google-only mode passes false. */
+  withDivider = true,
 }: {
   label: string;
   onClick: () => void;
   isPending: boolean;
   isBusy: boolean;
+  withDivider?: boolean;
 }) {
-  if (!GOOGLE_OAUTH_ENABLED) return null;
+  if (!GOOGLE_AUTH_ENABLED) return null;
   return (
     <>
-      <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
-        <span className="relative z-10 bg-background px-2 text-muted-foreground">
-          Or continue with
-        </span>
-      </div>
+      {withDivider ? (
+        <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
+          <span className="relative z-10 bg-background px-2 text-muted-foreground">
+            Or continue with
+          </span>
+        </div>
+      ) : null}
       <Button
-        variant="outline"
+        /* Google-only mode makes this the commit action of the page, so it
+           takes the same brand treatment as every other primary CTA. */
+        variant={withDivider ? "outline" : "brand"}
         type="button"
         className="w-full"
         onClick={onClick}

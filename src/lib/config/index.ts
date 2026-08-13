@@ -7,7 +7,8 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: prisma, DbClient, APP_NAME, APP_URL, APP_DOMAIN,
  *   APP_DESCRIPTION, APP_METADATA_BASE, BRANDING, AUTH_ROUTES,
- *   REGISTRATION_OPEN, PLANS, PlanKey, PlanDefinition, resend,
+ *   REGISTRATION_OPEN, EMAIL_AUTH_ENABLED, GOOGLE_AUTH_ENABLED,
+ *   PLANS, PlanKey, PlanDefinition, resend,
  *   getResendClient, RESEND_DEFAULT_FROM, isResendConfigured, ROUTES,
  *   AppRouteKey, PLAN_ORDER, BillingInterval, getPlanPriceId, getPlanByPriceId,
  *   getNextPlan, isPaidPlan, getStripeClient, isStripeConfigured,
@@ -57,6 +58,7 @@ export type { AuthRouteKey } from "./auth-routes";
 export { ROUTES } from "./routes";
 export type { AppRouteKey } from "./routes";
 export { REGISTRATION_OPEN } from "./registration";
+export { EMAIL_AUTH_ENABLED, GOOGLE_AUTH_ENABLED } from "./auth-methods";
 export {
   PLAN_KEYS,
   PLANS,

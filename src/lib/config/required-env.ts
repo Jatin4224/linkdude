@@ -163,6 +163,22 @@ const STRIPE_PRICE_KEYS: OptionalEnvKey[] = PLAN_ORDER.filter(
  * an informational row; it NEVER affects hasMissingRequiredEnv (never blocks). */
 export const OPTIONAL_ENV: readonly OptionalEnvVar[] = [
   {
+    id: "google-auth",
+    label: "Google sign-in",
+    purpose:
+      "Optional. Without it, the Google button is hidden and people sign in with email + password. With it, they can use their Google account — and because Google has already verified the address, no transactional email provider is needed to get someone into the app. Both keys are required: with only the client id the button renders but every click fails.",
+    help: 'Create an OAuth 2.0 Client ID (type: Web application) in the Google Cloud console. Add your app URL to "Authorized JavaScript origins" and <APP_URL>/api/auth/callback/google to "Authorized redirect URIs", then publish the consent screen — while it is in Testing mode only listed test users can sign in. Set NEXT_PUBLIC_EMAIL_AUTH_ENABLED="false" to make this the only way in.',
+    icon: "KeyRound",
+    link: {
+      label: "Open the Google Cloud credentials page",
+      url: "https://console.cloud.google.com/apis/credentials",
+    },
+    keys: [
+      { key: "NEXT_PUBLIC_GOOGLE_CLIENT_ID", label: "Client ID" },
+      { key: "GOOGLE_CLIENT_SECRET", label: "Client secret" },
+    ],
+  },
+  {
     id: "stripe",
     label: "Payments (Stripe)",
     purpose:
