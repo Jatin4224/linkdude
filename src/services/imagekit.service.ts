@@ -68,7 +68,15 @@ export function getUploadAuthParams(): UploadAuthParams {
   const { token, expire, signature } = getImageKitClient().helper
     /* Token is auto-generated (UUID v4) when omitted — no reason to invent our
      * own identifier for a credential that lives fifteen minutes. */
-    .getAuthenticationParameters(undefined, IMAGEKIT_AUTH_EXPIRY_SECONDS);
+    .getAuthenticationParameters(
+      undefined,
+      /* The SDK wants the absolute SECOND at which the token dies, not how long
+       * it lives. Handing it the duration itself dates the token to 1970, and
+       * ImageKit rejects the upload with a 400 the client can only report as an
+       * opaque vendor error — the signature is computed over that same bad
+       * value, so nothing catches it on our side. */
+      Math.floor(Date.now() / 1000) + IMAGEKIT_AUTH_EXPIRY_SECONDS,
+    );
 
   return {
     token,

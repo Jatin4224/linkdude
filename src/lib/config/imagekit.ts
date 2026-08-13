@@ -43,7 +43,11 @@ export const IMAGEKIT_UPLOAD_ENDPOINT =
 
 /* Signed upload tokens are short-lived: the window only has to cover picking a
  * file and uploading it, and a narrow window limits the blast radius if one
- * leaks out of the client. */
+ * leaks out of the client.
+ *
+ * A DURATION, not a deadline. The ImageKit SDK's getAuthenticationParameters
+ * takes an absolute Unix second, so the caller adds this to the current time —
+ * passing it straight through backdates every token to 1970. */
 export const IMAGEKIT_AUTH_EXPIRY_SECONDS = 15 * 60;
 
 /**
