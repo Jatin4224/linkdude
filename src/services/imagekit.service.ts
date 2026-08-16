@@ -8,7 +8,8 @@ import "server-only";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getUploadAuthParams, buildTransformedUrl,
- *   deleteImage, fetchImageBinary, getImageKitClient
+ *   deleteImage, fetchImageBinary, getImageKitClient, uploadImageBytes,
+ *   uploadFileBytes
  *
  * WHAT:  Every ImageKit touchpoint — minting signed upload credentials for the
  *        browser, composing delivery URLs with a `tr:` transform, fetching the
@@ -146,12 +147,38 @@ export async function uploadImageBytes(
   base64: string,
   fileName: string,
 ): Promise<PostImageValues> {
+  return uploadFileBytes(base64, fileName, IMAGEKIT_POST_FOLDER);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: uploadFileBytes
+ *
+ * WHAT:  Uploads bytes to a NAMED ImageKit folder and returns the stored
+ *        reference. The generalised form of uploadImageBytes.
+ * WHY:   ImageKit stores more than images, and this app now generates more than
+ *        images — a rendered carousel PDF has no browser to upload from and does
+ *        not belong in the post-media folder, because the two have different
+ *        owners and different lifecycles. Taking the folder as an argument is the
+ *        whole difference; everything else about the upload is identical, so the
+ *        image path delegates here rather than duplicating it.
+ *
+ *        Still base64, for the reason uploadImageBytes was: it is what the AI
+ *        SDK hands back, the SDK re-encodes anything else anyway, and it is the
+ *        shape this vendor boundary is already known to accept.
+ * WHERE: Called by uploadImageBytes (post media) and by
+ *        src/services/carousel.service.ts (rendered PDFs).
+ */
+export async function uploadFileBytes(
+  base64: string,
+  fileName: string,
+  folder: string,
+): Promise<PostImageValues> {
   const response = await getImageKitClient().files.upload({
     file: base64,
     fileName,
-    folder: IMAGEKIT_POST_FOLDER,
+    folder,
     /* Same reason as the browser path: never overwrite an existing asset. A
-     * collision here would silently rewrite an image another post is using. */
+     * collision here would silently rewrite a file another row is using. */
     useUniqueFileName: true,
   });
 

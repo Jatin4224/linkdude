@@ -572,6 +572,116 @@ export const RESOURCES = {
       order: 2,
     },
   },
+
+  carousel: {
+    name: "Carousels",
+    description:
+      "Turn a topic into a multi-slide LinkedIn carousel and render it to PDF",
+    /* `discard` rather than `delete`, for the same reason spelled out on
+     * profileAnalysis and contentPlan: this counter measures MODEL AND RENDER
+     * SPEND, and throwing the deck away does not un-spend either. Under the name
+     * `delete`, generate → remove → generate would be an unlimited free tier.
+     *
+     * `render` is its own verb, not folded into `create`, because the two have
+     * completely different cost and failure modes — the model call can succeed
+     * and the render still fail. Separating them means a failed render never
+     * burns the generation the user already paid for, and re-rendering an edited
+     * deck costs nothing. `update` covers slide edits, which buy nothing. */
+    permissions: ["create", "read", "update", "render", "discard"],
+    /* Its own budget rather than sharing aiGeneration's. A deck is one structured
+     * generation plus N image rasterisations plus a stored file — materially
+     * heavier than a post draft, and a shared counter would hide that.
+     *
+     * Spent by GENERATION, not by rendering: `create` is the only verb the
+     * factory bumps, so editing and re-rendering a deck the org already paid for
+     * stays free. That is deliberate — charging per render would push people to
+     * accept a worse first draft. */
+    limit: {
+      perPlan: {
+        /* Two. Enough to produce a real deck and see it published, with the
+         * second one covering the near-certain "I want to try another topic". */
+        free: 2,
+        starter: 30,
+        pro: 200,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to create more carousels",
+      availableOnFreeTrial: true,
+      unit: "carousels",
+    },
+    rateLimit: {
+      /* A multi-slide structured generation — comparable weight to a content
+       * plan, so the same tight burst cap. */
+      create: { count: 3, window: "1 m" },
+      /* Looser than create: rendering is local CPU, not a model call, and
+       * iterating on slide copy is the expected workflow. Still capped, because
+       * each render rasterises N slides and uploads a file. */
+      render: { count: 5, window: "1 m" },
+    },
+    audit: {
+      entity: "carousel",
+      describe: {
+        create: "Generated a carousel",
+        update: "Edited carousel slides",
+        render: "Rendered a carousel to PDF",
+        discard: "Discarded a carousel",
+      },
+    },
+    nav: {
+      label: "Carousel",
+      href: "/dashboard/carousel",
+      icon: "Layers",
+      section: "create",
+      order: 5,
+      /* NOTE the backfill rule documented on profileAnalysis and contentPlan
+       * applies here differently. Those are OLD resources, where the fix was to
+       * gate on a verb that already existed in live OrganizationRole rows.
+       * `carousel` is BRAND NEW: no role row holds any of its permissions, so no
+       * choice of verb makes this visible to an existing custom-role member.
+       *
+       * That is correct, not a bug. Owners bypass the permission gate and see it
+       * immediately; granting it to a custom role is a deliberate act in the
+       * existing role editor. 'create' is chosen because it is the verb that
+       * matches what the page is FOR — opening it to compose a deck. */
+      requirePermission: "create",
+    },
+  },
+
+  /* Documents is its own KEY because generated files outlive the deck that made
+   * them and need a page of their own — `nav` is one entry per resource and
+   * carousel already spends its on the editor.
+   *
+   * It carries NO `limit` on purpose. Documents are created by `carousel.render`,
+   * and the factory only bumps a counter on `<resource>.create` — so a limit here
+   * would never fire and would sit in the pricing table as a number that means
+   * nothing. Storage volume is already bounded by the carousel quota, which is
+   * the thing actually being metered. */
+  documents: {
+    name: "Documents",
+    description: "Files this workspace has generated, such as carousel PDFs",
+    /* No `create`: nothing creates a Document directly. Rendering a carousel
+     * does, and that is gated by carousel:render. */
+    permissions: ["read", "delete"],
+    audit: {
+      entity: "documents",
+      describe: {
+        delete: "Deleted a generated document",
+      },
+    },
+    nav: {
+      label: "Documents",
+      href: "/dashboard/documents",
+      icon: "FileText",
+      section: "workspace",
+      order: 5,
+      /* 'read' is the only sensible verb here — this resource has no `create`,
+       * and the page is a library whose sole mutation is delete. Same new-resource
+       * caveat as carousel above: owners see it at once, custom roles need an
+       * explicit grant. */
+      requirePermission: "read",
+    },
+  },
 } as const satisfies Record<string, ResourceDefinition>;
 
 export type ResourceKey = keyof typeof RESOURCES;
