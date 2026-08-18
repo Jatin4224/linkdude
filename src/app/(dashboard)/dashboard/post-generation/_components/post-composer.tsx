@@ -61,6 +61,7 @@ import {
   LINKEDIN_MAX_COMMENTARY,
   MIN_SCHEDULE_LEAD_MS,
 } from "@/lib/config";
+import { earliestSchedule, toLocalDateTimeInput } from "@/lib/utils";
 import { ContentLayout } from "@/components/global/page-header";
 import {
   LinkedInConnectButton,
@@ -110,22 +111,9 @@ const CALLBACK_ERROR_MESSAGES: Record<LinkedInOAuthErrorCode, string> = {
   not_configured: "LinkedIn is not configured on this deployment.",
 };
 
-/* <input type="datetime-local"> speaks `YYYY-MM-DDTHH:mm` in LOCAL time and
- * rejects anything else. toISOString would silently shift the value by the
- * timezone offset, so the user picks 09:00 and the post goes out at 04:00. */
-function toLocalDateTimeInput(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
-}
-
-/* The earliest value the picker will accept, matching the server's floor so a
- * too-soon time is refused before the round trip rather than after it. */
-function earliestSchedule(): string {
-  return toLocalDateTimeInput(new Date(Date.now() + MIN_SCHEDULE_LEAD_MS));
-}
+/* toLocalDateTimeInput / earliestSchedule moved to @/lib/utils — the carousel
+ * publish dialog schedules too, and a second copy of a timezone-sensitive
+ * formatter is how the two surfaces would quietly disagree. */
 
 export function PostComposer({
   imageUploadsEnabled,

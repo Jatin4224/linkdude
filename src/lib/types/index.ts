@@ -122,6 +122,7 @@ export {
 export type {
   LinkedInImageMimeType,
   LinkedInImageBinary,
+  PostDocumentValues,
   LinkedInOAuthErrorCode,
   LinkedInPostStatus,
   ListCalendarPostsValues,
@@ -258,6 +259,53 @@ export type {
   GenerateContentPlanValues,
   StoredContentPlan,
 } from "./content-plan";
+/* Carousels — slide vocabulary, deck bounds and page geometry. The deck itself
+ * lives in Carousel.slides as Json, so carouselSlidesSchema is the boundary that
+ * keeps an untyped value out of the router on every read. */
+export {
+  CAROUSEL_STATUSES,
+  carouselStatusSchema,
+  CAROUSEL_SLIDE_KINDS,
+  carouselSlideKindSchema,
+  CAROUSEL_TEMPLATES,
+  carouselTemplateSchema,
+  CAROUSEL_PAGE_PRESETS,
+  carouselPagePresetSchema,
+  CAROUSEL_MIN_SLIDES,
+  CAROUSEL_MAX_SLIDES,
+  CAROUSEL_DEFAULT_SLIDES,
+  CAROUSEL_HEADING_MAX,
+  CAROUSEL_BODY_MAX,
+  CAROUSEL_TOPIC_MIN,
+  CAROUSEL_TOPIC_MAX,
+  carouselSlideSchema,
+  carouselSlidesSchema,
+  generateCarouselSchema,
+  updateCarouselSchema,
+  renderCarouselSchema,
+  getCarouselSchema,
+  discardCarouselSchema,
+  listCarouselsSchema,
+  listDocumentsSchema,
+  deleteDocumentSchema,
+} from "./carousel";
+export type {
+  CarouselStatus,
+  CarouselSlideKind,
+  CarouselTemplate,
+  CarouselPagePreset,
+  CarouselSlide,
+  CarouselSlides,
+  GenerateCarouselValues,
+  GenerateCarouselInput,
+  UpdateCarouselValues,
+  RenderCarouselValues,
+  GetCarouselValues,
+  DiscardCarouselValues,
+  ListCarouselsValues,
+  ListDocumentsValues,
+  DeleteDocumentValues,
+} from "./carousel";
 export { ANALYTICS_RANGE_DAYS, analyticsRangeSchema } from "./portal-analytics";
 export type {
   AnalyticsRangeDays,

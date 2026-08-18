@@ -29,10 +29,16 @@ import {
   listPostsSchema,
   listCalendarPostsSchema,
   deletePostSchema,
+  type PostDocumentValues,
 } from "@/lib/types";
-import { isImageKitConfigured, isLinkedInConfigured } from "@/lib/config";
+import {
+  isImageKitConfigured,
+  isLinkedInConfigured,
+  LINKEDIN_MAX_DOCUMENT_PAGES,
+} from "@/lib/config";
 import * as linkedinService from "@/services/linkedin.service";
 import * as imagekitService from "@/services/imagekit.service";
+import * as documentsService from "@/services/documents.service";
 
 const withOrganization = z.object({ organizationId: z.string().min(1) });
 
@@ -93,6 +99,37 @@ export const linkedinPostsRouter = createTRPCRouter({
         });
       }
 
+      /* Resolved from the id SERVER-SIDE, scoped to this organization, so a
+       * client cannot publish a file belonging to another tenant by guessing an
+       * id. The url and title come from the row, never from the request. */
+      let document: PostDocumentValues | undefined;
+      if (input.documentId) {
+        const stored = await documentsService.getDocument(
+          input.organizationId,
+          input.documentId,
+          ctx.db,
+        );
+        if (!stored) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "That carousel PDF no longer exists. Render it again.",
+          });
+        }
+        /* LinkedIn caps document posts at 300 pages. Checked here rather than at
+         * upload time so an oversized deck is refused before any quota is spent
+         * or bytes are moved. */
+        if (stored.pageCount > LINKEDIN_MAX_DOCUMENT_PAGES) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `LinkedIn allows at most ${LINKEDIN_MAX_DOCUMENT_PAGES} pages in a document post.`,
+          });
+        }
+        /* `title`, NOT `fileName`. LinkedIn shows this publicly on the post, and
+         * fileName is a slug — sending it published the author's raw prompt as
+         * the deck's name. Falls back for rows written before the column existed. */
+        document = { url: stored.url, title: stored.title ?? stored.fileName };
+      }
+
       /* SCHEDULED BRANCH — no LinkedIn call. The quota was just spent by this
        * same `create` verb, which is the entire reason scheduling lives here
        * instead of on a `schedule` procedure of its own. */
@@ -104,6 +141,7 @@ export const linkedinPostsRouter = createTRPCRouter({
           commentary: input.commentary,
           scheduledFor: input.scheduledFor,
           image: input.image,
+          documentId: input.documentId,
         });
       }
 
@@ -114,6 +152,7 @@ export const linkedinPostsRouter = createTRPCRouter({
           personUrn: token.personUrn,
           commentary: input.commentary,
           image: input.image,
+          document,
         });
       } catch (error) {
         throw new TRPCError({
@@ -132,7 +171,9 @@ export const linkedinPostsRouter = createTRPCRouter({
         commentary: input.commentary,
         postUrn: published.postUrn,
         imageUrn: published.imageUrn,
+        documentUrn: published.documentUrn,
         image: input.image,
+        documentId: input.documentId,
       });
     }),
 

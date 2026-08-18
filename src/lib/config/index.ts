@@ -28,7 +28,11 @@
  *   ContentPlanStepDefinition, CONTENT_PLAN_SECTIONS,
  *   CONTENT_PLAN_SECTION_ENTRIES, serializeContentPlanAnswers,
  *   serializeContentPlanSection, contentPlanSectionCopyText,
- *   ContentPlanSectionDefinition, PLAN_PRICE_CURRENCY, PLAN_PRICE_LOCALE,
+ *   ContentPlanSectionDefinition, IMAGEKIT_DOCUMENT_FOLDER,
+ *   CAROUSEL_PDF_MIME_TYPE, CAROUSEL_RENDER_TIMEOUT_MS, CAROUSEL_FONT_FILES,
+ *   CAROUSEL_FONT_FAMILY, CAROUSEL_PAGE_PRESETS, carouselDocumentFileName,
+ *   CAROUSEL_PALETTES, CAROUSEL_TYPE_SCALE, getCarouselPalette,
+ *   getCarouselTypeScale, CarouselPalette, PLAN_PRICE_CURRENCY, PLAN_PRICE_LOCALE,
  *   HIGHLIGHTED_PLAN, getPlanPriceAmount, formatPlanPrice,
  *   getPlanMonthlyEquivalent, formatPlanMonthlyEquivalent,
  *   getPlanYearlySavingPercent, MARKETING_SECTION_IDS, MARKETING_NAV,
@@ -143,6 +147,10 @@ export {
   LINKEDIN_REDIRECT_PATH,
   LINKEDIN_MAX_COMMENTARY,
   LINKEDIN_OAUTH_STATE_COOKIE,
+  LINKEDIN_MAX_DOCUMENT_BYTES,
+  LINKEDIN_MAX_DOCUMENT_PAGES,
+  LINKEDIN_DOCUMENT_POLL_INTERVAL_MS,
+  LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS,
 } from "./linkedin";
 export type { LinkedInCredentials } from "./linkedin";
 export {
@@ -155,6 +163,7 @@ export {
   IMAGEKIT_AUTH_EXPIRY_SECONDS,
   LINKEDIN_IMAGE_TRANSFORM,
   buildTransformedUrl,
+  buildAttachmentUrl,
 } from "./imagekit";
 export type { ImageKitCredentials } from "./imagekit";
 export {
@@ -184,3 +193,23 @@ export {
   contentPlanSectionCopyText,
 } from "./content-plan-sections";
 export type { ContentPlanSectionDefinition } from "./content-plan-sections";
+export {
+  IMAGEKIT_DOCUMENT_FOLDER,
+  CAROUSEL_PDF_MIME_TYPE,
+  CAROUSEL_GENERATION_MAX_TOKENS,
+  CAROUSEL_GENERATION_TIMEOUT_MS,
+  CAROUSEL_RENDER_TIMEOUT_MS,
+  CAROUSEL_FONT_FAMILY,
+  CAROUSEL_FONT_FILES,
+  CAROUSEL_PAGE_PRESETS,
+  carouselDocumentFileName,
+  carouselDocumentTitle,
+} from "./carousel";
+export {
+  CAROUSEL_BRAND_HEX,
+  CAROUSEL_PALETTES,
+  CAROUSEL_TYPE_SCALE,
+  getCarouselPalette,
+  getCarouselTypeScale,
+} from "./carousel-theme";
+export type { CarouselPalette, CarouselTypeScale } from "./carousel-theme";

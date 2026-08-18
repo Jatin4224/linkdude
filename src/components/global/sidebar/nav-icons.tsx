@@ -21,7 +21,9 @@ import {
   Circle,
   CompassIcon,
   CreditCard,
+  FileText,
   Folder,
+  Layers,
   LayoutDashboard,
   ScrollText,
   Settings,
@@ -44,6 +46,8 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   UserSearch,
   CalendarDays,
   Compass: CompassIcon,
+  Layers,
+  FileText,
 };
 
 export type NavIconName = keyof typeof NAV_ICONS;

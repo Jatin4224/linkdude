@@ -8,7 +8,8 @@ import "server-only";
  * SOURCE OF TRUTH KEYWORDS: generateText, generateStructured,
  *   generateLinkedInPost, analyzeLinkedInProfile, GenerateTextArgs,
  *   GenerateStructuredArgs, TONE_DIRECTIVES, LENGTH_DIRECTIVES,
- *   LINKEDIN_POST_SYSTEM_PROMPT, PROFILE_ANALYSIS_SYSTEM_PROMPT
+ *   LINKEDIN_POST_SYSTEM_PROMPT, PROFILE_ANALYSIS_SYSTEM_PROMPT,
+ *   generateCarouselSlides, CAROUSEL_SYSTEM_PROMPT
  *
  * WHAT:  The app's single seat of model invocation. `generateText` and
  *        `generateStructured` are the provider-facing primitives (prose out and
@@ -30,7 +31,9 @@ import {
   generateImage,
   generateObject,
 } from "ai";
-import type { z } from "zod";
+/* Value import, not `import type`: generateCarouselSlides builds the model-facing
+ * wrapper object with z.object(). */
+import { z } from "zod";
 
 import {
   getAiModel,
@@ -55,6 +58,16 @@ import {
   type ProfileAnalysis,
 } from "@/lib/types/profile-analysis";
 import type { FetchedProfile } from "@/lib/types/profile-lookup";
+import {
+  carouselSlidesSchema,
+  CAROUSEL_PAGE_PRESETS,
+  type CarouselSlides,
+  type GenerateCarouselValues,
+} from "@/lib/types/carousel";
+import {
+  CAROUSEL_GENERATION_MAX_TOKENS,
+  CAROUSEL_GENERATION_TIMEOUT_MS,
+} from "@/lib/config/carousel";
 import {
   contentPlanInsightsSchema,
   contentPlanResultSchema,
@@ -644,4 +657,93 @@ export async function generateContentPlan(
   });
 
   return contentPlanResultSchema.parse(result);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: CAROUSEL_SYSTEM_PROMPT
+ *
+ * WHAT:  The persona and hard rules for carousel slide copy.
+ * WHY:   A carousel is not a post cut into pieces, and that is the failure mode
+ *        every rule here exists to stop. Slides are read at a glance while
+ *        swiping, so a heading that needs a second pass has already lost the
+ *        reader. The character ceilings are not style advice — they are the point
+ *        at which the renderer overflows the page, so they are stated in the
+ *        prompt AND enforced by the schema.
+ */
+const CAROUSEL_SYSTEM_PROMPT = `You write LinkedIn carousels — swipeable decks where each slide must land in about two seconds.
+
+Structure:
+- The FIRST slide is kind "cover": one promise that makes someone stop scrolling. No counter, no preamble.
+- The LAST slide is kind "cta": one specific ask. "Follow for more" is a wasted slide — ask for something concrete.
+- Every slide between them is kind "content": exactly one idea each. If a slide needs "and", it is two slides.
+
+Hard rules:
+- headings are HEADLINES, not sentences. No trailing period. Under 90 characters, and shorter is better.
+- body is at most 260 characters and may be empty. A cover usually needs no body.
+- Never use markdown. No **bold**, no #, no bullet characters — the renderer draws text literally.
+- No emoji. No em dashes. Avoid "delve", "leverage", "unlock", "game-changer", "supercharge".
+- Be concrete. A number, a name, or a specific example beats an abstract claim on every single slide.
+- The deck must make one argument from start to finish. Slide 4 should depend on slide 3.
+- Write in first person as a practitioner sharing what they actually know.`;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateCarouselSlides
+ *
+ * WHAT:  Turns a topic into an ordered deck of slides.
+ * WHY:   Copy only. The model never chooses the template, the page geometry or
+ *        the slide count — those are the user's, and a model left to pick them
+ *        drifts with the topic and makes two runs of the same brief incomparable.
+ *
+ *        The schema handed to the model is STRICTER than the storage one, the same
+ *        split generateContentPlan uses: `.length(slideCount)` pins the deck to
+ *        what was asked for, because a model given a range returns the shortest
+ *        end of it. It is then parsed back through carouselSlidesSchema, so one
+ *        declaration still governs both and the strictness differs only in the
+ *        direction it needs to.
+ * WHERE: Called by carousel.create.
+ */
+export async function generateCarouselSlides(
+  input: GenerateCarouselValues,
+): Promise<CarouselSlides> {
+  const toneDirective = TONE_DIRECTIVES[input.tone];
+  const preset = CAROUSEL_PAGE_PRESETS[input.page];
+
+  const result = await generateStructured({
+    system: CAROUSEL_SYSTEM_PROMPT,
+    prompt: [
+      `Write a ${input.slideCount}-slide LinkedIn carousel about the following.`,
+      ``,
+      `Topic:`,
+      input.topic,
+      ``,
+      `Tone: ${toneDirective}`,
+      /* The geometry is stated because it changes the writing, not just the
+       * drawing: a square slide has materially less vertical room than a 4:5 one,
+       * so the same heading that breathes on portrait crowds on square. */
+      `Slide shape: ${preset.label}. Keep headings short enough to sit comfortably in that shape.`,
+      `Return exactly ${input.slideCount} slides: one "cover", ${input.slideCount - 2} "content", one "cta", in that order.`,
+    ].join("\n"),
+    /* A whole deck in one object. The 4096 global is sized for a single post and
+     * truncates this mid-array, which the SDK reports as a schema mismatch rather
+     * than as the budget overrun it actually is. */
+    maxOutputTokens: CAROUSEL_GENERATION_MAX_TOKENS,
+    /* Must stay under the router's txTimeout, which holds a Postgres connection
+     * open for the whole call. */
+    timeoutMs: CAROUSEL_GENERATION_TIMEOUT_MS,
+    /* The exact count is asked for in the PROMPT, not enforced in the schema.
+     *
+     * An earlier version pinned this with `.length(slideCount)` and that was
+     * wrong for the reason generateContentPlan already documents: a hard count
+     * means a run returning six slides instead of seven is discarded whole, and
+     * the org has already paid for the tokens. Guidance the model usually
+     * follows beats validation that throws away work when it doesn't — and a
+     * six-slide deck is a deck the user can fix in the editor in two seconds,
+     * whereas a rejected generation gives them nothing at all.
+     *
+     * The storage bounds still apply, so anything passing here also passes the
+     * parse below. */
+    schema: z.object({ slides: carouselSlidesSchema }),
+  });
+
+  return carouselSlidesSchema.parse(result.slides);
 }
