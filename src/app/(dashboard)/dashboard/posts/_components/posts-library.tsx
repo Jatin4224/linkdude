@@ -8,7 +8,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PostsLibrary, postRowDate, postRowDateLabel,
- *   composeDraftHref
+ *   buildDraftComposerHref
  *
  * WHAT:  The /dashboard/posts surface — every post this workspace has written, in
  *        any state, with edit, open-on-LinkedIn, discard and delete.
@@ -38,6 +38,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { ContentLayout } from "@/components/global/page-header";
@@ -56,7 +58,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { buildDraftComposerHref, cn } from "@/lib/utils";
 import {
   POST_STATUS_FILTERS,
   POST_STATUS_FILTER_ALL,
@@ -87,10 +89,8 @@ function postRowDateLabel(row: PostLibraryRow): string {
 /* Reopening a draft is a LINK, not a client-side handoff: the composer already
  * reads its seed values from the URL (`?date=` for the calendar), so a draft is
  * one more param on the same door. It also makes a reopened draft shareable and
- * survivable across a refresh. */
-function composeDraftHref(postId: string): string {
-  return `/dashboard/post-generation?draftId=${encodeURIComponent(postId)}`;
-}
+ * survivable across a refresh. The href itself is built in @/lib/utils, because
+ * the content plan's "Draft this" action hands users to the same place. */
 
 export function PostsLibrary() {
   const organizationId = useActiveOrganizationId();
@@ -137,7 +137,7 @@ export function PostsLibrary() {
       await invalidateAfterRemoval();
       toast.success("Draft discarded.");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
     onSettled: () => setPendingId(null),
   });
 
@@ -146,7 +146,7 @@ export function PostsLibrary() {
       await invalidateAfterRemoval();
       toast.success("Post record removed.");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
     onSettled: () => setPendingId(null),
   });
 
@@ -271,7 +271,7 @@ export function PostsLibrary() {
                    base-ui primitive with no asChild slot, so a link that looks
                    like a button borrows the classes. */
                 <Link
-                  href={composeDraftHref(row.id)}
+                  href={buildDraftComposerHref(row.id)}
                   className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
                 >
                   <PencilIcon className="size-4" />

@@ -27,6 +27,8 @@ import * as React from "react";
 import { Loader2Icon, UserSearchIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { playSound } from "@/lib/sound";
 
 import { trpc } from "@/trpc/react-provider";
@@ -91,7 +93,7 @@ export function ProfileAnalyzer() {
         utils.usage.invalidate(),
       ]);
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   const fetchProfile = trpc.profileLookup.create.useMutation({
@@ -123,7 +125,7 @@ export function ProfileAnalyzer() {
          has to move even though nothing about the analysis changed. */
       await utils.usage.invalidate();
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   function handleAnalyze(values: AnalyzeProfileValues) {

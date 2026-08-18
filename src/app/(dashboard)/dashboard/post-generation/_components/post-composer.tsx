@@ -46,11 +46,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { playSound } from "@/lib/sound";
 
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
+  DEFAULT_POST_LENGTH,
+  DEFAULT_POST_TONE,
   LINKEDIN_IMAGE_MIME_TYPES,
   LINKEDIN_OAUTH_ERROR_CODES,
   type GeneratePostValues,
@@ -159,8 +163,8 @@ export function PostComposer({
   const [commentary, setCommentary] = React.useState(
     initialDraft?.commentary ?? "",
   );
-  const [tone, setTone] = React.useState<PostTone>("professional");
-  const [length, setLength] = React.useState<PostLength>("medium");
+  const [tone, setTone] = React.useState<PostTone>(DEFAULT_POST_TONE);
+  const [length, setLength] = React.useState<PostLength>(DEFAULT_POST_LENGTH);
   const [image, setImage] = React.useState<PostImageValues | null>(
     initialDraft?.image ?? null,
   );
@@ -236,7 +240,7 @@ export function PostComposer({
          switch tabs while they wait — the cue is what brings them back. */
       playSound("jobComplete");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   const publish = trpc.linkedinPosts.create.useMutation({
@@ -264,7 +268,7 @@ export function PostComposer({
         utils.usage.invalidate(),
       ]);
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   /* Saving spends NO post slot — see linkedinPosts.draft. Usage is deliberately
@@ -282,7 +286,7 @@ export function PostComposer({
       toast.success("Draft saved.");
       await utils.linkedinPosts.listLibrary.invalidate();
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   /* Opted OUT of the app-wide 30s staleTime (see src/trpc/tanstack-config.ts):

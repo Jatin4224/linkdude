@@ -22,7 +22,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter } from "../init";
+import { createTRPCRouter, toProcedureError } from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
 import { generatePostSchema } from "@/lib/types";
@@ -68,15 +68,17 @@ export const aiGenerationRouter = createTRPCRouter({
       try {
         return await aiService.generateLinkedInPost(input);
       } catch (error) {
-        /* Provider and validation failures both surface here. Re-thrown as a
-         * tRPC error so the composer can render the reason inline rather than a
-         * generic 500. */
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Post generation failed. Please try again.",
+        /* Provider and validation failures both surface here. The classifier
+         * decides which of the two it was and gives the composer a reason it can
+         * render inline — previously this handed the composer the provider's own
+         * message, which is how model IDs and quota numbers reached the UI. */
+        throw toProcedureError(error, {
+          context: "aiGeneration.create",
+          fallbackMessage: "Post generation failed. Please try again.",
+          messages: {
+            AI_OUTPUT_UNUSABLE:
+              "The AI returned a post we couldn't use. Try again, or rephrase your topic.",
+          },
         });
       }
     }),

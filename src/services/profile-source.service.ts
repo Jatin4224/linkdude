@@ -6,6 +6,8 @@
 
 import "server-only";
 
+import { SANITIZED_ERROR_CODES, UserFacingError } from "@/lib/errors";
+
 /**
  * SOURCE OF TRUTH KEYWORDS: fetchProfileFromUrl, PROFILE_MAPPERS,
  *   mapApifyProfile, mapBrightDataProfile, joinRoles, firstRecord,
@@ -440,12 +442,14 @@ export async function fetchProfileFromUrl(
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(
+      throw new UserFacingError(
         "The profile lookup took too long. Try again, or paste your profile details manually.",
+        { errorCode: SANITIZED_ERROR_CODES.UPSTREAM_UNAVAILABLE, retryable: true },
       );
     }
-    throw new Error(
+    throw new UserFacingError(
       "Could not reach the profile lookup service. Paste your details manually.",
+      { errorCode: SANITIZED_ERROR_CODES.UPSTREAM_UNAVAILABLE, retryable: true },
     );
   } finally {
     clearTimeout(timer);
@@ -476,14 +480,18 @@ export async function fetchProfileFromUrl(
       /not active|suspend|billing|payment|quota|credit|exceed/i.test(body);
 
     if (needsActorApproval) {
-      throw new Error(
-        `URL lookup needs a one-time approval in the ${source.label} console before it can run. Paste your details manually for now.`,
+      /* Says WHAT the user can do, not WHY it is blocked. The console, the
+       * vendor name and the approval step are the operator's problem, and naming
+       * them here would tell every user which third party this app runs on. The
+       * detail is in the log line the router writes. */
+      throw new UserFacingError(
+        "URL lookup is temporarily unavailable. Paste your details manually for now.",
       );
     }
 
-    throw new Error(
+    throw new UserFacingError(
       isAccountProblem
-        ? `URL lookup is unavailable — the ${source.label} account is not active or is out of credit. Paste your details manually for now.`
+        ? "URL lookup is temporarily unavailable. Paste your details manually for now."
         : "Could not fetch that profile. It may be private or unavailable — paste your details manually.",
     );
   }
@@ -497,7 +505,7 @@ export async function fetchProfileFromUrl(
     console.error(
       `[profile-source] ${source.label} returned no records for ${profileUrl}`,
     );
-    throw new Error(
+    throw new UserFacingError(
       "No profile was found at that URL. Check the link, or paste your details manually — private profiles cannot be read.",
     );
   }
@@ -512,10 +520,12 @@ export async function fetchProfileFromUrl(
       `[profile-source] ${source.label} returned an error item:`,
       vendorError.data.error,
     );
-    throw new Error(
-      /free .*plan|not available on|upgrade/i.test(vendorError.data.error)
-        ? `URL lookup is not available on the current ${source.label} plan. Paste your details manually for now.`
-        : "Could not fetch that profile. Paste your details manually.",
+    /* Both branches now say the same thing to the user. The plan-tier branch
+     * survives only so the LOG distinguishes "we are not entitled to this" from
+     * "that profile could not be read" — telling a customer which plan the
+     * operator is on is not information they can act on. */
+    throw new UserFacingError(
+      "Could not fetch that profile. Paste your details manually.",
     );
   }
 
@@ -529,15 +539,16 @@ export async function fetchProfileFromUrl(
       `payload=${describePayload(payload)}`,
       `record=${describePayload(record)}`,
     );
-    throw new Error(
+    throw new UserFacingError(
       "The profile lookup returned an unexpected result. Paste your details manually.",
+      { errorCode: SANITIZED_ERROR_CODES.AI_OUTPUT_UNUSABLE },
     );
   }
 
   /* A record with neither a headline nor an About is a private or empty profile.
    * Saying so is more useful than handing back a blank form. */
   if (!mapped.headline && !mapped.about) {
-    throw new Error(
+    throw new UserFacingError(
       "That profile returned no headline or About text. It may be private — paste your details manually.",
     );
   }

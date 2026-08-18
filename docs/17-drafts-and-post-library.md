@@ -19,9 +19,10 @@ It is the smallest feature in this app by lines of code and one of the most dang
 9. [Seeding the composer without an effect](#seeding-the-composer-without-an-effect)
 10. [How one draft flows end to end](#how-one-draft-flows-end-to-end)
 11. [Mistakes that are easy to make](#mistakes-that-are-easy-to-make)
-12. [Known limitations](#known-limitations)
-13. [What we deliberately did NOT build](#what-we-deliberately-did-not-build)
-14. [File map](#file-map)
+12. [Follow-up: the content plan feeds the library](#follow-up-the-content-plan-feeds-the-library)
+13. [Known limitations](#known-limitations)
+14. [What we deliberately did NOT build](#what-we-deliberately-did-not-build)
+15. [File map](#file-map)
 
 ---
 
@@ -212,6 +213,40 @@ The pre-check before the LinkedIn call is deliberate. The ordinary failure is a 
 
 ---
 
+## Follow-up: the content plan feeds the library
+
+Shipped straight after, and it belongs in this document because it is the same lifecycle seen from the other end: drafts gave the plan somewhere to put its output.
+
+The Post Idea Bank produced up to six ideas that rendered as a bullet list and went nowhere. The plan generation is metered, so the user had **paid** for that list and could only act on it by retyping an idea into the composer. Each idea now carries a **"Draft this"** action: generate from the idea, save the result as a draft, and the row keeps an "Open draft" link for the rest of the session.
+
+**No new resource, verb, schema or migration.** It chains two procedures that already exist and are already metered correctly:
+
+```
+aiGeneration.create   → spends one generation (25 free · 10/min)
+linkedinPosts.draft   → spends nothing
+```
+
+Chained in the client, not merged into a server verb, for a reason worth keeping: a combined endpoint would have to pick ONE resource key to charge, and these are two different budgets on purpose. `handleStart` in the same file already chains `profileLookup.create` into `contentPlan.brief` for the same reason.
+
+Four decisions that are easy to get wrong:
+
+| Decision | Why |
+|---|---|
+| **Two permissions, not one** | Drafting an idea spends model budget *and* writes a post row — `aiGeneration:create` **and** `linkedinPosts:draft`. The action is omitted, not disabled, when either is missing: six greyed buttons down a list is noise, unlike the single greyed Save above them. |
+| **`draftable` on the section registry** | `CONTENT_PLAN_SECTIONS` already carries `copyable`; what a section can DO belongs beside what it means. Only `postIdeas` opts in — a hook is an opening line, not a subject, and generating a whole post from one produces thin copy. |
+| **A shared minimum length** | `generatePostSchema` requires a topic of `AI_POST_TOPIC_MIN` characters and `postIdeas` items are `min(1)`, so a short idea would spend nothing but return a validation error about "topics" for text the app itself wrote. The bound is now a named constant the button reads before spending anything. |
+| **A persistent link, not a toast** | The user works DOWN the bank. A toast takes the only route back to the draft with it when it fades, and says nothing about which ideas are already done. |
+
+`DEFAULT_POST_TONE` / `DEFAULT_POST_LENGTH` were extracted for this: the plan has no opinion on either, and the composer's two literals were the de-facto defaults. Naming them means both surfaces generate comparable copy by construction rather than by coincidence.
+
+**No "draft all six" button**, deliberately — six metered generations behind one click, in one long request, with the cost invisible until the meter moves.
+
+**Deliberately not done:** the generated post gets only the idea as its topic, not the plan's niche, audience or positioning. Enriching it would produce more on-brand copy, but the same button would then produce different output from the composer's identical one. Worth revisiting once there is a view on the output quality.
+
+**Files:** `content-plan-sections.ts` (+ `draftable`), `content-plan-result.tsx` (`BulletList` item-action slot, `DraftIdeaButton`, `ContentPlanDraftControls`), `content-plan-chat.tsx` (`handleDraftIdea`), `types/ai.ts` (+ the four constants), `utils.ts` (+ `buildDraftComposerHref`, lifted out of the post library now that two surfaces link to a draft).
+
+---
+
 ## Known limitations
 
 **No autosave.** Saving is a button. Autosave would need debouncing, a dirty-state indicator, and a conversation with the `draft` rate limit; none of that is free, and a lost draft is a worse bug than an extra click.
@@ -234,6 +269,7 @@ The pre-check before the LinkedIn call is deliberate. The ordinary failure is a 
 | **Editing scheduled posts** | Wants an `update` verb and a claimed-row policy | Its own feature |
 | **Saving a carousel as a draft** | The schema supports it (`documentId` on the draft), the publish dialog has no Save path | If decks start needing review before they go out |
 | **Draft approval / review** | Needs a `needs_approval` status and an `approve` permission — a workflow, not a save button | The agency use case |
+| **"Draft all six" on the idea bank** | Six metered generations behind one click, in one long request | Never — cost has to stay visible |
 | **Bulk discard** | A checkbox column in `DataTable` that four other lists would then want | When a list is long enough to need it |
 | **Restoring a discarded draft** | A trash state doubles every query's filter | Probably never |
 

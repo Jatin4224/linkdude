@@ -32,6 +32,7 @@ import "server-only";
  *        caller's `db` client so it can join a transaction.
  */
 
+import { SANITIZED_ERROR_CODES, UserFacingError } from "@/lib/errors";
 import type { DbClient } from "@/lib/config/prisma";
 import type { LinkedInAccount, LinkedInPost, Prisma } from "@/generated/prisma";
 import {
@@ -378,7 +379,9 @@ export async function getValidAccessToken(
     where: { organizationId },
   });
   if (!account) {
-    throw new Error("No LinkedIn account is connected for this organization.");
+    throw new UserFacingError(
+      "No LinkedIn account is connected for this organization.",
+    );
   }
 
   const stale =
@@ -392,7 +395,7 @@ export async function getValidAccessToken(
   }
 
   if (!account.refreshToken) {
-    throw new Error(
+    throw new UserFacingError(
       "Your LinkedIn connection has expired. Reconnect your account to keep publishing.",
     );
   }
@@ -579,16 +582,20 @@ async function waitForDocumentAvailable(
 
     if (status === "AVAILABLE") return;
     if (status === "PROCESSING_FAILED") {
-      throw new Error(
-        "[linkedin] LinkedIn could not process this PDF. Try re-rendering the carousel.",
+      throw new UserFacingError(
+        "LinkedIn could not process this PDF. Try re-rendering the carousel.",
       );
     }
 
     if (Date.now() >= deadline) {
-      throw new Error(
-        `[linkedin] document was still ${status ?? "processing"} after ${
+      throw new UserFacingError(
+        `LinkedIn was still processing the document after ${
           LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS / 1000
         }s. Nothing was posted — try again in a moment.`,
+        {
+          errorCode: SANITIZED_ERROR_CODES.UPSTREAM_UNAVAILABLE,
+          retryable: true,
+        },
       );
     }
 
@@ -618,8 +625,8 @@ async function resolvePostDocument(
    * limit this app enforces, and LinkedIn's 400 for an oversized asset does not
    * say which limit was hit. */
   if (binary.bytes.byteLength > LINKEDIN_MAX_DOCUMENT_BYTES) {
-    throw new Error(
-      `[linkedin] this PDF is larger than LinkedIn's ${
+    throw new UserFacingError(
+      `This PDF is larger than LinkedIn's ${
         LINKEDIN_MAX_DOCUMENT_BYTES / (1024 * 1024)
       } MB limit for document posts.`,
     );
@@ -877,7 +884,7 @@ async function promoteDraft(
     where: { id: draftId, organizationId, status: STATUS.draft },
     data,
   });
-  if (count === 0) throw new Error(DRAFT_GONE_ERROR);
+  if (count === 0) throw new UserFacingError(DRAFT_GONE_ERROR);
   /* Re-read rather than trusting the input: the caller returns this row to the
    * client, which reads status and scheduledFor off it. */
   return db.linkedInPost.findFirstOrThrow({
@@ -1101,7 +1108,7 @@ export async function discardDraft(
   if (!existing) return { count: 0, imageFileId: null };
 
   if (existing.status !== STATUS.draft) {
-    throw new Error(
+    throw new UserFacingError(
       "Only a draft can be discarded. Delete the post record instead.",
     );
   }
@@ -1268,7 +1275,7 @@ export async function deletePublishedPost(
   if (!existing) return { count: 0, imageFileId: null, wasScheduled: false };
 
   if (existing.status === STATUS.publishing) {
-    throw new Error(
+    throw new UserFacingError(
       "This post is being published right now and can no longer be cancelled.",
     );
   }
@@ -1279,7 +1286,7 @@ export async function deletePublishedPost(
    * delete on repeat walks the usage counter down and mints free posts. Drafts go
    * through discardDraft instead. */
   if (existing.status === STATUS.draft) {
-    throw new Error("Discard the draft instead of deleting it.");
+    throw new UserFacingError("Discard the draft instead of deleting it.");
   }
 
   const { count } = await db.linkedInPost.deleteMany({

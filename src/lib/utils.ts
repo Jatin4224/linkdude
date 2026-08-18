@@ -6,6 +6,7 @@ import { twMerge } from "tailwind-merge"
  * every client component through `cn` — one barrel import here would drag the
  * database client into the browser bundle. */
 import { MIN_SCHEDULE_LEAD_MS } from "@/lib/config/scheduler"
+import { RESOURCES } from "@/lib/resources"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -77,4 +78,23 @@ export function toLocalDateTimeInput(date: Date): string {
  * Call it in a `useState` initializer, never in a render body. */
 export function earliestSchedule(): string {
   return toLocalDateTimeInput(new Date(Date.now() + MIN_SCHEDULE_LEAD_MS));
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildDraftComposerHref, draftId, reopen a draft
+ *
+ * WHAT:  The link that reopens a saved draft in the composer.
+ * WHY:   Two surfaces now hand a user back to an unfinished post — the post
+ *        library's Edit action and the content plan's "Draft this" — and a second
+ *        copy of the query-param contract is how one of them would keep working
+ *        after the other was renamed. Same reasoning as the schedule helpers
+ *        above.
+ *
+ *        The path is read from the RESOURCES entry rather than written out,
+ *        because that registry is where the composer's route is declared; a
+ *        literal here would be a second place to update when it moves.
+ * WHERE: The post library's row actions and the content plan's post-idea action.
+ */
+export function buildDraftComposerHref(postId: string): string {
+  return `${RESOURCES.linkedinPosts.nav.href}?draftId=${encodeURIComponent(postId)}`;
 }

@@ -33,6 +33,8 @@ import * as React from "react";
 import { CompassIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { playSound } from "@/lib/sound";
 
 import { trpc } from "@/trpc/react-provider";
@@ -44,6 +46,8 @@ import { permissions } from "@/lib/better-auth/permissions";
 import {
   CONTENT_PLAN_GOALS_MAX,
   contentPlanAnswersSchema,
+  DEFAULT_POST_LENGTH,
+  DEFAULT_POST_TONE,
   type ContentPlanDraftAnswers,
   type ContentPlanStepKey,
   type StartContentPlanValues,
@@ -95,6 +99,12 @@ export function ContentPlanChat() {
   /* A lookup is its own metered resource with its own permission — a member may
      be allowed to build a plan without being allowed to spend vendor budget. */
   const canLookUp = hasPermission(permissions.PROFILE_LOOKUP_CREATE);
+  /* BOTH, for the same reason: turning an idea into a draft spends a model
+     generation AND writes a post row, and those are two different grants. A
+     member with neither still reads the plan; the action simply isn't offered. */
+  const canDraftIdea =
+    hasPermission(permissions.AI_GENERATION_CREATE) &&
+    hasPermission(permissions.LINKEDIN_POSTS_DRAFT);
 
   const { data: user } = trpc.user.getProfile.useQuery(undefined, {
     staleTime: 5 * 60 * 1000,
@@ -113,6 +123,15 @@ export function ContentPlanChat() {
   const [editing, setEditing] = React.useState<ContentPlanStepKey | null>(null);
   /* Named so the typing bubble can say what it is waiting on rather than spin. */
   const [busyLabel, setBusyLabel] = React.useState<string | null>(null);
+  /* The idea currently being turned into a draft, so one button spins instead of
+     all of them, and a second click is refused while the first is in flight. */
+  const [draftingIdea, setDraftingIdea] = React.useState<string | null>(null);
+  /* idea → draft id, for ideas drafted in THIS session. Session-scoped on
+     purpose: it is progress feedback while the user works down the bank, not a
+     record — the drafts themselves live in the posts library. */
+  const [draftedIdeas, setDraftedIdeas] = React.useState<Record<string, string>>(
+    {},
+  );
 
   const plan = session.data ?? null;
   const answers: ContentPlanDraftAnswers = plan?.answers ?? {};
@@ -144,6 +163,12 @@ export function ContentPlanChat() {
 
   const lookup = trpc.profileLookup.create.useMutation();
   const brief = trpc.contentPlan.brief.useMutation();
+  /* Two separate mutations, chained in handleDraftIdea rather than merged into a
+     server verb: generation is metered on aiGeneration and saving is free on
+     linkedinPosts, and a combined endpoint would have to pick one resource to
+     charge. The composer chains the same pair. */
+  const generatePost = trpc.aiGeneration.create.useMutation();
+  const saveDraft = trpc.linkedinPosts.draft.useMutation();
   const saveProgress = trpc.contentPlan.saveProgress.useMutation();
   const generate = trpc.contentPlan.create.useMutation();
   const savePlan = trpc.contentPlan.save.useMutation();
@@ -153,7 +178,12 @@ export function ContentPlanChat() {
     lookup.isPending ||
     brief.isPending ||
     generate.isPending ||
-    discard.isPending;
+    discard.isPending ||
+    /* Drafting counts as busy so the Refine bar is unavailable mid-generation:
+       refining REGENERATES the plan, which would swap the idea bank out from
+       under a draft that is still being written from one of its entries. */
+    generatePost.isPending ||
+    saveDraft.isPending;
 
   /**
    * SOURCE OF TRUTH KEYWORDS: handleStart
@@ -189,11 +219,7 @@ export function ContentPlanChat() {
       setStartedHere(true);
       await refreshSession();
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Could not read that profile. Please try again.",
-      );
+      toast.error(getErrorMessage(error, "Could not read that profile. Please try again."));
     } finally {
       setBusyLabel(null);
     }
@@ -231,9 +257,7 @@ export function ContentPlanChat() {
       });
       await refreshSession();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not save your answer.",
-      );
+      toast.error(getErrorMessage(error, "Could not save your answer."));
       return;
     }
 
@@ -265,13 +289,65 @@ export function ContentPlanChat() {
          earns its place here and nowhere else. */
       playSound("jobComplete");
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Content plan generation failed. Please try again.",
-      );
+      toast.error(getErrorMessage(error, "Content plan generation failed. Please try again."));
     } finally {
       setBusyLabel(null);
+    }
+  }
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: handleDraftIdea
+   *
+   * WHAT:  Turns one post idea into a saved draft — generate, then save.
+   * WHY:   Two calls in sequence for the same reason handleStart runs two:
+   *        `aiGeneration.create` owns the metered model call and
+   *        `linkedinPosts.draft` owns the free write, so chaining them here keeps
+   *        each cost on the resource that declares it. A combined server verb
+   *        would have to charge one and hide the other.
+   *
+   *        Tone and length are the composer's own defaults. The plan has no
+   *        opinion on either, and the draft opens in the composer where both
+   *        controls exist — so guessing here is cheap to correct and asking would
+   *        put two selects on every idea in the bank.
+   *
+   *        One at a time, deliberately: the guard makes a second click while a
+   *        generation is in flight a no-op, and there is no "draft all six"
+   *        anywhere — that would spend six metered generations on one click.
+   */
+  async function handleDraftIdea(idea: string) {
+    if (!enabled || !canDraftIdea || draftingIdea !== null) return;
+
+    setDraftingIdea(idea);
+    try {
+      const generated = await generatePost.mutateAsync({
+        source: "topic",
+        topic: idea,
+        tone: DEFAULT_POST_TONE,
+        length: DEFAULT_POST_LENGTH,
+        organizationId: orgId,
+      });
+
+      const draft = await saveDraft.mutateAsync({
+        commentary: generated.commentary,
+        organizationId: orgId,
+      });
+
+      /* Both are server facts now: a generation was spent, and the library has a
+         row it did not have. The plan row itself is untouched, so the session
+         query is deliberately NOT invalidated. */
+      await Promise.all([
+        utils.usage.invalidate(),
+        utils.linkedinPosts.listLibrary.invalidate(),
+      ]);
+
+      /* Recorded so the idea keeps an Open link for the rest of the session —
+         a toast would take the only route back to the draft with it. */
+      setDraftedIdeas((current) => ({ ...current, [idea]: draft.id }));
+      toast.success("Draft saved to your posts.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not draft that idea. Please try again."));
+    } finally {
+      setDraftingIdea(null);
     }
   }
 
@@ -282,9 +358,7 @@ export function ContentPlanChat() {
       await refreshSession();
       toast.success("Plan saved.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not save the plan.",
-      );
+      toast.error(getErrorMessage(error, "Could not save the plan."));
     }
   }
 
@@ -297,9 +371,7 @@ export function ContentPlanChat() {
       setStartedHere(false);
       await refreshSession();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not start a new plan.",
-      );
+      toast.error(getErrorMessage(error, "Could not start a new plan."));
     }
   }
 
@@ -387,6 +459,22 @@ export function ContentPlanChat() {
             isSaving={savePlan.isPending}
             canSave={canUpdate}
             canStartNew={canDiscard}
+            /* Omitted entirely without both permissions — see
+               ContentPlanDraftControls for why absence beats six disabled
+               buttons. */
+            {...(canDraftIdea
+              ? {
+                  draft: {
+                    onDraftIdea: handleDraftIdea,
+                    pendingIdea: draftingIdea,
+                    draftedIds: draftedIdeas,
+                    /* The long jobs on this screen own the transcript; drafting
+                       while one runs would race a re-render of the very card the
+                       button sits on. */
+                    disabled: isBusy,
+                  },
+                }
+              : {})}
           />
         ),
       });

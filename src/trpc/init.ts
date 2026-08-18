@@ -6,7 +6,8 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: createTRPCContext, Context, createStructuredError,
- *   createTRPCRouter, baseProcedure, authProcedure, protectedProcedure
+ *   toProcedureError, createTRPCRouter, baseProcedure, authProcedure,
+ *   protectedProcedure
  *
  * WHAT:  tRPC request-context factory plus the sole sanctioned error-throw helper
  *        for procedures, and the re-export surface for the procedure factories.
@@ -25,7 +26,8 @@ import { TRPCError } from "@trpc/server";
 import { prisma } from "@/lib/config";
 import { getCachedSession } from "@/lib/better-auth/auth";
 import type { Session, User } from "@/lib/better-auth/auth";
-import type { StructuredErrorCause } from "@/lib/errors";
+import { classifyError } from "@/lib/errors";
+import type { ClassifyErrorOptions, StructuredErrorCause } from "@/lib/errors";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: createTRPCContext, Context
@@ -181,11 +183,43 @@ export function createStructuredError(
     | "PRECONDITION_FAILED"
     | "BAD_REQUEST"
     | "NOT_FOUND"
+    | "TOO_MANY_REQUESTS"
+    | "SERVICE_UNAVAILABLE"
     | "INTERNAL_SERVER_ERROR",
   message: string,
   cause: StructuredErrorCause,
 ): TRPCError {
   return new TRPCError({ code, message, cause });
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: toProcedureError, classifyError, sanitize, catch,
+ *   provider error, quota, traceId, leak
+ *
+ * WHAT:  The sanctioned way for a procedure to convert a CAUGHT error into the
+ *        TRPCError it rethrows.
+ * WHY:   The pattern it replaces —
+ *        `message: error instanceof Error ? error.message : "friendly text"` —
+ *        looks defensive but is inverted: the friendly text only ever fires for
+ *        non-Error throws, so in practice the provider message goes to the user
+ *        verbatim, model ID and quota numbers included. Routing every catch
+ *        through classifyError means the message is always one WE wrote, the
+ *        status matches the real failure category (capacity is not a 500), and
+ *        the raw error is logged under a trace id the toast can quote.
+ * WHERE: Every `catch` in src/trpc/routers/* that wraps a service call —
+ *        aiGeneration, aiImageEdit, carousel, contentPlan, profileAnalysis.
+ */
+export function toProcedureError(
+  error: unknown,
+  options: ClassifyErrorOptions,
+): TRPCError {
+  /* A procedure deeper in the call stack already made this decision — re-wrapping
+   * would discard its structured cause and the specific UI that depends on it
+   * (upgrade modal, onboarding redirect). */
+  if (error instanceof TRPCError) return error;
+
+  const { trpcCode, ...cause } = classifyError(error, options);
+  return createStructuredError(trpcCode, cause.message, cause);
 }
 
 /**

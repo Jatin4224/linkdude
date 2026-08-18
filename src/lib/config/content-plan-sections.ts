@@ -10,7 +10,8 @@
  *   serializeContentPlanSection, contentPlanSectionCopyText
  *
  * WHAT:  What each section of a generated strategy MEANS — its heading, how it
- *        renders, and whether it is worth a copy button.
+ *        renders, whether it is worth a copy button, and whether its items can
+ *        become post drafts.
  * WHY:   contentPlanResultSchema deliberately gives the ten sections only four
  *        shapes (prose, bullets, pillars, calendar) so there are four renderers
  *        rather than ten cards. That uniformity only works if the per-section
@@ -58,6 +59,20 @@ export interface ContentPlanSectionDefinition {
    * is not a thing anyone wants to do.
    */
   readonly copyable: boolean;
+  /**
+   * Whether each item in this section can be turned into a post draft.
+   *
+   * A capability flag rather than a `key === "postIdeas"` check in the view, for
+   * the same reason `copyable` is one: what a section can DO is part of what it
+   * means, and this file is where that lives. It also keeps the decision
+   * reviewable — a hook is an opening line rather than a subject, so generating
+   * a whole post from one produces thin copy, and that is a judgement worth
+   * stating instead of burying in a condition.
+   *
+   * Only meaningful for `kind: "bullets"`; the view offers the action nowhere
+   * else.
+   */
+  readonly draftable: boolean;
   /** One-line hint under the heading; empty when the heading says it all. */
   readonly description: string;
 }
@@ -81,6 +96,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     /* The single most copy-and-paste-able output in the app: it is literally the
      * headline and About text the user is about to put on their profile. */
     copyable: true,
+    draftable: false,
     description: "Your headline and About, rewritten",
   },
   targetAudience: {
@@ -88,6 +104,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     emoji: "👥",
     kind: "bullets",
     copyable: false,
+    draftable: false,
     description: "Who this plan is written to reach",
   },
   contentFormats: {
@@ -95,6 +112,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     emoji: "📌",
     kind: "bullets",
     copyable: false,
+    draftable: false,
     description: "The formats that suit your material",
   },
   contentPillars: {
@@ -102,6 +120,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     emoji: "🏛️",
     kind: "pillars",
     copyable: true,
+    draftable: false,
     description: "The themes you post against every week",
   },
   calendar: {
@@ -109,6 +128,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     emoji: "📅",
     kind: "calendar",
     copyable: true,
+    draftable: false,
     description: "Four weeks, each with a focus and formats",
   },
   postIdeas: {
@@ -116,6 +136,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     emoji: "💡",
     kind: "bullets",
     copyable: true,
+    draftable: true,
     description: "Ready to draft, in your own material",
   },
   hooks: {
@@ -123,6 +144,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     emoji: "🪝",
     kind: "bullets",
     copyable: true,
+    draftable: false,
     description: "Opening lines that earn the second line",
   },
   ctas: {
@@ -130,6 +152,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     emoji: "📢",
     kind: "bullets",
     copyable: true,
+    draftable: false,
     description: "What you ask readers to do",
   },
   postingStrategy: {
@@ -137,6 +160,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     emoji: "📈",
     kind: "prose",
     copyable: false,
+    draftable: false,
     description: "Cadence, timing and engagement",
   },
   gaps: {
@@ -145,6 +169,7 @@ export const CONTENT_PLAN_SECTIONS: Record<
     kind: "bullets",
     /* A critique of the current profile, not something to publish. */
     copyable: false,
+    draftable: false,
     description: "What is holding the profile back today",
   },
 };

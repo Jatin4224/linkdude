@@ -25,6 +25,8 @@ import * as React from "react";
 import { DownloadIcon, FileTextIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { ContentLayout } from "@/components/global/page-header";
@@ -78,7 +80,7 @@ export function DocumentsLibrary() {
       void utils.carousel.list.invalidate();
       toast.success("Document deleted.");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   if (!organizationId) return null;

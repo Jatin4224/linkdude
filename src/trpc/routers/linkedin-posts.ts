@@ -24,6 +24,7 @@ import { z } from "zod";
 
 import { createTRPCRouter } from "../init";
 import { protectedProcedure } from "../procedures";
+import { safeMessage } from "@/lib/errors";
 import { permissions } from "@/lib/better-auth/permissions";
 import type { LinkedInPostStatus } from "@/lib/types";
 import {
@@ -98,10 +99,11 @@ export const linkedinPostsRouter = createTRPCRouter({
          * state, not a server fault — surfaced so the UI can offer Reconnect. */
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Connect a LinkedIn account to publish.",
+          message: safeMessage(
+            error,
+            "linkedinPosts.connection",
+            "Connect a LinkedIn account to publish.",
+          ),
         });
       }
 
@@ -186,12 +188,16 @@ export const linkedinPostsRouter = createTRPCRouter({
           document,
         });
       } catch (error) {
+        /* The service builds this from LinkedIn's own response body, so the
+         * allowlist matters here as much as on the AI paths — an upstream error
+         * payload is not something to render into a toast. */
         throw new TRPCError({
           code: "BAD_GATEWAY",
-          message:
-            error instanceof Error
-              ? error.message
-              : "LinkedIn rejected the post. Please try again.",
+          message: safeMessage(
+            error,
+            "linkedinPosts.publish",
+            "LinkedIn rejected the post. Please try again.",
+          ),
         });
       }
 
@@ -353,10 +359,11 @@ export const linkedinPostsRouter = createTRPCRouter({
          * there, it is simply past the point where discarding means anything. */
         throw new TRPCError({
           code: "CONFLICT",
-          message:
-            error instanceof Error
-              ? error.message
-              : "That post can no longer be discarded.",
+          message: safeMessage(
+            error,
+            "linkedinPosts.discard",
+            "That post can no longer be discarded.",
+          ),
         });
       }
 
@@ -475,10 +482,11 @@ export const linkedinPostsRouter = createTRPCRouter({
          * the point of no return. */
         throw new TRPCError({
           code: "CONFLICT",
-          message:
-            error instanceof Error
-              ? error.message
-              : "That post can no longer be cancelled.",
+          message: safeMessage(
+            error,
+            "linkedinPosts.cancel",
+            "That post can no longer be cancelled.",
+          ),
         });
       }
 

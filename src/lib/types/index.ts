@@ -14,6 +14,7 @@
  *   createSubscriptionSchema, upgradeSubscriptionSchema, billingIntervalSchema,
  *   planKeySchema, CreateSubscriptionValues, UpgradeSubscriptionValues,
  *   POST_TONES, POST_LENGTHS, postToneSchema, postLengthSchema,
+ *   AI_POST_TOPIC_MIN, AI_POST_TOPIC_MAX, DEFAULT_POST_TONE, DEFAULT_POST_LENGTH,
  *   generatePostSchema, GeneratePostValues, generatedPostSchema, GeneratedPost,
  *   publishPostSchema, PublishPostValues, postImageSchema, PostImageValues,
  *   listPostsSchema, deletePostSchema, disconnectIntegrationSchema,
@@ -100,6 +101,10 @@ export {
   generatedPostSchema,
   aiImageEditSchema,
   AI_IMAGE_PROMPT_MAX,
+  AI_POST_TOPIC_MIN,
+  AI_POST_TOPIC_MAX,
+  DEFAULT_POST_TONE,
+  DEFAULT_POST_LENGTH,
 } from "./ai";
 export type {
   PostTone,
