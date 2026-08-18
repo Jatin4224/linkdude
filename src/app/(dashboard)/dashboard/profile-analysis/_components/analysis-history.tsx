@@ -28,6 +28,8 @@ import * as React from "react";
 import { Loader2Icon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { permissions } from "@/lib/better-auth/permissions";
@@ -92,7 +94,7 @@ export function AnalysisHistory({
       await utils.profileAnalysis.list.invalidate();
     },
     onError: (error) => {
-      toast.error(error.message);
+      toast.error(getErrorMessage(error));
       setDiscardTarget(null);
       /* A NOT_FOUND means this row is stale — refetch so the list stops
        * offering something that is already gone. */

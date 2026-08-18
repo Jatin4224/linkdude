@@ -28,6 +28,8 @@ import * as React from "react";
 import { Loader2Icon, SendIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { LINKEDIN_MAX_COMMENTARY, MIN_SCHEDULE_LEAD_MS } from "@/lib/config";
@@ -95,7 +97,7 @@ export function PublishDialog({
         isScheduled ? "Carousel scheduled." : "Carousel published to LinkedIn.",
       );
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   /* `needsReconnect` matters as much as `connected`: an expired token reports

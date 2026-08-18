@@ -21,6 +21,7 @@ import {
   Circle,
   CompassIcon,
   CreditCard,
+  FileStack,
   FileText,
   Folder,
   Layers,
@@ -47,6 +48,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   CalendarDays,
   Compass: CompassIcon,
   Layers,
+  FileStack,
   FileText,
 };
 

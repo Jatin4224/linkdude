@@ -8,7 +8,8 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: DataTable, DataTableProps, DataTableColumn,
- *   DataTablePagination, dataTableRowKey
+ *   DataTablePagination, dataTableRowKey, filters slot, actions slot,
+ *   rowActions slot
  *
  * WHAT:  The app's one list surface — columns, search, pagination, loading,
  *        empty and error states, with slots for whatever a feature adds on top.
@@ -27,8 +28,8 @@
  *        both (the procedure factory clamps page size, and filtering a single
  *        page client-side would lie about the result set), so this component
  *        renders the controls and reports intent rather than holding the state.
- * WHERE: Used by the carousel and documents dashboard routes. Any future list
- *        should use it rather than growing a sixth bespoke table.
+ * WHERE: Used by the carousel, documents and post-library dashboard routes. Any
+ *        future list should use it rather than growing a sixth bespoke table.
  */
 
 import * as React from "react";
@@ -97,6 +98,17 @@ export interface DataTableProps<TRow> {
   /** Omit to hide the pager — useful for short, complete lists. */
   pagination?: DataTablePagination;
 
+  /**
+   * Toolbar slot BESIDE the search box, for controls that narrow the list —
+   * status pickers, date ranges, owner filters.
+   *
+   * Separate from `actions` because the two sit on opposite sides of the toolbar
+   * and mean opposite things: a filter changes what you are looking at, an action
+   * changes the data. Putting a status picker in `actions` would file it next to
+   * Delete.
+   */
+  filters?: React.ReactNode;
+
   /** Toolbar slot, right of the search box. The "New…" button lives here. */
   actions?: React.ReactNode;
 
@@ -117,6 +129,7 @@ export function DataTable<TRow>({
   empty,
   search,
   pagination,
+  filters,
   actions,
   rowActions,
   onRowClick,
@@ -128,17 +141,26 @@ export function DataTable<TRow>({
   /* The toolbar renders in every state — including error and empty. Hiding it
    * would strip the user's only way back (clearing a search that matched
    * nothing) at exactly the moment they need it. */
-  const toolbar = (search || actions) && (
-    <div className="flex items-center justify-between gap-2">
-      {search ? (
-        <div className="relative max-w-sm flex-1">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search.value}
-            onChange={(event) => search.onChange(event.target.value)}
-            placeholder={search.placeholder ?? "Search…"}
-            className="pl-8"
-          />
+  const toolbar = (search || filters || actions) && (
+    /* flex-wrap: search, filters and actions on one row on a desktop, stacked
+       rather than crushed on a phone. */
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      {search || filters ? (
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          {search ? (
+            <div className="relative min-w-48 max-w-sm flex-1">
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search.value}
+                onChange={(event) => search.onChange(event.target.value)}
+                placeholder={search.placeholder ?? "Search…"}
+                className="pl-8"
+              />
+            </div>
+          ) : null}
+          {filters ? (
+            <div className="flex shrink-0 items-center gap-2">{filters}</div>
+          ) : null}
         </div>
       ) : (
         <div />

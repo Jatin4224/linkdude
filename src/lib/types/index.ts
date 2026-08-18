@@ -14,11 +14,14 @@
  *   createSubscriptionSchema, upgradeSubscriptionSchema, billingIntervalSchema,
  *   planKeySchema, CreateSubscriptionValues, UpgradeSubscriptionValues,
  *   POST_TONES, POST_LENGTHS, postToneSchema, postLengthSchema,
+ *   AI_POST_TOPIC_MIN, AI_POST_TOPIC_MAX, DEFAULT_POST_TONE, DEFAULT_POST_LENGTH,
  *   generatePostSchema, GeneratePostValues, generatedPostSchema, GeneratedPost,
  *   publishPostSchema, PublishPostValues, postImageSchema, PostImageValues,
  *   listPostsSchema, deletePostSchema, disconnectIntegrationSchema,
  *   listCalendarPostsSchema, ListCalendarPostsValues, scheduledForSchema,
  *   LINKEDIN_POST_STATUSES, LinkedInPostStatus, CANCELABLE_POST_STATUSES,
+ *   saveDraftSchema, SaveDraftValues, discardDraftSchema, getPostSchema,
+ *   postStatusSchema, listLibraryPostsSchema, ListLibraryPostsValues,
  *   LinkedInImageBinary, uploadAuthParamsSchema, UploadAuthParams,
  *   imageKitUploadResponseSchema, ImageKitUploadResponse, imageTransformSchema,
  *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES,
@@ -98,6 +101,10 @@ export {
   generatedPostSchema,
   aiImageEditSchema,
   AI_IMAGE_PROMPT_MAX,
+  AI_POST_TOPIC_MIN,
+  AI_POST_TOPIC_MAX,
+  DEFAULT_POST_TONE,
+  DEFAULT_POST_LENGTH,
 } from "./ai";
 export type {
   PostTone,
@@ -118,6 +125,11 @@ export {
   listCalendarPostsSchema,
   deletePostSchema,
   disconnectIntegrationSchema,
+  saveDraftSchema,
+  discardDraftSchema,
+  getPostSchema,
+  postStatusSchema,
+  listLibraryPostsSchema,
 } from "./linkedin";
 export type {
   LinkedInImageMimeType,
@@ -128,6 +140,8 @@ export type {
   ListCalendarPostsValues,
   PublishPostValues,
   LinkedInConnectionStatus,
+  SaveDraftValues,
+  ListLibraryPostsValues,
 } from "./linkedin";
 
 /* ImageKit — post media lives behind a storage provider so a scheduled post

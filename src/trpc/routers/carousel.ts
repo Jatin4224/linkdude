@@ -30,7 +30,12 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter } from "../init";
+import {
+  createStructuredError,
+  createTRPCRouter,
+  toProcedureError,
+} from "../init";
+import { classifyError } from "@/lib/errors";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
 import {
@@ -82,38 +87,19 @@ export const carouselRouter = createTRPCRouter({
       try {
         slides = await aiService.generateCarouselSlides(input);
       } catch (error) {
-        const raw =
-          error instanceof Error
-            ? error.message
-            : "The carousel generation failed. Please try again.";
-
-        /* Vendor capacity is the failure worth rewriting, because it is both the
-         * most common one and the only one the user can actually act on — the
-         * answer is "wait a minute", not "something broke". Matched on the
-         * message rather than a status code because the AI SDK wraps the
-         * provider error and the code does not survive the round trip. Same
-         * approach, and same reason, as the quota rewrite in ai-image-edit.
-         *
-         * TOO_MANY_REQUESTS rather than a 500: this is a retryable upstream
-         * condition, and typing it correctly is what stops it being reported as
-         * a bug in the deck. */
-        const isCapacity =
-          /high demand|overloaded|currently unavailable|try again later|503|UNAVAILABLE|rate.?limit|quota/i.test(
-            raw,
-          );
-
-        /* A deck the model returned but that failed validation is a DIFFERENT
-         * problem from a deck it never returned, and saying so is the difference
-         * between "retry" and "shorten your topic". */
-        const isUnusable = /slides|heading|body|Invalid|expected/i.test(raw);
-
-        throw new TRPCError({
-          code: isCapacity ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR",
-          message: isCapacity
-            ? "The AI model is busy right now. Nothing was used from your plan — try again in a minute."
-            : isUnusable
-              ? "The model returned a deck that didn't fit the slide limits. Try a narrower topic or fewer slides."
-              : raw,
+        /* Classification, status and the trace id all come from the one
+         * classifier — the local regexes this replaced diverged from the copies
+         * in the other AI routers and passed the raw vendor message straight to
+         * the toast whenever nothing matched. Only the deck-specific wording is
+         * still decided here, because "fewer slides" is advice no generic
+         * handler could give. */
+        throw toProcedureError(error, {
+          context: "carousel.create",
+          fallbackMessage: "The carousel generation failed. Please try again.",
+          messages: {
+            AI_OUTPUT_UNUSABLE:
+              "The model returned a deck that didn't fit the slide limits. Try a narrower topic or fewer slides.",
+          },
         });
       }
 
@@ -238,10 +224,16 @@ export const carouselRouter = createTRPCRouter({
 
         return updated;
       } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "The carousel render failed. Please try again.";
+        /* Classified BEFORE the write, not after the throw, because the same
+         * sanitized string has to serve both — the persisted one is rendered in
+         * the deck list, so storing the raw error here would leak it on the next
+         * page load even though the toast was clean. The trace id rides along so
+         * a failure a user reports days later still maps to a log line. */
+        const { trpcCode, ...cause } = classifyError(error, {
+          context: "carousel.render",
+          fallbackMessage: "The carousel render failed. Please try again.",
+        });
+        const message = `${cause.message} (ref: ${cause.traceId})`;
 
         /* Recorded so the failure is actionable in the UI rather than a status
          * with no explanation — the user may have navigated away before the
@@ -259,10 +251,7 @@ export const carouselRouter = createTRPCRouter({
           message,
         );
 
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message,
-        });
+        throw createStructuredError(trpcCode, cause.message, cause);
       }
     }),
 

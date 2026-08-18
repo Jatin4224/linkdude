@@ -10,7 +10,7 @@
  *   LINKEDIN_REDIRECT_PATH, getLinkedInRedirectUri, LINKEDIN_MAX_COMMENTARY,
  *   LinkedInCredentials, LINKEDIN_MAX_DOCUMENT_BYTES,
  *   LINKEDIN_MAX_DOCUMENT_PAGES, LINKEDIN_DOCUMENT_POLL_INTERVAL_MS,
- *   LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS
+ *   LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS, buildLinkedInPostUrl
  *
  * WHAT:  LinkedIn OAuth credentials, scopes, API version, and endpoint
  *        constants — the ONE place these literals live.
@@ -96,6 +96,27 @@ export const LINKEDIN_MAX_DOCUMENT_PAGES = 300;
  * with a clear message instead of holding a transaction open indefinitely. */
 export const LINKEDIN_DOCUMENT_POLL_INTERVAL_MS = 1_000;
 export const LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS = 30_000;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildLinkedInPostUrl, LINKEDIN_FEED_UPDATE_BASE
+ *
+ * WHAT:  The public permalink for a post we published, from its stored URN.
+ * WHY:   The only way a user can see the real post again — LinkedIn gates reading
+ *        a member's own posts behind `r_member_social`, so this app can never
+ *        render the live version itself. A builder rather than a stored column
+ *        because the URL is fully derivable from `postUrn`, and a second copy
+ *        would be one more thing to keep in step.
+ *
+ *        `/feed/update/` accepts both spellings LinkedIn returns for a post URN
+ *        (`urn:li:share:…` and `urn:li:ugcPost:…`), which is why the URN is
+ *        substituted whole rather than parsed.
+ * WHERE: The post library's row action; anywhere a published post links out.
+ */
+const LINKEDIN_FEED_UPDATE_BASE = "https://www.linkedin.com/feed/update";
+
+export function buildLinkedInPostUrl(postUrn: string): string {
+  return `${LINKEDIN_FEED_UPDATE_BASE}/${encodeURIComponent(postUrn)}/`;
+}
 
 export interface LinkedInCredentials {
   clientId: string;

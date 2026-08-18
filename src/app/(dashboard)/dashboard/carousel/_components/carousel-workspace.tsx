@@ -25,6 +25,8 @@ import * as React from "react";
 import { LayersIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
@@ -130,7 +132,7 @@ export function CarouselWorkspace() {
       await invalidate();
       toast.success("Carousel drafted. Edit the slides, then render.");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   const updateMutation = trpc.carousel.update.useMutation({
@@ -138,7 +140,7 @@ export function CarouselWorkspace() {
       await invalidate();
       toast.success("Slides saved.");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   const renderMutation = trpc.carousel.render.useMutation({
@@ -149,7 +151,7 @@ export function CarouselWorkspace() {
       await invalidate();
       toast.success("PDF rendered.");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   const discardMutation = trpc.carousel.discard.useMutation({
@@ -158,7 +160,7 @@ export function CarouselWorkspace() {
       await invalidate();
       toast.success("Carousel discarded. Its PDF is still in Documents.");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   if (!organizationId) return null;

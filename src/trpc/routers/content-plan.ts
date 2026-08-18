@@ -30,7 +30,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter } from "../init";
+import { createTRPCRouter, toProcedureError } from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
 import {
@@ -150,12 +150,12 @@ export const contentPlanRouter = createTRPCRouter({
           insights,
         });
       } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Could not read that profile. Please try again.",
+        /* Lookup runs against a third party, so UPSTREAM_UNAVAILABLE is the
+         * common case here rather than a model failure — classifying it says so
+         * instead of blaming the app for someone else's outage. */
+        throw toProcedureError(error, {
+          context: "contentPlan.readProfile",
+          fallbackMessage: "Could not read that profile. Please try again.",
         });
       }
     }),
@@ -261,16 +261,17 @@ export const contentPlanRouter = createTRPCRouter({
         });
       } catch (error) {
         /* Provider overload, schema-validation failure, and a failed save all
-         * land here. Re-thrown as a tRPC error so the chat can show the reason
-         * inline — and, because this is inside the procedure transaction, the
-         * throw is also what rolls the usage increment back. The org is never
-         * billed a plan it cannot see. */
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Content plan generation failed. Please try again.",
+         * land here — the classifier tells them apart so the chat can show an
+         * accurate reason inline. Still a throw, because this is inside the
+         * procedure transaction and the throw is what rolls the usage increment
+         * back. The org is never billed a plan it cannot see. */
+        throw toProcedureError(error, {
+          context: "contentPlan.create",
+          fallbackMessage: "Content plan generation failed. Please try again.",
+          messages: {
+            AI_OUTPUT_UNUSABLE:
+              "The AI returned a plan we couldn't read. Try again, or narrow the brief.",
+          },
         });
       }
     }),

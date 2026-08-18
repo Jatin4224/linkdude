@@ -502,10 +502,13 @@ model LinkedInPost {
   commentary String  @db.Text // The post body as published
   imageUrn   String? // `urn:li:image:{id}` when media was attached
 
-  // scheduled | publishing | published | failed | canceled
-  // A row is created as `scheduled` (quota already spent at schedule time) or
-  // `published` (immediate publish). The background worker owns every
-  // transition out of `scheduled` — see publishDueScheduledPosts.
+  // draft | scheduled | publishing | published | failed | canceled
+  // A row is created as `draft` (nothing spent — see linkedinPosts.draft),
+  // `scheduled` (quota already spent at schedule time) or `published` (immediate
+  // publish). The background worker owns every transition out of `scheduled` —
+  // see publishDueScheduledPosts. A draft leaves that state only through
+  // linkedinPosts.create, which promotes the row IN PLACE so the post slot is
+  // spent exactly once, when the user commits.
   // Defaults to `published` so the migration backfills existing rows correctly.
   status String @default("published")
 
@@ -588,6 +591,11 @@ model LinkedInPost {
   author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, publishedAt])
+  // The post library's sort: org-scoped, newest first, optionally narrowed by
+  // status. Every other composite index here is keyed on a DATE column, and a
+  // draft has neither publishedAt nor scheduledFor — so without this the library
+  // has nothing to use and falls back to a full tenant scan.
+  @@index([organizationId, createdAt])
   // Platform-wide "posts created per day": the composite indexes above are all
   // org-scoped, so a cross-tenant rollup has nothing to use without this.
   @@index([createdAt])

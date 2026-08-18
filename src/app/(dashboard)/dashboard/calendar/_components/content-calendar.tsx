@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { CANCELABLE_POST_STATUSES, type LinkedInPostStatus } from "@/lib/types";
@@ -89,7 +91,7 @@ export function ContentCalendar({ schedulingEnabled }: ContentCalendarProps) {
         utils.usage.invalidate(),
       ]);
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   const items = React.useMemo(() => posts.data ?? [], [posts.data]);

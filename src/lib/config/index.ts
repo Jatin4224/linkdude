@@ -151,6 +151,7 @@ export {
   LINKEDIN_MAX_DOCUMENT_PAGES,
   LINKEDIN_DOCUMENT_POLL_INTERVAL_MS,
   LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS,
+  buildLinkedInPostUrl,
 } from "./linkedin";
 export type { LinkedInCredentials } from "./linkedin";
 export {

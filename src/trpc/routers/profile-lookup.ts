@@ -28,6 +28,7 @@ import { z } from "zod";
 
 import { createTRPCRouter } from "../init";
 import { protectedProcedure } from "../procedures";
+import { safeMessage } from "@/lib/errors";
 import { permissions } from "@/lib/better-auth/permissions";
 import { fetchProfileSchema } from "@/lib/types";
 import {
@@ -134,15 +135,18 @@ export const profileLookupRouter = createTRPCRouter({
           input.profileUrl,
         );
       } catch (error) {
-        /* The service already rewrites vendor failures into user-facing
-         * sentences that end in "paste your details manually", so the message
-         * passes through rather than being flattened to a generic one. */
+        /* The service rewrites vendor failures into user-facing sentences that
+         * end in "paste your details manually" and throws them as
+         * UserFacingError, which is what lets them pass through here. Anything
+         * NOT written that way — a raw upstream body, a crash — is replaced,
+         * because this catch used to forward it verbatim. */
         throw new TRPCError({
           code: "BAD_GATEWAY",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Could not fetch that profile. Paste your details manually.",
+          message: safeMessage(
+            error,
+            "profileLookup.fetch",
+            "Could not fetch that profile. Paste your details manually.",
+          ),
         });
       }
 

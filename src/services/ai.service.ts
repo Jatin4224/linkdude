@@ -43,6 +43,7 @@ import {
   AI_MAX_RETRIES,
   AI_TIMEOUT_MS,
 } from "@/lib/config/ai";
+import { SANITIZED_ERROR_CODES, UserFacingError } from "@/lib/errors";
 import type { LinkedInImageBinary } from "@/lib/types/linkedin";
 import {
   generatedPostSchema,
@@ -124,17 +125,23 @@ export async function generateText({
 
   /* Safety classifiers decline by returning a normal response with no text, so
    * this is checked before the empty guard to give the more specific message. */
+  /* UserFacingError, not Error: these two strings were written here for the user
+   * to read, and that class is the only thing that keeps them from being
+   * replaced with generic copy at the tRPC boundary — where every UNAUTHORED
+   * message (the provider's included) now is. */
   if (result.finishReason === "content-filter") {
-    throw new Error(
+    throw new UserFacingError(
       "The AI declined this request. Try rewording your topic without sensitive or restricted content.",
+      { errorCode: SANITIZED_ERROR_CODES.AI_CONTENT_REJECTED },
     );
   }
 
   const text = result.text.trim();
 
   if (!text) {
-    throw new Error(
+    throw new UserFacingError(
       "The AI returned an empty response. Try again with a more specific topic.",
+      { errorCode: SANITIZED_ERROR_CODES.AI_OUTPUT_UNUSABLE, retryable: true },
     );
   }
 
