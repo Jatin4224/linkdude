@@ -24,6 +24,7 @@ import type { LinkedInPostStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const POST_STATUS_LABELS: Record<LinkedInPostStatus, string> = {
+  draft: "Draft",
   scheduled: "Scheduled",
   publishing: "Publishing",
   published: "Published",
@@ -32,8 +33,11 @@ const POST_STATUS_LABELS: Record<LinkedInPostStatus, string> = {
 };
 
 /* `publishing` borrows the primary tint because it is transient and should read
- * as active work; `failed` is the only destructive state a user must act on. */
+ * as active work; `failed` is the only destructive state a user must act on.
+ * `draft` is the only DASHED chip — nothing is committed yet, and the broken
+ * border says "unfinished" without spending another colour on it. */
 const POST_STATUS_CLASSES: Record<LinkedInPostStatus, string> = {
+  draft: "border-dashed bg-muted text-muted-foreground",
   scheduled: "bg-brand-soft text-brand-soft-foreground border-brand-border",
   publishing: "bg-primary/10 text-primary border-primary/20",
   published: "bg-muted text-muted-foreground border-transparent",
@@ -47,6 +51,20 @@ function asStatus(value: string): LinkedInPostStatus {
   return value in POST_STATUS_LABELS
     ? (value as LinkedInPostStatus)
     : "scheduled";
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: postStatusLabel
+ *
+ * WHAT:  The user-facing word for a post status, without the chip around it.
+ * WHY:   Exported so surfaces that need the LABEL but not the badge — the post
+ *        library's status filter, for one — read it from here instead of keeping a
+ *        second list. A dropdown offering "Canceled" while the chip says
+ *        "Cancelled" is exactly the drift this map exists to prevent.
+ * WHERE: The post library's status filter; the badge itself.
+ */
+export function postStatusLabel(status: string): string {
+  return POST_STATUS_LABELS[asStatus(status)];
 }
 
 export interface PostStatusBadgeProps {

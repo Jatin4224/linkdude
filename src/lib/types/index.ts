@@ -19,6 +19,8 @@
  *   listPostsSchema, deletePostSchema, disconnectIntegrationSchema,
  *   listCalendarPostsSchema, ListCalendarPostsValues, scheduledForSchema,
  *   LINKEDIN_POST_STATUSES, LinkedInPostStatus, CANCELABLE_POST_STATUSES,
+ *   saveDraftSchema, SaveDraftValues, discardDraftSchema, getPostSchema,
+ *   postStatusSchema, listLibraryPostsSchema, ListLibraryPostsValues,
  *   LinkedInImageBinary, uploadAuthParamsSchema, UploadAuthParams,
  *   imageKitUploadResponseSchema, ImageKitUploadResponse, imageTransformSchema,
  *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES,
@@ -118,6 +120,11 @@ export {
   listCalendarPostsSchema,
   deletePostSchema,
   disconnectIntegrationSchema,
+  saveDraftSchema,
+  discardDraftSchema,
+  getPostSchema,
+  postStatusSchema,
+  listLibraryPostsSchema,
 } from "./linkedin";
 export type {
   LinkedInImageMimeType,
@@ -128,6 +135,8 @@ export type {
   ListCalendarPostsValues,
   PublishPostValues,
   LinkedInConnectionStatus,
+  SaveDraftValues,
+  ListLibraryPostsValues,
 } from "./linkedin";
 
 /* ImageKit — post media lives behind a storage provider so a scheduled post

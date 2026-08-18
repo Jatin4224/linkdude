@@ -5,10 +5,11 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: linkedinPostsRouter
+ * SOURCE OF TRUTH KEYWORDS: linkedinPostsRouter, linkedinPosts.draft,
+ *   linkedinPosts.discard, linkedinPosts.get, linkedinPosts.listLibrary
  *
- * WHAT:  Publish a post to LinkedIn, list what this org has published, and
- *        forget a local record.
+ * WHAT:  Publish a post to LinkedIn, save and discard drafts, list what this org
+ *        has written in any state, and forget a local record.
  * WHY:   Mounted as `linkedinPosts` so `linkedinPosts.create` matches the
  *        RESOURCES key and auto-wires the publish quota, usage counter, audit
  *        row, rate limit, and permission gate. The handler therefore contains
@@ -24,11 +25,16 @@ import { z } from "zod";
 import { createTRPCRouter } from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
+import type { LinkedInPostStatus } from "@/lib/types";
 import {
   publishPostSchema,
   listPostsSchema,
   listCalendarPostsSchema,
+  listLibraryPostsSchema,
   deletePostSchema,
+  saveDraftSchema,
+  discardDraftSchema,
+  getPostSchema,
   type PostDocumentValues,
 } from "@/lib/types";
 import {
@@ -130,6 +136,28 @@ export const linkedinPostsRouter = createTRPCRouter({
         document = { url: stored.url, title: stored.title ?? stored.fileName };
       }
 
+      /* Checked BEFORE the LinkedIn call, not left to promoteDraft's own guard:
+       * the ordinary failure here is a stale tab publishing a draft that was
+       * already published or discarded, and finding that out after LinkedIn has
+       * accepted the post would leave a live post this app cannot record.
+       *
+       * A true race between two tabs is still caught by the `status: draft`
+       * guard inside promoteDraft — it just costs the loser its round trip. */
+      if (input.draftId) {
+        const draft = await linkedinService.getPostForEdit(
+          ctx.db,
+          input.organizationId,
+          input.draftId,
+        );
+        if (!draft || draft.status !== ("draft" satisfies LinkedInPostStatus)) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message:
+              "That draft no longer exists. It may have been published or discarded already.",
+          });
+        }
+      }
+
       /* SCHEDULED BRANCH — no LinkedIn call. The quota was just spent by this
        * same `create` verb, which is the entire reason scheduling lives here
        * instead of on a `schedule` procedure of its own. */
@@ -142,6 +170,9 @@ export const linkedinPostsRouter = createTRPCRouter({
           scheduledFor: input.scheduledFor,
           image: input.image,
           documentId: input.documentId,
+          /* Promotes the draft row in place rather than leaving a duplicate
+             behind — see promoteDraft. */
+          draftId: input.draftId,
         });
       }
 
@@ -174,6 +205,7 @@ export const linkedinPostsRouter = createTRPCRouter({
         documentUrn: published.documentUrn,
         image: input.image,
         documentId: input.documentId,
+        draftId: input.draftId,
       });
     }),
 
@@ -247,6 +279,162 @@ export const linkedinPostsRouter = createTRPCRouter({
         ctx.db,
         input.organizationId,
         input.limit,
+      ),
+    ),
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: linkedinPosts.draft
+   *
+   * WHAT:  Saves an unpublished post, creating or updating one draft.
+   * WHY:   A verb of its OWN rather than `create`, because the factory meters
+   *        `<resource>.create` — saving a draft under it would spend a post slot
+   *        on writing that may never go out. Nothing here touches the counter;
+   *        the slot is spent later, by `create`, when the draft is promoted.
+   *
+   *        Deliberately does NOT require a LinkedIn connection. Everything else
+   *        on this router resolves a token first, but drafting is the one thing a
+   *        user must be able to do before connecting an account — refusing it
+   *        would make the composer useless on day one.
+   * WHERE: Called by the composer's Save draft button.
+   */
+  draft: protectedProcedure({
+    requirePermission: permissions.LINKEDIN_POSTS_DRAFT,
+  })
+    .input(saveDraftSchema.extend(withOrganization.shape))
+    .mutation(async ({ ctx, input }) => {
+      const saved = await linkedinService.saveDraft(ctx.db, {
+        organizationId: input.organizationId,
+        authorId: ctx.user.id,
+        postId: input.postId,
+        commentary: input.commentary,
+        image: input.image,
+        documentId: input.documentId,
+      });
+
+      /* Null means the id named nothing this org can still edit — a discarded
+       * draft, another tenant's row, or a post that has already been published.
+       * The last case is why this is not silently upgraded to an insert: that
+       * would fork a published post into a second, editable copy. */
+      if (!saved) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That draft no longer exists, or has already been published.",
+        });
+      }
+
+      return saved;
+    }),
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: linkedinPosts.discard
+   *
+   * WHAT:  Throws away a draft.
+   * WHY:   `discard`, not `delete`, for the reason spelled out on carousel: the
+   *        factory REFUNDS a post slot on `<resource>.delete`, and a draft never
+   *        spent one. Under `delete`, save → remove on repeat would walk the usage
+   *        counter down and hand out free posts.
+   * WHERE: Called by the post library's row actions.
+   */
+  discard: protectedProcedure({
+    requirePermission: permissions.LINKEDIN_POSTS_DISCARD,
+  })
+    .input(discardDraftSchema.extend(withOrganization.shape))
+    .mutation(async ({ ctx, input }) => {
+      let result: Awaited<ReturnType<typeof linkedinService.discardDraft>>;
+      try {
+        result = await linkedinService.discardDraft(
+          ctx.db,
+          input.organizationId,
+          input.postId,
+        );
+      } catch (error) {
+        /* The row exists but is not a draft — a stale list offering Discard on a
+         * post that has since gone out. CONFLICT, not NOT_FOUND: the post is
+         * there, it is simply past the point where discarding means anything. */
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            error instanceof Error
+              ? error.message
+              : "That post can no longer be discarded.",
+        });
+      }
+
+      if (result.count === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That draft no longer exists.",
+        });
+      }
+
+      /* AFTER the row is gone and outside the counter's concern, exactly as the
+       * cancel path does it: a draft owns its uploaded image (nothing else points
+       * at it), and an orphaned ImageKit file is cheaper than a discard that fails
+       * because a third-party DELETE timed out. */
+      if (result.imageFileId) {
+        await imagekitService.deleteImage(result.imageFileId);
+      }
+
+      /* `count`, not `{ id }` — the DELETE NO-OP rule. This verb moves no
+       * counter, but the shape stays consistent with every other removal here. */
+      return { id: input.postId, count: result.count };
+    }),
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: linkedinPosts.get
+   *
+   * WHAT:  One post, with its image reference rebuilt ready to re-send.
+   * WHY:   Exists so a draft can be reopened from `?draftId=` — without it the
+   *        editor would have to rebuild an ImageKit reference from raw columns in
+   *        the browser, and a reopened draft would quietly lose its picture.
+   *        Gated on read: it returns content the org already owns.
+   * WHERE: Called by the post-generation PAGE (server-side, through the tRPC
+   *        proxy) so the draft arrives as the composer's initial state rather than
+   *        landing in it after mount. See loadDraftSeed.
+   */
+  get: protectedProcedure({
+    requirePermission: permissions.LINKEDIN_POSTS_READ,
+  })
+    .input(getPostSchema.extend(withOrganization.shape))
+    .query(async ({ ctx, input }) => {
+      const post = await linkedinService.getPostForEdit(
+        ctx.db,
+        input.organizationId,
+        input.postId,
+      );
+      if (!post) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That post no longer exists.",
+        });
+      }
+      return post;
+    }),
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: linkedinPosts.listLibrary
+   *
+   * WHAT:  One page of every post this org has, in any state.
+   * WHY:   Separate from `list`, which is the composer's published-only strip and
+   *        stays that way — widening it would put drafts and failures into a panel
+   *        that reads as "what you have published".
+   *
+   *        Gated on the LIBRARY's read permission rather than the composer's, for
+   *        the same reason listCalendar is gated on the calendar's: one grant then
+   *        governs both seeing the sidebar link and loading the page behind it.
+   * WHERE: Backs the post library table at /dashboard/posts.
+   */
+  listLibrary: protectedProcedure({
+    requirePermission: permissions.POST_LIBRARY_READ,
+    paginate: true,
+  })
+    .input(listLibraryPostsSchema.extend(withOrganization.shape))
+    .query(async ({ ctx, input }) =>
+      linkedinService.listLibraryPosts(
+        ctx.db,
+        input.organizationId,
+        { status: input.status, search: input.search },
+        ctx.pagination,
       ),
     ),
 

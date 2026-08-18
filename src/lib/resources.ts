@@ -351,7 +351,7 @@ export const RESOURCES = {
       href: "/dashboard/profile-analysis",
       icon: "UserSearch",
       section: "create",
-      order: 4,
+      order: 5,
       /* REQUIRED, and deliberately 'create' rather than the more natural 'read'.
        *
        * Custom roles store one OrganizationRole row per literal
@@ -498,7 +498,7 @@ export const RESOURCES = {
       href: "/dashboard/content-plan",
       icon: "Compass",
       section: "create",
-      order: 3,
+      order: 4,
       /* 'create', not 'read' — same backfill trap documented on profileAnalysis
        * above. `contentPlan:read` exists nowhere in any current OrganizationRole
        * row, so gating the nav on it would hide this page from every existing
@@ -510,14 +510,29 @@ export const RESOURCES = {
   linkedinPosts: {
     name: "LinkedIn Posts",
     description: "Generate, schedule, publish, and review LinkedIn posts",
-    permissions: ["create", "read", "delete"],
+    /* `draft` and `discard` exist because the factory meters ONLY
+     * `<resource>.create` (increment) and `<resource>.delete` (decrement).
+     *
+     *   - Saving a draft under `create` would spend a post slot on writing that
+     *     may never be published.
+     *   - Removing a draft under `delete` would REFUND a slot the draft never
+     *     spent, so save → discard on repeat mints free posts.
+     *
+     * Both verbs are therefore counter-free by construction, and publishing a
+     * draft goes back through `create` with a `draftId` — see the note below. */
+    permissions: ["create", "read", "draft", "discard", "delete"],
     /* Scheduling deliberately has NO resource key of its own. A `scheduledPosts`
      * entry with its own limit would double every plan — an org could schedule
      * its quota and then publish it again immediately — because only
      * `<resource>.create` spends a slot. Scheduling is therefore
      * `linkedinPosts.create` with a date attached, so the slot is spent once,
      * when the user commits to the post, and refunded by `delete` whether that
-     * cancels a future post or forgets a past one. */
+     * cancels a future post or forgets a past one.
+     *
+     * Drafts ride the same rule from the other end: `create` accepts a
+     * `draftId` and PROMOTES that row in place rather than inserting a second
+     * one, so a draft costs nothing until it goes out and exactly one slot when
+     * it does. A `publishDraft` verb would have spent none at all. */
     limit: {
       perPlan: {
         free: 10,
@@ -537,6 +552,8 @@ export const RESOURCES = {
         /* Written by the scheduled-post worker, not by a procedure — the org
          * needs "your post went live" as an event distinct from scheduling it. */
         publish: "Published a scheduled LinkedIn post",
+        draft: "Saved a LinkedIn post draft",
+        discard: "Discarded a LinkedIn post draft",
         delete: "Removed a LinkedIn post record",
       },
     },
@@ -544,6 +561,9 @@ export const RESOURCES = {
       /* LinkedIn throttles member posting; staying under it here turns a
        * remote 429 into a local, explainable error. */
       create: { count: 5, window: "1 m" },
+      /* Saving costs nothing but a write, so the ceiling is high — it exists to
+       * stop a stuck client looping on the Save button, not to pace the user. */
+      draft: { count: 30, window: "1 m" },
     },
     nav: {
       label: "Create Post",
@@ -570,6 +590,29 @@ export const RESOURCES = {
       icon: "CalendarDays",
       section: "create",
       order: 2,
+    },
+  },
+
+  /* The post library is its own KEY for the same reason contentCalendar is: one
+   * `nav` per resource, and linkedinPosts already spends its on the composer.
+   *
+   * No `limit` — every row it lists was already metered by linkedinPosts.create,
+   * except drafts, which are deliberately free. Read-only by design: editing a
+   * draft happens in the composer, and discard/delete belong to linkedinPosts. */
+  postLibrary: {
+    name: "Post Library",
+    description: "Every draft, scheduled, published and failed post in one list",
+    permissions: ["read"],
+    nav: {
+      label: "Posts",
+      href: "/dashboard/posts",
+      icon: "FileStack",
+      section: "create",
+      order: 3,
+      /* Same new-resource caveat as carousel below: no live OrganizationRole row
+       * holds this permission, so owners see the page at once and a custom role
+       * needs an explicit grant in the role editor. */
+      requirePermission: "read",
     },
   },
 
@@ -633,7 +676,7 @@ export const RESOURCES = {
       href: "/dashboard/carousel",
       icon: "Layers",
       section: "create",
-      order: 5,
+      order: 6,
       /* NOTE the backfill rule documented on profileAnalysis and contentPlan
        * applies here differently. Those are OLD resources, where the fix was to
        * gate on a verb that already existed in live OrganizationRole rows.

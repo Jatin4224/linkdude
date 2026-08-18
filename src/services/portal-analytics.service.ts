@@ -182,9 +182,17 @@ export async function getPlatformMetrics(
         createdAt: { gte: previousStart, lt: start },
       },
     }),
-    prisma.linkedInPost.count({ where: { createdAt: { gte: start } } }),
+    /* `not: draft` on both halves: a draft spends no post slot and may never be
+     * published, so counting it would inflate platform activity — and inflate
+     * only the CURRENT window, making the trend arrow lie. */
     prisma.linkedInPost.count({
-      where: { createdAt: { gte: previousStart, lt: start } },
+      where: { createdAt: { gte: start }, status: { not: "draft" } },
+    }),
+    prisma.linkedInPost.count({
+      where: {
+        createdAt: { gte: previousStart, lt: start },
+        status: { not: "draft" },
+      },
     }),
     /* impersonatedBy filters out admin impersonation sessions — without it the
      * operator's own support visits inflate the login count. */
@@ -267,8 +275,12 @@ export async function getGrowthSeries(
  * WHY:   created vs published is the interesting gap: a scheduled post that
  *        never went out counts as intent, not delivery, so plotting only one of
  *        them hides either the demand or the failure. AI generations come from
- *        ActivityLog because generation writes no domain row — the draft lives
- *        in the composer until the user publishes it.
+ *        ActivityLog because generation writes no domain row of its own.
+ *
+ *        DRAFTS ARE EXCLUDED from "created". A draft is unspent intent — it costs
+ *        no post slot and may never leave the composer — so counting one would
+ *        inflate platform activity with rows that represent nothing delivered,
+ *        and make the created-vs-published gap unreadable.
  * WHERE: portal.getEngagementSeries.
  */
 export async function getEngagementSeries(
@@ -285,6 +297,7 @@ export async function getEngagementSeries(
              COUNT(*) FILTER (WHERE "status" = 'published')::int AS "postsPublished"
         FROM "linkedin_post"
        WHERE "createdAt" >= ${start}
+         AND "status" <> 'draft'
        GROUP BY day
        ORDER BY day`,
     prisma.$queryRaw<DayCountRow[]>`

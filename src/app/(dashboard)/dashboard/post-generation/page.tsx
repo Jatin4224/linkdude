@@ -5,7 +5,7 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: PostGenerationPage
+ * SOURCE OF TRUTH KEYWORDS: PostGenerationPage, parseInitialDate, loadDraftSeed
  *
  * WHAT:  /dashboard/post-generation route — thin shell; PostComposer does the
  *        work.
@@ -14,7 +14,14 @@
  *        false inside the client composer — hiding both features on a correctly
  *        configured install. A server component is the only place they can be
  *        answered honestly.
- * WHERE: RESOURCES.linkedinPosts.nav.href.
+ *
+ *        A reopened draft is loaded here for the same family of reasons: the
+ *        composer holds its text and image in useState, and state seeded from a
+ *        client fetch would need an effect that overwrites whatever the user had
+ *        already typed. Resolved server-side, the draft is simply the form's
+ *        initial value — the pattern `?date=` already uses below.
+ * WHERE: RESOURCES.linkedinPosts.nav.href. Linked to with `?draftId=` by the post
+ *        library's Edit action.
  */
 
 import type { Metadata } from "next";
@@ -24,7 +31,10 @@ import {
   isImageKitConfigured,
   isSchedulerConfigured,
 } from "@/lib/config";
-import { PostComposer } from "./_components/post-composer";
+import { createTRPCContext } from "@/trpc/init";
+import { getQueryClient, trpc } from "@/trpc/server";
+import type { LinkedInPostStatus } from "@/lib/types";
+import { PostComposer, type PostDraftSeed } from "./_components/post-composer";
 
 export const metadata: Metadata = {
   title: "Create Post",
@@ -39,13 +49,61 @@ function parseInitialDate(value: string | undefined): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: loadDraftSeed
+ *
+ * WHAT:  Resolves `?draftId=` to the values the composer should open with, or
+ *        null.
+ * WHY:   Goes through `linkedinPosts.get`, not the service, so the id is scoped
+ *        to the caller's active organization and checked against the same read
+ *        permission as everything else — a guessed cuid resolves to nothing.
+ *        `createTRPCContext` is request-cached, so the auth and membership
+ *        lookups the dashboard layout already did are reused rather than repeated.
+ *
+ *        EVERY failure opens a blank composer instead of an error page: a stale
+ *        bookmark to a draft that has since been published or discarded should
+ *        cost the user a link, not the screen.
+ */
+async function loadDraftSeed(
+  draftId: string | undefined,
+): Promise<PostDraftSeed | null> {
+  if (!draftId) return null;
+
+  const ctx = await createTRPCContext();
+  await ctx.resolveAuth();
+  const organization = await ctx.getActiveOrganization();
+  if (!organization) return null;
+
+  try {
+    const post = await getQueryClient().fetchQuery(
+      trpc.linkedinPosts.get.queryOptions({
+        organizationId: organization.id,
+        postId: draftId,
+      }),
+    );
+    /* Only a draft may be reopened. A published post's copy lives on LinkedIn and
+     * cannot be corrected, so loading one into an editor would only invite an
+     * edit that changes nothing the audience sees. */
+    if (post.status !== ("draft" satisfies LinkedInPostStatus)) return null;
+    return { id: post.id, commentary: post.commentary, image: post.image };
+  } catch {
+    return null;
+  }
+}
+
 export default async function PostGenerationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string | string[] }>;
+  searchParams: Promise<{
+    date?: string | string[];
+    draftId?: string | string[];
+  }>;
 }) {
-  const { date } = await searchParams;
+  const { date, draftId } = await searchParams;
   const initial = parseInitialDate(Array.isArray(date) ? date[0] : date);
+  const draft = await loadDraftSeed(
+    Array.isArray(draftId) ? draftId[0] : draftId,
+  );
 
   return (
     <PostComposer
@@ -53,6 +111,7 @@ export default async function PostGenerationPage({
       aiImageEditsEnabled={isAiImageConfigured()}
       schedulingEnabled={isSchedulerConfigured()}
       {...(initial ? { initialScheduledFor: initial } : {})}
+      {...(draft ? { initialDraft: draft } : {})}
     />
   );
 }

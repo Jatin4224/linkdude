@@ -8,11 +8,11 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PostComposer, PostComposerProps,
- *   CALLBACK_ERROR_MESSAGES, toLocalDateTimeInput
+ *   CALLBACK_ERROR_MESSAGES, toLocalDateTimeInput, handleSaveDraft, draftId
  *
  * WHAT:  The Create Post screen — generation controls on the left, a live
- *        LinkedIn preview with an inline editor on the right, and Publish or
- *        Schedule.
+ *        LinkedIn preview with an inline editor on the right, and Save draft,
+ *        Publish or Schedule.
  * WHY:   The preview IS the editor: users judge a post by how it will look, so
  *        editing happens inside the same card rather than in a separate
  *        textarea. Publishing is gated on a live connection, which is why the
@@ -24,8 +24,13 @@
  *        endpoints — that is what keeps a post slot spent exactly once. Images
  *        upload straight to ImageKit, so the form carries a reference rather
  *        than bytes and the old 3 MB payload ceiling is gone.
- * WHERE: Rendered by the post-generation page, which supplies the config flags.
- *        Calls aiGeneration.create, linkedinPosts.create,
+ *
+ *        Saving a draft is a DIFFERENT verb, and that is equally load-bearing:
+ *        `linkedinPosts.draft` spends no post slot, needs no LinkedIn
+ *        connection, and returns an id this screen then promotes on publish.
+ * WHERE: Rendered by the post-generation page, which supplies the config flags
+ *        and the `?draftId=` to reopen. Calls aiGeneration.create,
+ *        linkedinPosts.create, linkedinPosts.draft, linkedinPosts.get,
  *        linkedinPosts.uploadAuth, and integrations.linkedin.
  */
 
@@ -35,6 +40,7 @@ import {
   CalendarClockIcon,
   LinkIcon,
   Loader2Icon,
+  SaveIcon,
   SendIcon,
   SparklesIcon,
 } from "lucide-react";
@@ -88,6 +94,27 @@ export interface PostComposerProps {
   schedulingEnabled: boolean;
   /** Preselected day from the calendar's "add post here" action. */
   initialScheduledFor?: Date | undefined;
+  /** A draft to reopen, resolved server-side from `?draftId=`. */
+  initialDraft?: PostDraftSeed | undefined;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: PostDraftSeed
+ *
+ * WHAT:  The values a reopened draft opens the composer with.
+ * WHY:   A prop rather than a client fetch, so the text and image are the form's
+ *        INITIAL state. Seeding them after mount would mean an effect that fires
+ *        on every refetch and overwrites what the user has typed since.
+ *
+ *        `image` is the same PostImageValues the publish path sends back —
+ *        rebuilt server-side by getPostForEdit — so a reopened draft keeps its
+ *        picture, transform and AI-edit history intact.
+ * WHERE: Produced by loadDraftSeed in the post-generation page.
+ */
+export interface PostDraftSeed {
+  id: string;
+  commentary: string;
+  image: PostImageValues | null;
 }
 
 /* The OAuth callback can only talk back through the URL, so each failure mode
@@ -120,16 +147,23 @@ export function PostComposer({
   aiImageEditsEnabled,
   schedulingEnabled,
   initialScheduledFor,
+  initialDraft,
 }: PostComposerProps) {
   const organizationId = useActiveOrganizationId();
   const router = useRouter();
   const searchParams = useSearchParams();
   const utils = trpc.useUtils();
 
-  const [commentary, setCommentary] = React.useState("");
+  /* Seeded from the reopened draft, which arrives already resolved — see
+   * PostDraftSeed. A blank composer is just the no-draft case of the same code. */
+  const [commentary, setCommentary] = React.useState(
+    initialDraft?.commentary ?? "",
+  );
   const [tone, setTone] = React.useState<PostTone>("professional");
   const [length, setLength] = React.useState<PostLength>("medium");
-  const [image, setImage] = React.useState<PostImageValues | null>(null);
+  const [image, setImage] = React.useState<PostImageValues | null>(
+    initialDraft?.image ?? null,
+  );
   /* Seeded from the calendar's "add post here" action, so arriving from a day
    * cell lands on the composer with that day already chosen. */
   const [isScheduling, setIsScheduling] = React.useState(
@@ -144,6 +178,13 @@ export function PostComposer({
     initialScheduledFor
       ? toLocalDateTimeInput(initialScheduledFor)
       : earliestSchedule(),
+  );
+  /* The draft this session is editing, if any. Held in state rather than read
+   * from the URL each render because pressing Save on a NEW post adopts the id
+   * the server just minted — every later save then updates that row instead of
+   * littering the library with copies. */
+  const [draftId, setDraftId] = React.useState<string | null>(
+    initialDraft?.id ?? null,
   );
 
   const enabled = organizationId !== undefined;
@@ -177,7 +218,14 @@ export function PostComposer({
         code ? CALLBACK_ERROR_MESSAGES[code] : "Could not connect to LinkedIn.",
       );
     }
-    router.replace("/dashboard/post-generation");
+    /* Strips the callback params without dropping the draft: someone who
+       connects LinkedIn mid-edit comes back to the post they were writing. */
+    const draftParam = searchParams.get("draftId");
+    router.replace(
+      draftParam
+        ? `/dashboard/post-generation?draftId=${encodeURIComponent(draftParam)}`
+        : "/dashboard/post-generation",
+    );
   }, [searchParams, router, utils]);
 
   const generate = trpc.aiGeneration.create.useMutation({
@@ -202,11 +250,37 @@ export function PostComposer({
       setImage(null);
       setIsScheduling(false);
       setScheduledFor(earliestSchedule());
+      /* The draft was PROMOTED, not copied — the row that was a draft is now the
+       * published post. Clearing the id (and the URL param) stops the next Save
+       * from trying to edit a post that has already gone out. */
+      if (draftId) {
+        setDraftId(null);
+        router.replace("/dashboard/post-generation");
+      }
       await Promise.all([
         utils.linkedinPosts.list.invalidate(),
+        utils.linkedinPosts.listLibrary.invalidate(),
         utils.linkedinPosts.listCalendar.invalidate(),
         utils.usage.invalidate(),
       ]);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  /* Saving spends NO post slot — see linkedinPosts.draft. Usage is deliberately
+   * NOT invalidated here: nothing moved, and refetching it would suggest it had. */
+  const saveDraft = trpc.linkedinPosts.draft.useMutation({
+    onSuccess: async (saved) => {
+      setDraftId(saved.id);
+      /* Reflected into the URL so a refresh reopens the same draft rather than a
+       * blank composer, matching how `?date=` already seeds this screen. A
+       * `replace`, not a `push`: saving twice must not stack two history entries
+       * the user has to press Back through. */
+      router.replace(
+        `/dashboard/post-generation?draftId=${encodeURIComponent(saved.id)}`,
+      );
+      toast.success("Draft saved.");
+      await utils.linkedinPosts.listLibrary.invalidate();
     },
     onError: (error) => toast.error(error.message),
   });
@@ -254,6 +328,21 @@ export function PostComposer({
       /* The ONLY difference between publishing and scheduling. The server
        * branches on this field; the quota is spent either way. */
       ...(isScheduling ? { scheduledFor: new Date(scheduledFor) } : {}),
+      /* Tells the server to promote the draft row rather than insert a second
+       * one, so the library does not end up holding both. */
+      ...(draftId ? { draftId } : {}),
+    });
+  }
+
+  function handleSaveDraft() {
+    if (!enabled) return;
+    saveDraft.mutate({
+      organizationId: orgId,
+      commentary,
+      ...(image ? { image } : {}),
+      /* Absent on the first save, present on every one after — the server
+       * creates or updates on exactly that distinction. */
+      ...(draftId ? { postId: draftId } : {}),
     });
   }
 
@@ -273,11 +362,12 @@ export function PostComposer({
    * string compare against the mount-time floor is both correct and pure. */
   const scheduleIsValid =
     !isScheduling || (scheduledFor.length > 0 && scheduledFor >= minSchedule);
-  const canPublish =
-    isConnected &&
-    commentary.trim().length > 0 &&
-    commentary.length <= LINKEDIN_MAX_COMMENTARY &&
-    scheduleIsValid;
+  const withinLimit =
+    commentary.trim().length > 0 && commentary.length <= LINKEDIN_MAX_COMMENTARY;
+  const canPublish = isConnected && withinLimit && scheduleIsValid;
+  /* No connection and no schedule requirement — a draft is ours, not LinkedIn's,
+   * and it has no date to validate. */
+  const canSaveDraft = enabled && withinLimit;
 
   return (
     <ContentLayout
@@ -453,20 +543,37 @@ export function PostComposer({
                 />
               </div>
             </div>
-            <Button
-              variant="brand"
-              onClick={handleSubmit}
-              disabled={!canPublish || publish.isPending}
-            >
-              {publish.isPending ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : isScheduling ? (
-                <CalendarClockIcon className="size-4" />
-              ) : (
-                <SendIcon className="size-4" />
-              )}
-              {isScheduling ? "Schedule post" : "Post to LinkedIn"}
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* NOT gated on `isConnected`, unlike Publish beside it: saving
+                  touches only our own database, and a user who has not connected
+                  LinkedIn yet must still be able to keep what they wrote. */}
+              <Button
+                variant="outline"
+                onClick={handleSaveDraft}
+                disabled={!canSaveDraft || saveDraft.isPending}
+              >
+                {saveDraft.isPending ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  <SaveIcon className="size-4" />
+                )}
+                {draftId ? "Save draft" : "Save as draft"}
+              </Button>
+              <Button
+                variant="brand"
+                onClick={handleSubmit}
+                disabled={!canPublish || publish.isPending}
+              >
+                {publish.isPending ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : isScheduling ? (
+                  <CalendarClockIcon className="size-4" />
+                ) : (
+                  <SendIcon className="size-4" />
+                )}
+                {isScheduling ? "Schedule post" : "Post to LinkedIn"}
+              </Button>
+            </div>
           </div>
 
           {recentPosts.data && recentPosts.data.length > 0 ? (
