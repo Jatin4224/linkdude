@@ -39,6 +39,9 @@ import {
   LINKEDIN_API_VERSION,
   LINKEDIN_ENDPOINTS,
   LINKEDIN_SCOPES,
+  LINKEDIN_MAX_DOCUMENT_BYTES,
+  LINKEDIN_DOCUMENT_POLL_INTERVAL_MS,
+  LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS,
 } from "@/lib/config/linkedin";
 import { LINKEDIN_IMAGE_TRANSFORM } from "@/lib/config/imagekit";
 import {
@@ -50,6 +53,7 @@ import type { LinkedInConnectionStatus } from "@/lib/types/linkedin";
 import type {
   LinkedInImageBinary,
   LinkedInPostStatus,
+  PostDocumentValues,
   PostImageValues,
 } from "@/lib/types";
 import * as imagekitService from "@/services/imagekit.service";
@@ -95,6 +99,7 @@ interface LinkedInImageUploadResponse {
 export interface PublishPostResult {
   postUrn: string;
   imageUrn: string | null;
+  documentUrn: string | null;
 }
 
 /* LinkedIn returns errors as JSON with a `message`, but not always — a 5xx can
@@ -482,11 +487,151 @@ async function resolvePostImage(
   );
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: uploadDocument, waitForDocumentAvailable,
+ *   LinkedInDocumentUploadResponse, LinkedInDocumentStatusResponse
+ *
+ * WHAT:  Registers a document upload, PUTs the bytes, waits for LinkedIn to
+ *        finish processing it, and returns the URN.
+ * WHY:   Structurally the same two-legged flow as uploadImage — but with a THIRD
+ *        leg that images do not have, and that is the whole reason this is not a
+ *        copy of it. LinkedIn's Documents API states plainly that
+ *        `SYNCHRONOUS_UPLOAD` is not supported: an uploaded asset moves
+ *        WAITING_UPLOAD → PROCESSING → AVAILABLE, and referencing it in a post
+ *        before it reaches AVAILABLE is what produces a published post with no
+ *        deck attached. The wait is what makes the publish trustworthy.
+ *
+ *        The URN arrives under `value.document`, not `value.image`.
+ * WHERE: Called by publishPost when the composer attached a rendered carousel.
+ */
+interface LinkedInDocumentUploadResponse {
+  value: { uploadUrl: string; document: string };
+}
+
+interface LinkedInDocumentStatusResponse {
+  status?: string;
+}
+
+export async function uploadDocument(
+  accessToken: string,
+  personUrn: string,
+  document: LinkedInImageBinary,
+): Promise<string> {
+  const initResponse = await fetch(
+    `${LINKEDIN_ENDPOINTS.documents}?action=initializeUpload`,
+    {
+      method: "POST",
+      headers: {
+        ...restHeaders(accessToken),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ initializeUploadRequest: { owner: personUrn } }),
+    },
+  );
+
+  if (!initResponse.ok)
+    throw await readError(initResponse, "document upload initialize");
+  const { value } =
+    (await initResponse.json()) as LinkedInDocumentUploadResponse;
+
+  const uploadResponse = await fetch(value.uploadUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": document.mimeType,
+    },
+    body: new Uint8Array(document.bytes),
+  });
+
+  if (!uploadResponse.ok)
+    throw await readError(uploadResponse, "document upload");
+
+  await waitForDocumentAvailable(accessToken, value.document);
+  return value.document;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: waitForDocumentAvailable
+ *
+ * WHAT:  Polls a document until LinkedIn reports it AVAILABLE.
+ * WHY:   PROCESSING_FAILED is terminal and is surfaced immediately rather than
+ *        waited out — retrying a rejected file only delays the same answer.
+ *        The timeout is bounded because this runs inside the publish path, which
+ *        itself runs inside a transaction holding a Postgres connection.
+ */
+async function waitForDocumentAvailable(
+  accessToken: string,
+  documentUrn: string,
+): Promise<void> {
+  const deadline = Date.now() + LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS;
+
+  for (;;) {
+    const response = await fetch(
+      `${LINKEDIN_ENDPOINTS.documents}/${encodeURIComponent(documentUrn)}`,
+      { headers: restHeaders(accessToken) },
+    );
+    if (!response.ok) throw await readError(response, "document status");
+
+    const { status } =
+      (await response.json()) as LinkedInDocumentStatusResponse;
+
+    if (status === "AVAILABLE") return;
+    if (status === "PROCESSING_FAILED") {
+      throw new Error(
+        "[linkedin] LinkedIn could not process this PDF. Try re-rendering the carousel.",
+      );
+    }
+
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `[linkedin] document was still ${status ?? "processing"} after ${
+          LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS / 1000
+        }s. Nothing was posted — try again in a moment.`,
+      );
+    }
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, LINKEDIN_DOCUMENT_POLL_INTERVAL_MS),
+    );
+  }
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: resolvePostDocument
+ *
+ * WHAT:  Turns a stored Document reference into the bytes LinkedIn will accept.
+ * WHY:   No transform, unlike resolvePostImage: a PDF is served exactly as it
+ *        was rendered, and ImageKit has no `tr:` vocabulary for documents.
+ * WHERE: Called by publishPost; the only producer of document bytes.
+ */
+async function resolvePostDocument(
+  document: PostDocumentValues,
+): Promise<LinkedInImageBinary> {
+  const binary = await imagekitService.fetchFileBinary(
+    document.url,
+    "application/pdf",
+  );
+
+  /* Checked here rather than trusting the render: a Document row can predate any
+   * limit this app enforces, and LinkedIn's 400 for an oversized asset does not
+   * say which limit was hit. */
+  if (binary.bytes.byteLength > LINKEDIN_MAX_DOCUMENT_BYTES) {
+    throw new Error(
+      `[linkedin] this PDF is larger than LinkedIn's ${
+        LINKEDIN_MAX_DOCUMENT_BYTES / (1024 * 1024)
+      } MB limit for document posts.`,
+    );
+  }
+
+  return binary;
+}
+
 export interface PublishPostArgs {
   accessToken: string;
   personUrn: string;
   commentary: string;
   image?: PostImageValues | undefined;
+  document?: PostDocumentValues | undefined;
 }
 
 /**
@@ -501,9 +646,12 @@ export interface PublishPostArgs {
 export async function publishPost(
   args: PublishPostArgs,
 ): Promise<PublishPostResult> {
-  /* Fetch the transformed image from ImageKit, then hand LinkedIn the bytes.
-   * LinkedIn will not pull from a third-party URL, so this hop is unavoidable —
-   * it is the only moment image bytes exist inside this app. */
+  /* Fetch the stored asset from ImageKit, then hand LinkedIn the bytes. LinkedIn
+   * will not pull from a third-party URL, so this hop is unavoidable — it is the
+   * only moment the bytes exist inside this app.
+   *
+   * Image and document are mutually exclusive (publishPostSchema rejects both),
+   * because the Posts API takes exactly one `content.media`. */
   const imageUrn = args.image
     ? await uploadImage(
         args.accessToken,
@@ -511,6 +659,23 @@ export async function publishPost(
         await resolvePostImage(args.image),
       )
     : null;
+
+  const documentUrn = args.document
+    ? await uploadDocument(
+        args.accessToken,
+        args.personUrn,
+        await resolvePostDocument(args.document),
+      )
+    : null;
+
+  /* A document post carries a TITLE alongside the id — LinkedIn renders it as
+   * the deck's name in the feed. An image post has no such field, which is why
+   * the two branches differ rather than sharing one media object. */
+  const content = documentUrn
+    ? { content: { media: { id: documentUrn, title: args.document?.title } } }
+    : imageUrn
+      ? { content: { media: { id: imageUrn } } }
+      : {};
 
   const response = await fetch(LINKEDIN_ENDPOINTS.posts, {
     method: "POST",
@@ -527,7 +692,7 @@ export async function publishPost(
         targetEntities: [],
         thirdPartyDistributionChannels: [],
       },
-      ...(imageUrn ? { content: { media: { id: imageUrn } } } : {}),
+      ...content,
       lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     }),
@@ -542,7 +707,7 @@ export async function publishPost(
     );
   }
 
-  return { postUrn, imageUrn };
+  return { postUrn, imageUrn, documentUrn };
 }
 
 // ---------------------------------------------------------------------------
@@ -607,6 +772,25 @@ function imageColumns(image: PostImageValues | undefined) {
   };
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: toPostDocument
+ *
+ * WHAT:  Rebuilds the document reference a scheduled post needs at publish time.
+ * WHY:   Reads through the RELATION rather than denormalised columns, unlike
+ *        toPostImage: the Document row already owns the url and filename, and
+ *        copying them onto the post would let the two disagree after a
+ *        re-render. Returns undefined when the post carries no deck.
+ * WHERE: Called by the worker before publishing a claimed row.
+ */
+function toPostDocument(
+  document: { url: string; fileName: string; title: string | null } | null,
+): PostDocumentValues | undefined {
+  if (!document) return undefined;
+  /* `title` is what LinkedIn shows publicly; fileName is the slug fallback for
+   * rows written before the title column existed. */
+  return { url: document.url, title: document.title ?? document.fileName };
+}
+
 export interface RecordPublishedPostArgs {
   organizationId: string;
   accountId: string;
@@ -614,7 +798,11 @@ export interface RecordPublishedPostArgs {
   commentary: string;
   postUrn: string;
   imageUrn: string | null;
+  documentUrn: string | null;
   image?: PostImageValues | undefined;
+  /* The Document row this post published, kept as a relation so the post links
+   * back to the file in the library. Null for text and image posts. */
+  documentId?: string | undefined;
 }
 
 /**
@@ -633,12 +821,13 @@ export async function recordPublishedPost(
   db: DbClient,
   args: RecordPublishedPostArgs,
 ) {
-  const { image, ...rest } = args;
+  const { image, documentId, ...rest } = args;
   return db.linkedInPost.create({
     data: {
       ...rest,
       status: STATUS.published,
       publishedAt: new Date(),
+      documentId: documentId ?? null,
       ...imageColumns(image),
     },
   });
@@ -651,6 +840,7 @@ export interface CreateScheduledPostArgs {
   commentary: string;
   scheduledFor: Date;
   image?: PostImageValues | undefined;
+  documentId?: string | undefined;
 }
 
 /**
@@ -670,7 +860,7 @@ export async function createScheduledPost(
   db: DbClient,
   args: CreateScheduledPostArgs,
 ) {
-  const { image, ...rest } = args;
+  const { image, documentId, ...rest } = args;
   return db.linkedInPost.create({
     data: {
       ...rest,
@@ -679,6 +869,10 @@ export async function createScheduledPost(
        * what the worker fills in on success. */
       postUrn: null,
       publishedAt: null,
+      /* The deck is referenced, not copied. A scheduled row may sit for days, and
+       * pointing at the Document means a re-render in the meantime publishes the
+       * CURRENT file rather than a stale snapshot of it. */
+      documentId: documentId ?? null,
       ...imageColumns(image),
     },
   });
@@ -883,7 +1077,16 @@ export async function publishDueScheduledPosts(
   };
 
   for (const { id } of claimed) {
-    const post = await db.linkedInPost.findUnique({ where: { id } });
+    const post = await db.linkedInPost.findUnique({
+      where: { id },
+      /* The deck is read through the relation, so a carousel re-rendered between
+       * scheduling and publishing goes out as the CURRENT file. documents.delete
+       * refuses to remove a PDF a scheduled post still points at, which is what
+       * keeps this from ever resolving to null on a document post. */
+      include: {
+        document: { select: { url: true, fileName: true, title: true } },
+      },
+    });
     /* Deleted between the claim and now — nothing to publish, nothing to fix. */
     if (!post) continue;
 
@@ -906,6 +1109,7 @@ export async function publishDueScheduledPosts(
         personUrn: token.personUrn,
         commentary: post.commentary,
         image: toPostImage(post),
+        document: toPostDocument(post.document),
       });
 
       await db.linkedInPost.update({
@@ -914,6 +1118,7 @@ export async function publishDueScheduledPosts(
           status: STATUS.published,
           postUrn: published.postUrn,
           imageUrn: published.imageUrn,
+          documentUrn: published.documentUrn,
           publishedAt: new Date(),
           lastError: null,
           claimedAt: null,

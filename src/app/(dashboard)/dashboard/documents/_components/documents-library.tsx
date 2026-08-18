@@ -97,7 +97,11 @@ export function DocumentsLibrary() {
       render: (row) => (
         <div className="flex min-w-0 items-center gap-2">
           <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate font-medium">{row.fileName}</span>
+          {/* The human title, falling back to the slug for rows written before
+              the column existed — the same name LinkedIn shows on the post. */}
+          <span className="truncate font-medium">
+            {row.title ?? row.fileName}
+          </span>
         </div>
       ),
     },

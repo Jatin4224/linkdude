@@ -147,6 +147,10 @@ export {
   LINKEDIN_REDIRECT_PATH,
   LINKEDIN_MAX_COMMENTARY,
   LINKEDIN_OAUTH_STATE_COOKIE,
+  LINKEDIN_MAX_DOCUMENT_BYTES,
+  LINKEDIN_MAX_DOCUMENT_PAGES,
+  LINKEDIN_DOCUMENT_POLL_INTERVAL_MS,
+  LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS,
 } from "./linkedin";
 export type { LinkedInCredentials } from "./linkedin";
 export {
@@ -199,6 +203,7 @@ export {
   CAROUSEL_FONT_FILES,
   CAROUSEL_PAGE_PRESETS,
   carouselDocumentFileName,
+  carouselDocumentTitle,
 } from "./carousel";
 export {
   CAROUSEL_BRAND_HEX,

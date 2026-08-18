@@ -340,6 +340,7 @@ const CAROUSEL_SAFE_SELECT = {
       id: true,
       url: true,
       fileName: true,
+      title: true,
       byteSize: true,
       pageCount: true,
       createdAt: true,
@@ -502,6 +503,7 @@ export async function attachCarouselDocument(
     fileId: string;
     url: string;
     fileName: string;
+    title: string;
     mimeType: string;
     byteSize: number;
     pageCount: number;
@@ -524,6 +526,7 @@ export async function attachCarouselDocument(
           fileId: args.fileId,
           url: args.url,
           fileName: args.fileName,
+          title: args.title,
           mimeType: args.mimeType,
           byteSize: args.byteSize,
           pageCount: args.pageCount,

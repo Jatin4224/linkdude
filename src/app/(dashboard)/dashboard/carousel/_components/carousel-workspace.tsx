@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import { CarouselForm } from "./carousel-form";
 import { SlideEditor } from "./slide-editor";
+import { PublishDialog } from "./publish-dialog";
 import type { CarouselListRow } from "./carousel-types";
 
 const PAGE_SIZE = 10;
@@ -72,6 +73,7 @@ export function CarouselWorkspace() {
   const [search, setSearch] = React.useState("");
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+  const [isPublishOpen, setIsPublishOpen] = React.useState(false);
 
   /* The editing buffer. Held here rather than inside SlideEditor so switching
    * decks cannot carry one deck's unsaved edits into another. */
@@ -258,7 +260,9 @@ export function CarouselWorkspace() {
           isDirty={isDirty}
           documentUrl={openCarousel.document?.url}
           documentFileName={openCarousel.document?.fileName}
+          documentId={openCarousel.document?.id}
           lastError={openCarousel.lastError}
+          onPublish={() => setIsPublishOpen(true)}
         />
       ) : (
         <DataTable
@@ -296,6 +300,18 @@ export function CarouselWorkspace() {
           )}
         />
       )}
+
+      {openCarousel?.document ? (
+        <PublishDialog
+          open={isPublishOpen}
+          onOpenChange={setIsPublishOpen}
+          documentId={openCarousel.document.id}
+          /* Seeded from the cover slide's heading — the deck's own promise is a
+           * better starting point for the commentary than a blank box. */
+          defaultCommentary={openCarousel.slides[0]?.heading}
+          onPublished={() => void invalidate()}
+        />
+      ) : null}
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-lg">

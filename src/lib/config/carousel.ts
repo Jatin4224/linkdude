@@ -8,7 +8,7 @@
  * SOURCE OF TRUTH KEYWORDS: IMAGEKIT_DOCUMENT_FOLDER, CAROUSEL_PDF_MIME_TYPE,
  *   CAROUSEL_RENDER_TIMEOUT_MS, CAROUSEL_GENERATION_MAX_TOKENS,
  *   CAROUSEL_GENERATION_TIMEOUT_MS, CAROUSEL_FONT_FILES, CAROUSEL_FONT_FAMILY,
- *   carouselDocumentFileName
+ *   carouselDocumentFileName, carouselDocumentTitle
  *
  * WHAT:  Every literal the carousel render path depends on — storage folder,
  *        MIME type, the two model/render budgets, and where the font files live.
@@ -68,17 +68,36 @@ export const CAROUSEL_FONT_FILES = [
 ] as const;
 
 /**
- * SOURCE OF TRUTH KEYWORDS: carouselDocumentFileName
+ * SOURCE OF TRUTH KEYWORDS: carouselDocumentTitle, carouselDocumentFileName
  *
- * WHAT:  The download filename for a rendered deck.
- * WHY:   Derived from the topic so a user's Downloads folder does not fill with
- *        `carousel.pdf (3)`. Slugged hard — the value reaches a Content-Disposition
- *        header and a filesystem, so anything outside [a-z0-9-] is dropped rather
- *        than escaped.
- * WHERE: Called by the render path before uploading to ImageKit.
+ * WHAT:  The two names a rendered deck carries — one for people, one for files.
+ * WHY:   They are DIFFERENT VALUES and conflating them is a real bug, not a
+ *        tidiness point. LinkedIn renders the title publicly on the document
+ *        post, so using the filename there published a slug of the author's raw
+ *        prompt as the deck's name ("today-i-am-sharing-the-llm-s-promptin…").
+ *
+ *        Both derive from the COVER SLIDE'S HEADING rather than the topic. The
+ *        topic is the instruction the author typed; the heading is the title the
+ *        deck gives itself, and it is what a reader should see. The topic is only
+ *        a fallback for a deck with no usable cover.
+ * WHERE: Called by carousel.render before uploading to ImageKit; the title is
+ *        what the publish path sends as `content.media.title`.
  */
-export function carouselDocumentFileName(topic: string): string {
-  const slug = topic
+export function carouselDocumentTitle(
+  coverHeading: string | undefined,
+  topic: string,
+): string {
+  const source = coverHeading?.trim() || topic.trim();
+  if (!source) return "Carousel";
+  /* Collapsed whitespace only — this is prose and must keep its capitals,
+   * punctuation and spaces. */
+  return source.replace(/\s+/g, " ").slice(0, 200);
+}
+
+/* Slugged hard: this value reaches a Content-Disposition header and a
+ * filesystem, so anything outside [a-z0-9-] is dropped rather than escaped. */
+export function carouselDocumentFileName(title: string): string {
+  const slug = title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")

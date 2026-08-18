@@ -6,7 +6,8 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_IMAGE_MIME_TYPES, LinkedInImageMimeType,
- *   LinkedInImageBinary, LINKEDIN_OAUTH_ERROR_CODES, LinkedInOAuthErrorCode,
+ *   LinkedInImageBinary, PostDocumentValues, LINKEDIN_OAUTH_ERROR_CODES,
+ *   LinkedInOAuthErrorCode,
  *   normalizeLinkedInOAuthError, LINKEDIN_POST_STATUSES, LinkedInPostStatus,
  *   isSchedulableStatus, scheduledForSchema, publishPostSchema,
  *   PublishPostValues, disconnectIntegrationSchema, listPostsSchema,
@@ -52,6 +53,26 @@ export type LinkedInImageMimeType = (typeof LINKEDIN_IMAGE_MIME_TYPES)[number];
 export interface LinkedInImageBinary {
   mimeType: string;
   bytes: ArrayBuffer;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: PostDocumentValues
+ *
+ * WHAT:  The stored reference to a rendered carousel PDF, as the publish path
+ *        needs it.
+ * WHY:   Resolved SERVER-SIDE from a Document row rather than accepted from the
+ *        client: the router is handed only an id, so a post can never be pointed
+ *        at a file the organization does not own.
+ *
+ *        `title` rides along because LinkedIn DISPLAYS it — for a document post
+ *        the title is the deck's visible name in the feed, unlike an image where
+ *        no such field exists.
+ * WHERE: Produced by the linkedinPosts router and the scheduled-post worker;
+ *        consumed by publishPost.
+ */
+export interface PostDocumentValues {
+  url: string;
+  title: string;
 }
 
 /**
@@ -191,9 +212,21 @@ export const publishPostSchema = z.object({
       `Posts are limited to ${LINKEDIN_MAX_COMMENTARY} characters`,
     ),
   image: postImageSchema.optional(),
+  /* A rendered carousel to publish as a LinkedIn DOCUMENT post. Just the id —
+   * the url, filename and page count are read server-side from the Document row,
+   * so a client cannot point a post at a file the org does not own. */
+  documentId: z.string().min(1).optional(),
   /* Absent ⇒ publish immediately. Present ⇒ queue it for the worker. */
   scheduledFor: scheduledForSchema.optional(),
-});
+})
+  /* LinkedIn's Posts API takes ONE `content.media`. Sending both an image and a
+   * document would silently drop one of them, so the impossible combination is
+   * rejected here rather than resolved by whichever the publish path happens to
+   * check first. */
+  .refine((values) => !(values.image && values.documentId), {
+    message: "A post can carry either an image or a carousel, not both",
+    path: ["documentId"],
+  });
 export type PublishPostValues = z.infer<typeof publishPostSchema>;
 
 /**

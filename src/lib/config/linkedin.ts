@@ -8,7 +8,9 @@
  * SOURCE OF TRUTH KEYWORDS: isLinkedInConfigured, getLinkedInCredentials,
  *   LINKEDIN_SCOPES, LINKEDIN_API_VERSION, LINKEDIN_ENDPOINTS,
  *   LINKEDIN_REDIRECT_PATH, getLinkedInRedirectUri, LINKEDIN_MAX_COMMENTARY,
- *   LinkedInCredentials
+ *   LinkedInCredentials, LINKEDIN_MAX_DOCUMENT_BYTES,
+ *   LINKEDIN_MAX_DOCUMENT_PAGES, LINKEDIN_DOCUMENT_POLL_INTERVAL_MS,
+ *   LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS
  *
  * WHAT:  LinkedIn OAuth credentials, scopes, API version, and endpoint
  *        constants — the ONE place these literals live.
@@ -62,7 +64,38 @@ export const LINKEDIN_ENDPOINTS = {
   userinfo: "https://api.linkedin.com/v2/userinfo",
   posts: "https://api.linkedin.com/rest/posts",
   images: "https://api.linkedin.com/rest/images",
+  /* Document posts — the swipeable carousel format. Same host and the same
+   * `?action=initializeUpload` shape as images; it needs no extra scope, because
+   * w_member_social already covers posting on the member's behalf. */
+  documents: "https://api.linkedin.com/rest/documents",
 } as const;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: LINKEDIN_MAX_DOCUMENT_BYTES,
+ *   LINKEDIN_MAX_DOCUMENT_PAGES, LINKEDIN_DOCUMENT_POLL_INTERVAL_MS,
+ *   LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS
+ *
+ * WHAT:  LinkedIn's own ceilings for document assets, and how long to wait for
+ *        one to finish processing.
+ * WHY:   The limits are LinkedIn's published maxima (100 MB, 300 pages, and PDF
+ *        among the accepted types). Checked locally so an oversized deck fails
+ *        with our message instead of a vendor 400 the user cannot act on.
+ *
+ *        The POLL constants exist because documents are NOT synchronous —
+ *        LinkedIn's docs state outright that `SYNCHRONOUS_UPLOAD` is unsupported
+ *        here. An uploaded asset moves WAITING_UPLOAD → PROCESSING → AVAILABLE,
+ *        and referencing it in a post before it is AVAILABLE is what produces a
+ *        published post with no deck attached. Images have no such step, which is
+ *        why the image path can post immediately and this one cannot.
+ */
+export const LINKEDIN_MAX_DOCUMENT_BYTES = 100 * 1024 * 1024;
+export const LINKEDIN_MAX_DOCUMENT_PAGES = 300;
+
+/* Generous relative to the real wait — a 12-slide PDF is typically AVAILABLE
+ * within a couple of seconds — but bounded, so a stuck asset fails the publish
+ * with a clear message instead of holding a transaction open indefinitely. */
+export const LINKEDIN_DOCUMENT_POLL_INTERVAL_MS = 1_000;
+export const LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS = 30_000;
 
 export interface LinkedInCredentials {
   clientId: string;

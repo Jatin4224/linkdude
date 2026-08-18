@@ -556,10 +556,27 @@ model LinkedInPost {
   originalFileId String?
   originalUrl    String?
 
+  // DOCUMENT ATTACHMENT — a rendered carousel published as a LinkedIn document
+  // post (the swipeable deck format). Mutually exclusive with the image columns
+  // above: LinkedIn's Posts API takes ONE `content.media`, so a post is either an
+  // image post or a document post, never both. Enforced by publishPostSchema.
+  //
+  // A relation rather than denormalised columns, unlike the image above, because
+  // the bytes already have an owner — the Document row — and copying its url here
+  // would let the two disagree after a re-render. SetNull for the same reason
+  // `accountId` is: deleting a file must never destroy the record of a post that
+  // is still live on the member's feed.
+  documentId String?
+
+  // urn:li:document:... returned by LinkedIn's Documents API once the asset has
+  // finished processing. Set at publish time, like imageUrn.
+  documentUrn String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     Document?       @relation(fields: [documentId], references: [id], onDelete: SetNull)
   // SetNull, NOT Cascade. Under Cascade, disconnecting LinkedIn silently
   // deleted every post row the org had — including PUBLISHED ones that are
   // still live on the member's feed, wiping the only record this app has of
@@ -576,6 +593,7 @@ model LinkedInPost {
   @@index([createdAt])
   @@index([accountId])
   @@index([authorId])
+  @@index([documentId])
   // The worker's claim query: find due rows by status + time.
   @@index([status, scheduledFor])
   // The calendar's month-range query.
@@ -775,6 +793,16 @@ model Document {
   /// Original download name, shown in the UI and used for the download filename.
   fileName String
 
+  /// HUMAN-READABLE name, unlike fileName. LinkedIn renders this as the document
+  /// post's visible title, so a slug ("today-i-am-sharing-the-llm-s...") is
+  /// exactly wrong there — it exposes the author's raw prompt as the deck's
+  /// public name. Sourced from the cover slide's heading, which is the title the
+  /// deck already gives itself.
+  ///
+  /// Nullable because rows created before this column existed genuinely have no
+  /// title; readers fall back to fileName rather than showing an empty string.
+  title String?
+
   /// Kept explicit rather than assumed so a future non-PDF export (PNG bundle,
   /// PPTX) needs no column and no backfill.
   mimeType String @default("application/pdf")
@@ -789,8 +817,9 @@ model Document {
 
   createdAt DateTime @default(now())
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  carousel     Carousel?
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  carousel      Carousel?
+  linkedinPosts LinkedInPost[]
 
   @@index([organizationId, createdAt])
   @@map("document")

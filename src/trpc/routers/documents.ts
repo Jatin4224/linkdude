@@ -77,6 +77,20 @@ export const documentsRouter = createTRPCRouter({
         input.id,
         ctx.db,
       );
+
+      /* Checked before the not-found branch: a blocked delete removed nothing, so
+       * `count` is 0 for both, and reporting "no longer exists" for a file that
+       * plainly does would send the user looking for the wrong problem. */
+      if (result.blockedBy > 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            result.blockedBy === 1
+              ? "A scheduled post is set to publish this carousel. Cancel that post first, or leave the file in place."
+              : `${result.blockedBy} scheduled posts are set to publish this carousel. Cancel them first, or leave the file in place.`,
+        });
+      }
+
       if (result.count === 0) {
         throw new TRPCError({
           code: "NOT_FOUND",

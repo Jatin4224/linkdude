@@ -49,6 +49,7 @@ import {
   CAROUSEL_PDF_MIME_TYPE,
   CAROUSEL_RENDER_TIMEOUT_MS,
   carouselDocumentFileName,
+  carouselDocumentTitle,
 } from "@/lib/config";
 import * as aiService from "@/services/ai.service";
 import * as carouselService from "@/services/carousel.service";
@@ -77,7 +78,44 @@ export const carouselRouter = createTRPCRouter({
         });
       }
 
-      const slides = await aiService.generateCarouselSlides(input);
+      let slides: Awaited<ReturnType<typeof aiService.generateCarouselSlides>>;
+      try {
+        slides = await aiService.generateCarouselSlides(input);
+      } catch (error) {
+        const raw =
+          error instanceof Error
+            ? error.message
+            : "The carousel generation failed. Please try again.";
+
+        /* Vendor capacity is the failure worth rewriting, because it is both the
+         * most common one and the only one the user can actually act on — the
+         * answer is "wait a minute", not "something broke". Matched on the
+         * message rather than a status code because the AI SDK wraps the
+         * provider error and the code does not survive the round trip. Same
+         * approach, and same reason, as the quota rewrite in ai-image-edit.
+         *
+         * TOO_MANY_REQUESTS rather than a 500: this is a retryable upstream
+         * condition, and typing it correctly is what stops it being reported as
+         * a bug in the deck. */
+        const isCapacity =
+          /high demand|overloaded|currently unavailable|try again later|503|UNAVAILABLE|rate.?limit|quota/i.test(
+            raw,
+          );
+
+        /* A deck the model returned but that failed validation is a DIFFERENT
+         * problem from a deck it never returned, and saying so is the difference
+         * between "retry" and "shorten your topic". */
+        const isUnusable = /slides|heading|body|Invalid|expected/i.test(raw);
+
+        throw new TRPCError({
+          code: isCapacity ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR",
+          message: isCapacity
+            ? "The AI model is busy right now. Nothing was used from your plan — try again in a minute."
+            : isUnusable
+              ? "The model returned a deck that didn't fit the slide limits. Try a narrower topic or fewer slides."
+              : raw,
+        });
+      }
 
       return carouselService.createCarouselRecord(
         {
@@ -147,6 +185,15 @@ export const carouselRouter = createTRPCRouter({
         });
       }
 
+      /* Named from the COVER SLIDE, not the topic. LinkedIn renders the title
+       * publicly on a document post, and the topic is the instruction the author
+       * typed — publishing a slug of it exposed the prompt as the deck's name. */
+      const title = carouselDocumentTitle(
+        carousel.slides[0]?.heading,
+        carousel.topic,
+      );
+      const fileName = carouselDocumentFileName(title);
+
       try {
         /* `carousel.slides` is already CarouselSlides — getCarousel validates it
          * on the way out, so a deck written by an older shape fails there with a
@@ -162,7 +209,7 @@ export const carouselRouter = createTRPCRouter({
          * file behind it. Same ordering linkedinPosts.create uses. */
         const uploaded = await imagekitService.uploadFileBytes(
           rendered.base64,
-          carouselDocumentFileName(carousel.topic),
+          fileName,
           IMAGEKIT_DOCUMENT_FOLDER,
         );
 
@@ -173,7 +220,8 @@ export const carouselRouter = createTRPCRouter({
               carouselId: input.id,
               fileId: uploaded.fileId,
               url: uploaded.url,
-              fileName: carouselDocumentFileName(carousel.topic),
+              fileName,
+              title,
               mimeType: CAROUSEL_PDF_MIME_TYPE,
               byteSize: rendered.byteSize,
               pageCount: rendered.pageCount,

@@ -28,6 +28,7 @@ import {
   ArrowUpIcon,
   DownloadIcon,
   Loader2Icon,
+  SendIcon,
   TrashIcon,
 } from "lucide-react";
 
@@ -64,7 +65,10 @@ export interface SlideEditorProps {
   /** Present once a render has succeeded. */
   documentUrl?: string | undefined;
   documentFileName?: string | undefined;
+  /** The Document row id — what publishing needs. Present with documentUrl. */
+  documentId?: string | undefined;
   lastError?: string | null | undefined;
+  onPublish?: (() => void) | undefined;
 }
 
 export function SlideEditor({
@@ -77,7 +81,9 @@ export function SlideEditor({
   isDirty,
   documentUrl,
   documentFileName,
+  documentId,
   lastError,
+  onPublish,
 }: SlideEditorProps) {
   function updateSlide(index: number, patch: Partial<CarouselSlide>) {
     onChange(
@@ -151,6 +157,21 @@ export function SlideEditor({
               <DownloadIcon className="size-4" />
               Download
             </a>
+          ) : null}
+          {documentId && onPublish ? (
+            <Button
+              variant="brand"
+              size="sm"
+              onClick={onPublish}
+              /* Gated on isDirty for the same reason Render is: publishing while
+               * the buffer differs from the stored deck would post the PDF of the
+               * OLD slides, which is the one mistake here that reaches an
+               * audience and cannot be taken back. */
+              disabled={isDirty || isRendering || isSaving}
+            >
+              <SendIcon className="size-4" />
+              Publish
+            </Button>
           ) : null}
         </div>
       </div>

@@ -730,16 +730,19 @@ export async function generateCarouselSlides(
     /* Must stay under the router's txTimeout, which holds a Postgres connection
      * open for the whole call. */
     timeoutMs: CAROUSEL_GENERATION_TIMEOUT_MS,
-    /* `.length()`, not `.min()/.max()`: the user asked for a specific deck length
-     * and a model handed a range returns the shortest end of it. The per-slide
-     * ceilings come through unchanged, so anything passing here also passes the
-     * storage parse. */
-    schema: z.object({
-      slides: carouselSlidesSchema.length(
-        input.slideCount,
-        `Return exactly ${input.slideCount} slides`,
-      ),
-    }),
+    /* The exact count is asked for in the PROMPT, not enforced in the schema.
+     *
+     * An earlier version pinned this with `.length(slideCount)` and that was
+     * wrong for the reason generateContentPlan already documents: a hard count
+     * means a run returning six slides instead of seven is discarded whole, and
+     * the org has already paid for the tokens. Guidance the model usually
+     * follows beats validation that throws away work when it doesn't — and a
+     * six-slide deck is a deck the user can fix in the editor in two seconds,
+     * whereas a rejected generation gives them nothing at all.
+     *
+     * The storage bounds still apply, so anything passing here also passes the
+     * parse below. */
+    schema: z.object({ slides: carouselSlidesSchema }),
   });
 
   return carouselSlidesSchema.parse(result.slides);

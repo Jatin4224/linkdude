@@ -8,8 +8,8 @@ import "server-only";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getUploadAuthParams, buildTransformedUrl,
- *   deleteImage, fetchImageBinary, getImageKitClient, uploadImageBytes,
- *   uploadFileBytes
+ *   deleteImage, fetchImageBinary, fetchFileBinary, getImageKitClient,
+ *   uploadImageBytes, uploadFileBytes
  *
  * WHAT:  Every ImageKit touchpoint — minting signed upload credentials for the
  *        browser, composing delivery URLs with a `tr:` transform, fetching the
@@ -113,17 +113,35 @@ export { buildTransformedUrl } from "@/lib/config/imagekit";
 export async function fetchImageBinary(
   url: string,
 ): Promise<LinkedInImageBinary> {
+  return fetchFileBinary(url, "image/jpeg");
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: fetchFileBinary
+ *
+ * WHAT:  Downloads any stored asset as bytes. The generalised form of
+ *        fetchImageBinary.
+ * WHY:   LinkedIn will not pull from a third-party URL for EITHER media type, so
+ *        both images and documents make one hop through this server on their way
+ *        out. The only difference is the fallback MIME to assume when the vendor
+ *        sends no `content-type` — hence the parameter, and hence the image path
+ *        delegating here rather than duplicating the fetch.
+ * WHERE: Called by fetchImageBinary and by the document publish path in
+ *        src/services/linkedin.service.ts.
+ */
+export async function fetchFileBinary(
+  url: string,
+  fallbackMimeType: string,
+): Promise<LinkedInImageBinary> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(
-      `[imagekit] fetching transformed image failed (${response.status})`,
-    );
+    throw new Error(`[imagekit] fetching stored file failed (${response.status})`);
   }
 
   /* ImageKit may return a different type than was uploaded — `f-auto` and
    * format conversion are transform options — so the response header is the
    * only trustworthy source for what LinkedIn should be told it is receiving. */
-  const mimeType = response.headers.get("content-type") ?? "image/jpeg";
+  const mimeType = response.headers.get("content-type") ?? fallbackMimeType;
   return { mimeType, bytes: await response.arrayBuffer() };
 }
 

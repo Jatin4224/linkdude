@@ -122,6 +122,7 @@ export {
 export type {
   LinkedInImageMimeType,
   LinkedInImageBinary,
+  PostDocumentValues,
   LinkedInOAuthErrorCode,
   LinkedInPostStatus,
   ListCalendarPostsValues,
