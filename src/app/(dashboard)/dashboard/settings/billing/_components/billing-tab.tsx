@@ -24,6 +24,8 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+
+import { getErrorMessage } from "@/lib/errors";
 import {
   AlertTriangle,
   Calendar,
@@ -89,7 +91,7 @@ export function BillingTab() {
       toast.success("Subscription canceled");
       await refresh();
     },
-    onError: (e) => toast.error(e.message || "Failed to cancel subscription"),
+    onError: (e) => toast.error(getErrorMessage(e, "Failed to cancel subscription")),
   });
   const reactivate = trpc.billing.reactivateSubscription.useMutation({
     onSuccess: async () => {
@@ -97,7 +99,7 @@ export function BillingTab() {
       await refresh();
     },
     onError: (e) =>
-      toast.error(e.message || "Failed to reactivate subscription"),
+      toast.error(getErrorMessage(e, "Failed to reactivate subscription")),
   });
   const setDefault = trpc.billing.setDefaultPaymentMethod.useMutation({
     onSuccess: async () => {

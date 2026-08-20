@@ -8,7 +8,9 @@
  * SOURCE OF TRUTH KEYWORDS: POST_TONES, PostTone, postToneSchema,
  *   POST_LENGTHS, PostLength, postLengthSchema, generatePostSchema,
  *   GeneratePostValues, GeneratedPost, generatedPostSchema, AI_PROVIDER_KEYS,
- *   AiProvider, aiProviderSchema, AiProviderDefinition, AiProviderOptions
+ *   AiProvider, aiProviderSchema, AiProviderDefinition, AiProviderOptions,
+ *   AI_POST_TOPIC_MIN, AI_POST_TOPIC_MAX, DEFAULT_POST_TONE,
+ *   DEFAULT_POST_LENGTH
  *
  * WHAT:  Input/output contracts for AI post generation — the tone and length
  *        vocabularies, the discriminated Topic-vs-Blog input union, and the
@@ -122,6 +124,36 @@ export const postLengthSchema = z.enum(POST_LENGTHS);
 export type PostLength = z.infer<typeof postLengthSchema>;
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: DEFAULT_POST_TONE, DEFAULT_POST_LENGTH
+ *
+ * WHAT:  What a generation asks for when nobody has chosen.
+ * WHY:   `generatePostSchema` requires both, and two surfaces now generate: the
+ *        composer, where the user picks, and the content plan's "Draft this",
+ *        where there is nothing to pick from. Naming the defaults means those two
+ *        produce comparable copy by construction rather than by two literals
+ *        happening to agree.
+ * WHERE: The composer's initial select values; the post-idea draft action.
+ */
+export const DEFAULT_POST_TONE: PostTone = "professional";
+export const DEFAULT_POST_LENGTH: PostLength = "medium";
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: AI_POST_TOPIC_MIN, AI_POST_TOPIC_MAX
+ *
+ * WHAT:  The bounds a generation topic must satisfy.
+ * WHY:   Constants rather than inline numbers because a SECOND surface now feeds
+ *        this schema: the content plan's "Draft this" action hands a generated
+ *        post idea straight to `aiGeneration.create`. That caller has to know
+ *        whether an idea is long enough BEFORE it spends a generation, and a
+ *        hardcoded 10 in the button would drift from the schema silently — the
+ *        user would get a validation error about topics for an idea the app
+ *        itself produced.
+ * WHERE: generatePostSchema below; the post-idea action in the content plan.
+ */
+export const AI_POST_TOPIC_MIN = 10;
+export const AI_POST_TOPIC_MAX = 1000;
+
+/**
  * SOURCE OF TRUTH KEYWORDS: generatePostSchema, GeneratePostValues
  *
  * WHAT:  Input contract for a generation request — the Topic and Blog tabs.
@@ -136,8 +168,14 @@ export const generatePostSchema = z.discriminatedUnion("source", [
     topic: z
       .string()
       .trim()
-      .min(10, "Describe your topic in at least 10 characters")
-      .max(1000, "Keep the topic under 1000 characters"),
+      .min(
+        AI_POST_TOPIC_MIN,
+        `Describe your topic in at least ${AI_POST_TOPIC_MIN} characters`,
+      )
+      .max(
+        AI_POST_TOPIC_MAX,
+        `Keep the topic under ${AI_POST_TOPIC_MAX} characters`,
+      ),
     tone: postToneSchema,
     length: postLengthSchema,
   }),

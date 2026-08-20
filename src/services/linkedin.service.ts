@@ -8,6 +8,8 @@ import "server-only";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_ACCOUNT_SAFE_SELECT, POST_SAFE_SELECT,
+ *   POST_EDIT_SELECT, saveDraft, discardDraft, getPostForEdit,
+ *   listLibraryPosts, promoteDraft, SaveDraftArgs, ListLibraryPostsFilters,
  *   buildAuthorizationUrl, exchangeCodeForToken, fetchMemberProfile,
  *   upsertConnection, disconnectAccount, getConnectionStatus,
  *   getValidAccessToken, uploadImage, resolvePostImage, publishPost,
@@ -30,6 +32,7 @@ import "server-only";
  *        caller's `db` client so it can join a transaction.
  */
 
+import { SANITIZED_ERROR_CODES, UserFacingError } from "@/lib/errors";
 import type { DbClient } from "@/lib/config/prisma";
 import type { LinkedInAccount, LinkedInPost, Prisma } from "@/generated/prisma";
 import {
@@ -39,6 +42,9 @@ import {
   LINKEDIN_API_VERSION,
   LINKEDIN_ENDPOINTS,
   LINKEDIN_SCOPES,
+  LINKEDIN_MAX_DOCUMENT_BYTES,
+  LINKEDIN_DOCUMENT_POLL_INTERVAL_MS,
+  LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS,
 } from "@/lib/config/linkedin";
 import { LINKEDIN_IMAGE_TRANSFORM } from "@/lib/config/imagekit";
 import {
@@ -50,6 +56,7 @@ import type { LinkedInConnectionStatus } from "@/lib/types/linkedin";
 import type {
   LinkedInImageBinary,
   LinkedInPostStatus,
+  PostDocumentValues,
   PostImageValues,
 } from "@/lib/types";
 import * as imagekitService from "@/services/imagekit.service";
@@ -95,6 +102,7 @@ interface LinkedInImageUploadResponse {
 export interface PublishPostResult {
   postUrn: string;
   imageUrn: string | null;
+  documentUrn: string | null;
 }
 
 /* LinkedIn returns errors as JSON with a `message`, but not always — a 5xx can
@@ -371,7 +379,9 @@ export async function getValidAccessToken(
     where: { organizationId },
   });
   if (!account) {
-    throw new Error("No LinkedIn account is connected for this organization.");
+    throw new UserFacingError(
+      "No LinkedIn account is connected for this organization.",
+    );
   }
 
   const stale =
@@ -385,7 +395,7 @@ export async function getValidAccessToken(
   }
 
   if (!account.refreshToken) {
-    throw new Error(
+    throw new UserFacingError(
       "Your LinkedIn connection has expired. Reconnect your account to keep publishing.",
     );
   }
@@ -482,11 +492,155 @@ async function resolvePostImage(
   );
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: uploadDocument, waitForDocumentAvailable,
+ *   LinkedInDocumentUploadResponse, LinkedInDocumentStatusResponse
+ *
+ * WHAT:  Registers a document upload, PUTs the bytes, waits for LinkedIn to
+ *        finish processing it, and returns the URN.
+ * WHY:   Structurally the same two-legged flow as uploadImage — but with a THIRD
+ *        leg that images do not have, and that is the whole reason this is not a
+ *        copy of it. LinkedIn's Documents API states plainly that
+ *        `SYNCHRONOUS_UPLOAD` is not supported: an uploaded asset moves
+ *        WAITING_UPLOAD → PROCESSING → AVAILABLE, and referencing it in a post
+ *        before it reaches AVAILABLE is what produces a published post with no
+ *        deck attached. The wait is what makes the publish trustworthy.
+ *
+ *        The URN arrives under `value.document`, not `value.image`.
+ * WHERE: Called by publishPost when the composer attached a rendered carousel.
+ */
+interface LinkedInDocumentUploadResponse {
+  value: { uploadUrl: string; document: string };
+}
+
+interface LinkedInDocumentStatusResponse {
+  status?: string;
+}
+
+export async function uploadDocument(
+  accessToken: string,
+  personUrn: string,
+  document: LinkedInImageBinary,
+): Promise<string> {
+  const initResponse = await fetch(
+    `${LINKEDIN_ENDPOINTS.documents}?action=initializeUpload`,
+    {
+      method: "POST",
+      headers: {
+        ...restHeaders(accessToken),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ initializeUploadRequest: { owner: personUrn } }),
+    },
+  );
+
+  if (!initResponse.ok)
+    throw await readError(initResponse, "document upload initialize");
+  const { value } =
+    (await initResponse.json()) as LinkedInDocumentUploadResponse;
+
+  const uploadResponse = await fetch(value.uploadUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": document.mimeType,
+    },
+    body: new Uint8Array(document.bytes),
+  });
+
+  if (!uploadResponse.ok)
+    throw await readError(uploadResponse, "document upload");
+
+  await waitForDocumentAvailable(accessToken, value.document);
+  return value.document;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: waitForDocumentAvailable
+ *
+ * WHAT:  Polls a document until LinkedIn reports it AVAILABLE.
+ * WHY:   PROCESSING_FAILED is terminal and is surfaced immediately rather than
+ *        waited out — retrying a rejected file only delays the same answer.
+ *        The timeout is bounded because this runs inside the publish path, which
+ *        itself runs inside a transaction holding a Postgres connection.
+ */
+async function waitForDocumentAvailable(
+  accessToken: string,
+  documentUrn: string,
+): Promise<void> {
+  const deadline = Date.now() + LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS;
+
+  for (;;) {
+    const response = await fetch(
+      `${LINKEDIN_ENDPOINTS.documents}/${encodeURIComponent(documentUrn)}`,
+      { headers: restHeaders(accessToken) },
+    );
+    if (!response.ok) throw await readError(response, "document status");
+
+    const { status } =
+      (await response.json()) as LinkedInDocumentStatusResponse;
+
+    if (status === "AVAILABLE") return;
+    if (status === "PROCESSING_FAILED") {
+      throw new UserFacingError(
+        "LinkedIn could not process this PDF. Try re-rendering the carousel.",
+      );
+    }
+
+    if (Date.now() >= deadline) {
+      throw new UserFacingError(
+        `LinkedIn was still processing the document after ${
+          LINKEDIN_DOCUMENT_POLL_TIMEOUT_MS / 1000
+        }s. Nothing was posted — try again in a moment.`,
+        {
+          errorCode: SANITIZED_ERROR_CODES.UPSTREAM_UNAVAILABLE,
+          retryable: true,
+        },
+      );
+    }
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, LINKEDIN_DOCUMENT_POLL_INTERVAL_MS),
+    );
+  }
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: resolvePostDocument
+ *
+ * WHAT:  Turns a stored Document reference into the bytes LinkedIn will accept.
+ * WHY:   No transform, unlike resolvePostImage: a PDF is served exactly as it
+ *        was rendered, and ImageKit has no `tr:` vocabulary for documents.
+ * WHERE: Called by publishPost; the only producer of document bytes.
+ */
+async function resolvePostDocument(
+  document: PostDocumentValues,
+): Promise<LinkedInImageBinary> {
+  const binary = await imagekitService.fetchFileBinary(
+    document.url,
+    "application/pdf",
+  );
+
+  /* Checked here rather than trusting the render: a Document row can predate any
+   * limit this app enforces, and LinkedIn's 400 for an oversized asset does not
+   * say which limit was hit. */
+  if (binary.bytes.byteLength > LINKEDIN_MAX_DOCUMENT_BYTES) {
+    throw new UserFacingError(
+      `This PDF is larger than LinkedIn's ${
+        LINKEDIN_MAX_DOCUMENT_BYTES / (1024 * 1024)
+      } MB limit for document posts.`,
+    );
+  }
+
+  return binary;
+}
+
 export interface PublishPostArgs {
   accessToken: string;
   personUrn: string;
   commentary: string;
   image?: PostImageValues | undefined;
+  document?: PostDocumentValues | undefined;
 }
 
 /**
@@ -501,9 +655,12 @@ export interface PublishPostArgs {
 export async function publishPost(
   args: PublishPostArgs,
 ): Promise<PublishPostResult> {
-  /* Fetch the transformed image from ImageKit, then hand LinkedIn the bytes.
-   * LinkedIn will not pull from a third-party URL, so this hop is unavoidable —
-   * it is the only moment image bytes exist inside this app. */
+  /* Fetch the stored asset from ImageKit, then hand LinkedIn the bytes. LinkedIn
+   * will not pull from a third-party URL, so this hop is unavoidable — it is the
+   * only moment the bytes exist inside this app.
+   *
+   * Image and document are mutually exclusive (publishPostSchema rejects both),
+   * because the Posts API takes exactly one `content.media`. */
   const imageUrn = args.image
     ? await uploadImage(
         args.accessToken,
@@ -511,6 +668,23 @@ export async function publishPost(
         await resolvePostImage(args.image),
       )
     : null;
+
+  const documentUrn = args.document
+    ? await uploadDocument(
+        args.accessToken,
+        args.personUrn,
+        await resolvePostDocument(args.document),
+      )
+    : null;
+
+  /* A document post carries a TITLE alongside the id — LinkedIn renders it as
+   * the deck's name in the feed. An image post has no such field, which is why
+   * the two branches differ rather than sharing one media object. */
+  const content = documentUrn
+    ? { content: { media: { id: documentUrn, title: args.document?.title } } }
+    : imageUrn
+      ? { content: { media: { id: imageUrn } } }
+      : {};
 
   const response = await fetch(LINKEDIN_ENDPOINTS.posts, {
     method: "POST",
@@ -527,7 +701,7 @@ export async function publishPost(
         targetEntities: [],
         thirdPartyDistributionChannels: [],
       },
-      ...(imageUrn ? { content: { media: { id: imageUrn } } } : {}),
+      ...content,
       lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     }),
@@ -542,7 +716,7 @@ export async function publishPost(
     );
   }
 
-  return { postUrn, imageUrn };
+  return { postUrn, imageUrn, documentUrn };
 }
 
 // ---------------------------------------------------------------------------
@@ -553,6 +727,7 @@ export async function publishPost(
  * String (this codebase has no Prisma enums), so this checked map is what stops
  * a typo'd literal from silently creating a status nothing ever queries. */
 const STATUS = {
+  draft: "draft",
   scheduled: "scheduled",
   publishing: "publishing",
   published: "published",
@@ -573,11 +748,45 @@ const POST_SAFE_SELECT = {
   scheduledFor: true,
   publishedAt: true,
   createdAt: true,
+  /* The library shows when a draft was last touched, which is the only date it
+   * has — createdAt alone would make an edited draft look untouched. */
+  updatedAt: true,
+  /* The deck a document post carries, so the library can label it and the
+   * composer can restore it when a draft is reopened. Read through the relation
+   * for the same reason toPostDocument does: the Document row owns the url. */
+  documentId: true,
+  document: { select: { id: true, title: true, fileName: true } },
+} as const satisfies Prisma.LinkedInPostSelect;
+
+/* Everything POST_SAFE_SELECT exposes, plus the columns needed to REBUILD an
+ * ImageKit reference — used when a draft is reopened in the composer, which has
+ * to hand the same reference back on publish. `imageFileId` is not a secret here
+ * (unlike Document.fileId): the browser mints it during upload and already sends
+ * it on every publish. Kept separate from POST_SAFE_SELECT so the calendar and
+ * the recent-posts strip stay as narrow as they are. */
+const POST_EDIT_SELECT = {
+  ...POST_SAFE_SELECT,
+  imageFileId: true,
+  originalFileId: true,
+  originalUrl: true,
 } as const satisfies Prisma.LinkedInPostSelect;
 
 /* Rebuilds the ImageKit reference from its stored columns. Returns undefined
- * when the post has no image, which is exactly what publishPost expects. */
-function toPostImage(post: LinkedInPost): PostImageValues | undefined {
+ * when the post has no image, which is exactly what publishPost expects.
+ *
+ * Typed against a Pick of the Prisma model rather than the whole row so a
+ * narrowly-selected draft can be passed too — the worker's full LinkedInPost
+ * satisfies it structurally. */
+function toPostImage(
+  post: Pick<
+    LinkedInPost,
+    | "imageFileId"
+    | "imageUrl"
+    | "imageTransform"
+    | "originalFileId"
+    | "originalUrl"
+  >,
+): PostImageValues | undefined {
   if (!post.imageFileId || !post.imageUrl) return undefined;
   return {
     fileId: post.imageFileId,
@@ -607,6 +816,25 @@ function imageColumns(image: PostImageValues | undefined) {
   };
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: toPostDocument
+ *
+ * WHAT:  Rebuilds the document reference a scheduled post needs at publish time.
+ * WHY:   Reads through the RELATION rather than denormalised columns, unlike
+ *        toPostImage: the Document row already owns the url and filename, and
+ *        copying them onto the post would let the two disagree after a
+ *        re-render. Returns undefined when the post carries no deck.
+ * WHERE: Called by the worker before publishing a claimed row.
+ */
+function toPostDocument(
+  document: { url: string; fileName: string; title: string | null } | null,
+): PostDocumentValues | undefined {
+  if (!document) return undefined;
+  /* `title` is what LinkedIn shows publicly; fileName is the slug fallback for
+   * rows written before the title column existed. */
+  return { url: document.url, title: document.title ?? document.fileName };
+}
+
 export interface RecordPublishedPostArgs {
   organizationId: string;
   accountId: string;
@@ -614,7 +842,54 @@ export interface RecordPublishedPostArgs {
   commentary: string;
   postUrn: string;
   imageUrn: string | null;
+  documentUrn: string | null;
   image?: PostImageValues | undefined;
+  /* The Document row this post published, kept as a relation so the post links
+   * back to the file in the library. Null for text and image posts. */
+  documentId?: string | undefined;
+  /* The draft being promoted, if this publish started as one. */
+  draftId?: string | undefined;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: promoteDraft, DRAFT_GONE_ERROR
+ *
+ * WHAT:  Turns an existing draft row into a committed post, in place.
+ * WHY:   An UPDATE rather than an insert-then-delete, because a draft and the
+ *        post it becomes are the same post — the schema's one-row lifecycle. The
+ *        alternative would have to delete the draft, and `linkedinPosts.delete`
+ *        REFUNDS a post slot, so promoting would hand back the slot `create` had
+ *        just spent.
+ *
+ *        The `status: draft` guard lives in the WHERE clause, not in a prior
+ *        read, so two publishes racing the same draft cannot both succeed — the
+ *        second matches nothing and throws. Same technique as deletePublishedPost.
+ *
+ *        `accountId` is written here rather than assumed: a draft is saved with
+ *        no account (drafting must work before LinkedIn is connected), so the
+ *        publishing account is only known now.
+ * WHERE: Called by recordPublishedPost and createScheduledPost when the caller
+ *        passed a draftId.
+ */
+const DRAFT_GONE_ERROR =
+  "That draft no longer exists. It may have been published or discarded already.";
+
+async function promoteDraft(
+  db: DbClient,
+  organizationId: string,
+  draftId: string,
+  data: Prisma.LinkedInPostUncheckedUpdateManyInput,
+): Promise<LinkedInPost> {
+  const { count } = await db.linkedInPost.updateMany({
+    where: { id: draftId, organizationId, status: STATUS.draft },
+    data,
+  });
+  if (count === 0) throw new UserFacingError(DRAFT_GONE_ERROR);
+  /* Re-read rather than trusting the input: the caller returns this row to the
+   * client, which reads status and scheduledFor off it. */
+  return db.linkedInPost.findFirstOrThrow({
+    where: { id: draftId, organizationId },
+  });
 }
 
 /**
@@ -632,16 +907,27 @@ export interface RecordPublishedPostArgs {
 export async function recordPublishedPost(
   db: DbClient,
   args: RecordPublishedPostArgs,
-) {
-  const { image, ...rest } = args;
-  return db.linkedInPost.create({
-    data: {
-      ...rest,
-      status: STATUS.published,
-      publishedAt: new Date(),
-      ...imageColumns(image),
-    },
-  });
+): Promise<LinkedInPost> {
+  const { image, documentId, draftId, ...rest } = args;
+  const columns = {
+    ...rest,
+    status: STATUS.published,
+    publishedAt: new Date(),
+    documentId: documentId ?? null,
+    ...imageColumns(image),
+  };
+
+  /* Promoting a draft instead of inserting — see promoteDraft. `scheduledFor` is
+   * cleared explicitly: a draft has none, but a row that somehow carried one
+   * would otherwise be picked up by the worker after it had already published. */
+  if (draftId) {
+    return promoteDraft(db, args.organizationId, draftId, {
+      ...columns,
+      scheduledFor: null,
+    });
+  }
+
+  return db.linkedInPost.create({ data: columns });
 }
 
 export interface CreateScheduledPostArgs {
@@ -651,6 +937,9 @@ export interface CreateScheduledPostArgs {
   commentary: string;
   scheduledFor: Date;
   image?: PostImageValues | undefined;
+  documentId?: string | undefined;
+  /* The draft being promoted, if this schedule started as one. */
+  draftId?: string | undefined;
 }
 
 /**
@@ -669,19 +958,35 @@ export interface CreateScheduledPostArgs {
 export async function createScheduledPost(
   db: DbClient,
   args: CreateScheduledPostArgs,
-) {
-  const { image, ...rest } = args;
-  return db.linkedInPost.create({
-    data: {
-      ...rest,
-      status: STATUS.scheduled,
-      /* Explicitly null: a scheduled post has neither yet, and both columns are
-       * what the worker fills in on success. */
-      postUrn: null,
-      publishedAt: null,
-      ...imageColumns(image),
-    },
-  });
+): Promise<LinkedInPost> {
+  const { image, documentId, draftId, ...rest } = args;
+  const columns = {
+    ...rest,
+    status: STATUS.scheduled,
+    /* Explicitly null: a scheduled post has neither yet, and both columns are
+     * what the worker fills in on success. */
+    postUrn: null,
+    publishedAt: null,
+    /* The deck is referenced, not copied. A scheduled row may sit for days, and
+     * pointing at the Document means a re-render in the meantime publishes the
+     * CURRENT file rather than a stale snapshot of it. */
+    documentId: documentId ?? null,
+    ...imageColumns(image),
+  };
+
+  /* Scheduling a draft promotes the same row — see promoteDraft. The retry
+   * columns are reset because this row has never been claimed as a scheduled
+   * post before, and stale worker bookkeeping would count against its attempts. */
+  if (draftId) {
+    return promoteDraft(db, args.organizationId, draftId, {
+      ...columns,
+      attemptCount: 0,
+      lastError: null,
+      claimedAt: null,
+    });
+  }
+
+  return db.linkedInPost.create({ data: columns });
 }
 
 /**
@@ -706,6 +1011,193 @@ export async function listPublishedPosts(
   });
 }
 
+export interface SaveDraftArgs {
+  organizationId: string;
+  authorId: string;
+  /** Present ⇒ update that draft. Absent ⇒ create one. */
+  postId?: string | undefined;
+  commentary: string;
+  image?: PostImageValues | undefined;
+  documentId?: string | undefined;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: saveDraft
+ *
+ * WHAT:  Creates or updates an unpublished post. Returns null when the id names
+ *        nothing this org can still edit.
+ * WHY:   Written by `linkedinPosts.draft`, which is NOT `create` — the factory
+ *        meters only `<resource>.create`, and a draft must cost nothing. The post
+ *        slot is spent later, when the draft is promoted by `create`.
+ *
+ *        `accountId` is left null on purpose: drafting must work before LinkedIn
+ *        is connected, and the publishing account is not known until publish
+ *        time. The column is nullable for the disconnect case anyway.
+ *
+ *        The update is guarded on `status: draft` IN THE WHERE CLAUSE, so this
+ *        can never rewrite the commentary of a post that has already gone out —
+ *        LinkedIn holds its own copy, and letting the two disagree would make our
+ *        record a lie.
+ * WHERE: Called by linkedinPosts.draft.
+ */
+export async function saveDraft(
+  db: DbClient,
+  args: SaveDraftArgs,
+): Promise<LinkedInPost | null> {
+  const { organizationId, authorId, postId, commentary, image, documentId } =
+    args;
+
+  if (postId) {
+    const { count } = await db.linkedInPost.updateMany({
+      where: { id: postId, organizationId, status: STATUS.draft },
+      data: {
+        commentary,
+        documentId: documentId ?? null,
+        ...imageColumns(image),
+      },
+    });
+    if (count === 0) return null;
+    return db.linkedInPost.findFirstOrThrow({
+      where: { id: postId, organizationId },
+    });
+  }
+
+  return db.linkedInPost.create({
+    data: {
+      organizationId,
+      authorId,
+      commentary,
+      status: STATUS.draft,
+      /* A draft has no publisher, no date and no LinkedIn identity yet. Stated
+       * rather than defaulted so the row reads as deliberately unfinished. */
+      accountId: null,
+      scheduledFor: null,
+      postUrn: null,
+      publishedAt: null,
+      documentId: documentId ?? null,
+      ...imageColumns(image),
+    },
+  });
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: discardDraft
+ *
+ * WHAT:  Throws away an unpublished post, returning the row count and any
+ *        ImageKit handle the row owned.
+ * WHY:   A separate function from deletePublishedPost because the VERB it serves
+ *        is separate: `discard` leaves the post counter alone, while `delete`
+ *        refunds a slot. A draft never spent one, so refunding would let
+ *        save → discard on repeat mint free posts.
+ *
+ *        Refuses anything that is not a draft rather than silently reporting
+ *        nothing deleted — a committed post reaching this path is a caller bug,
+ *        and quietly doing nothing would hide it.
+ * WHERE: Called by linkedinPosts.discard.
+ */
+export async function discardDraft(
+  db: DbClient,
+  organizationId: string,
+  postId: string,
+): Promise<{ count: number; imageFileId: string | null }> {
+  const existing = await db.linkedInPost.findFirst({
+    where: { id: postId, organizationId },
+    select: { status: true, imageFileId: true },
+  });
+
+  if (!existing) return { count: 0, imageFileId: null };
+
+  if (existing.status !== STATUS.draft) {
+    throw new UserFacingError(
+      "Only a draft can be discarded. Delete the post record instead.",
+    );
+  }
+
+  const { count } = await db.linkedInPost.deleteMany({
+    where: { id: postId, organizationId, status: STATUS.draft },
+  });
+
+  return { count, imageFileId: existing.imageFileId };
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: getPostForEdit
+ *
+ * WHAT:  One post, with its ImageKit reference rebuilt, or null.
+ * WHY:   Returns `image` as a ready PostImageValues rather than raw columns so
+ *        the composer can hand the identical reference back on publish without
+ *        re-implementing toPostImage in the browser — the reason a reopened draft
+ *        keeps its picture instead of quietly losing it.
+ * WHERE: Backs linkedinPosts.get; the composer calls it for `?draftId=`.
+ */
+export async function getPostForEdit(
+  db: DbClient,
+  organizationId: string,
+  postId: string,
+) {
+  const post = await db.linkedInPost.findFirst({
+    where: { id: postId, organizationId },
+    select: POST_EDIT_SELECT,
+  });
+  if (!post) return null;
+
+  const {
+    imageFileId: _imageFileId,
+    originalFileId: _originalFileId,
+    originalUrl: _originalUrl,
+    ...rest
+  } = post;
+  return { ...rest, image: toPostImage(post) ?? null };
+}
+
+export interface ListLibraryPostsFilters {
+  status?: string | undefined;
+  search?: string | undefined;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: listLibraryPosts
+ *
+ * WHAT:  One page of this org's posts in every state, newest first, optionally
+ *        narrowed by status or a commentary search.
+ * WHY:   Paged rather than range-bounded like listCalendarPosts, because a
+ *        library has no window: it grows without limit, and a draft has no date
+ *        to bound it by. Ordered by `createdAt` for the same reason — it is the
+ *        only timestamp EVERY status has, and sorting by publishedAt would drop
+ *        drafts to the bottom under a null.
+ *
+ *        Search runs in the DATABASE, not over the returned page. Filtering a
+ *        single page client-side would report "nothing matches" while the match
+ *        sat on page two, and would make `total` disagree with the rows shown.
+ * WHERE: Backs linkedinPosts.listLibrary and the post library table.
+ */
+export async function listLibraryPosts(
+  db: DbClient,
+  organizationId: string,
+  filters: ListLibraryPostsFilters,
+  pagination: { skip: number; take: number },
+) {
+  const where: Prisma.LinkedInPostWhereInput = {
+    organizationId,
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.search
+      ? { commentary: { contains: filters.search, mode: "insensitive" } }
+      : {}),
+  };
+
+  const [items, total] = await Promise.all([
+    db.linkedInPost.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: POST_SAFE_SELECT,
+      skip: pagination.skip,
+      take: pagination.take,
+    }),
+    db.linkedInPost.count({ where }),
+  ]);
+  return { items, total };
+}
+
 /**
  * SOURCE OF TRUTH KEYWORDS: listCalendarPosts
  *
@@ -713,6 +1205,10 @@ export async function listPublishedPosts(
  * WHY:   The OR is the whole point: a scheduled post is placed on the calendar
  *        by `scheduledFor` and a published one by `publishedAt`, so a single
  *        date filter would silently drop half the grid.
+ *
+ *        Drafts are excluded for free and need no status filter: a draft has
+ *        NEITHER date, and null matches no range — which is also the honest
+ *        answer, since a post with no date has no square to sit in.
  * WHERE: Backs linkedinPosts.listCalendar and the month grid.
  */
 export async function listCalendarPosts(
@@ -779,16 +1275,27 @@ export async function deletePublishedPost(
   if (!existing) return { count: 0, imageFileId: null, wasScheduled: false };
 
   if (existing.status === STATUS.publishing) {
-    throw new Error(
+    throw new UserFacingError(
       "This post is being published right now and can no longer be cancelled.",
     );
+  }
+
+  /* THE COUNTER GUARD. This function serves `linkedinPosts.delete`, which REFUNDS
+   * a post slot — correct for a scheduled or published row, which spent one at
+   * create time, and wrong for a draft, which spent nothing. Without this, save →
+   * delete on repeat walks the usage counter down and mints free posts. Drafts go
+   * through discardDraft instead. */
+  if (existing.status === STATUS.draft) {
+    throw new UserFacingError("Discard the draft instead of deleting it.");
   }
 
   const { count } = await db.linkedInPost.deleteMany({
     where: {
       id: postId,
       organizationId,
-      status: { not: STATUS.publishing },
+      /* Both guards repeated in the write, not just the read above, so a status
+       * change landing between the two is still caught. */
+      status: { notIn: [STATUS.publishing, STATUS.draft] },
     },
   });
 
@@ -883,7 +1390,16 @@ export async function publishDueScheduledPosts(
   };
 
   for (const { id } of claimed) {
-    const post = await db.linkedInPost.findUnique({ where: { id } });
+    const post = await db.linkedInPost.findUnique({
+      where: { id },
+      /* The deck is read through the relation, so a carousel re-rendered between
+       * scheduling and publishing goes out as the CURRENT file. documents.delete
+       * refuses to remove a PDF a scheduled post still points at, which is what
+       * keeps this from ever resolving to null on a document post. */
+      include: {
+        document: { select: { url: true, fileName: true, title: true } },
+      },
+    });
     /* Deleted between the claim and now — nothing to publish, nothing to fix. */
     if (!post) continue;
 
@@ -906,6 +1422,7 @@ export async function publishDueScheduledPosts(
         personUrn: token.personUrn,
         commentary: post.commentary,
         image: toPostImage(post),
+        document: toPostDocument(post.document),
       });
 
       await db.linkedInPost.update({
@@ -914,6 +1431,7 @@ export async function publishDueScheduledPosts(
           status: STATUS.published,
           postUrn: published.postUrn,
           imageUrn: published.imageUrn,
+          documentUrn: published.documentUrn,
           publishedAt: new Date(),
           lastError: null,
           claimedAt: null,

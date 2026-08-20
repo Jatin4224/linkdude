@@ -22,6 +22,8 @@ import * as React from "react";
 import { MoreHorizontalIcon, Loader2Icon, RefreshCw, Mail } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { permissions } from "@/lib/better-auth/permissions";
@@ -83,9 +85,7 @@ export function MemberList({
       await resend.mutateAsync({ organizationId, invitationId });
       toast.success("Invitation resent");
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to resend invitation",
-      );
+      toast.error(getErrorMessage(err, "Failed to resend invitation"));
     } finally {
       setProcessingInviteId(null);
     }
@@ -104,9 +104,7 @@ export function MemberList({
       ]);
       toast.success("Invitation canceled");
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to cancel invitation",
-      );
+      toast.error(getErrorMessage(err, "Failed to cancel invitation"));
     } finally {
       setProcessingInviteId(null);
     }

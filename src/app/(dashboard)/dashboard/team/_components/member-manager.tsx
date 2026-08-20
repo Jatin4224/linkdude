@@ -21,6 +21,8 @@ import * as React from "react";
 import { SearchIcon, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { permissions } from "@/lib/better-auth/permissions";
@@ -57,7 +59,7 @@ export function MemberManager({ organizationId }: { organizationId: string }) {
       ]);
       toast.success("Member removed");
     },
-    onError: (e) => toast.error(e.message || "Failed to remove member"),
+    onError: (e) => toast.error(getErrorMessage(e, "Failed to remove member")),
   });
 
   const owner = members.find((m) => m.roleName === "owner");

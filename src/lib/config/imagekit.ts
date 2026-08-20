@@ -8,7 +8,7 @@
  * SOURCE OF TRUTH KEYWORDS: isImageKitConfigured, getImageKitCredentials,
  *   ImageKitCredentials, IMAGEKIT_MAX_IMAGE_BYTES, IMAGEKIT_MAX_IMAGE_LABEL,
  *   IMAGEKIT_POST_FOLDER, IMAGEKIT_UPLOAD_ENDPOINT, LINKEDIN_IMAGE_TRANSFORM,
- *   IMAGEKIT_AUTH_EXPIRY_SECONDS
+ *   IMAGEKIT_AUTH_EXPIRY_SECONDS, buildTransformedUrl, buildAttachmentUrl
  *
  * WHAT:  ImageKit credentials, upload ceiling, folder, and the default delivery
  *        transform — the ONE place these literals live.
@@ -97,6 +97,30 @@ export function buildTransformedUrl(
 ): string {
   const url = new URL(imageUrl);
   url.searchParams.set("tr", transform);
+  return url.toString();
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildAttachmentUrl, ik-attachment
+ *
+ * WHAT:  Turns an ImageKit delivery URL into one the browser SAVES instead of
+ *        displaying.
+ * WHY:   An `<a download>` attribute is IGNORED on cross-origin links — every
+ *        browser refuses to let one origin name the filename for another. Since
+ *        assets are served from ik.imagekit.io and the app is not, the attribute
+ *        does nothing and a PDF opens in a viewer tab instead of downloading.
+ *        `ik-attachment=true` makes ImageKit send
+ *        `Content-Disposition: attachment`, which is the only thing that
+ *        actually triggers a save.
+ *
+ *        Query form, and built with URL like buildTransformedUrl, so it composes
+ *        with an existing `tr=` parameter rather than clobbering it.
+ * WHERE: Used by the carousel download button and the documents library. Lives
+ *        here rather than in the service because the BROWSER builds these links.
+ */
+export function buildAttachmentUrl(fileUrl: string): string {
+  const url = new URL(fileUrl);
+  url.searchParams.set("ik-attachment", "true");
   return url.toString();
 }
 

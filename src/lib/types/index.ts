@@ -14,11 +14,14 @@
  *   createSubscriptionSchema, upgradeSubscriptionSchema, billingIntervalSchema,
  *   planKeySchema, CreateSubscriptionValues, UpgradeSubscriptionValues,
  *   POST_TONES, POST_LENGTHS, postToneSchema, postLengthSchema,
+ *   AI_POST_TOPIC_MIN, AI_POST_TOPIC_MAX, DEFAULT_POST_TONE, DEFAULT_POST_LENGTH,
  *   generatePostSchema, GeneratePostValues, generatedPostSchema, GeneratedPost,
  *   publishPostSchema, PublishPostValues, postImageSchema, PostImageValues,
  *   listPostsSchema, deletePostSchema, disconnectIntegrationSchema,
  *   listCalendarPostsSchema, ListCalendarPostsValues, scheduledForSchema,
  *   LINKEDIN_POST_STATUSES, LinkedInPostStatus, CANCELABLE_POST_STATUSES,
+ *   saveDraftSchema, SaveDraftValues, discardDraftSchema, getPostSchema,
+ *   postStatusSchema, listLibraryPostsSchema, ListLibraryPostsValues,
  *   LinkedInImageBinary, uploadAuthParamsSchema, UploadAuthParams,
  *   imageKitUploadResponseSchema, ImageKitUploadResponse, imageTransformSchema,
  *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES,
@@ -98,6 +101,10 @@ export {
   generatedPostSchema,
   aiImageEditSchema,
   AI_IMAGE_PROMPT_MAX,
+  AI_POST_TOPIC_MIN,
+  AI_POST_TOPIC_MAX,
+  DEFAULT_POST_TONE,
+  DEFAULT_POST_LENGTH,
 } from "./ai";
 export type {
   PostTone,
@@ -118,15 +125,23 @@ export {
   listCalendarPostsSchema,
   deletePostSchema,
   disconnectIntegrationSchema,
+  saveDraftSchema,
+  discardDraftSchema,
+  getPostSchema,
+  postStatusSchema,
+  listLibraryPostsSchema,
 } from "./linkedin";
 export type {
   LinkedInImageMimeType,
   LinkedInImageBinary,
+  PostDocumentValues,
   LinkedInOAuthErrorCode,
   LinkedInPostStatus,
   ListCalendarPostsValues,
   PublishPostValues,
   LinkedInConnectionStatus,
+  SaveDraftValues,
+  ListLibraryPostsValues,
 } from "./linkedin";
 
 /* ImageKit — post media lives behind a storage provider so a scheduled post
@@ -258,6 +273,53 @@ export type {
   GenerateContentPlanValues,
   StoredContentPlan,
 } from "./content-plan";
+/* Carousels — slide vocabulary, deck bounds and page geometry. The deck itself
+ * lives in Carousel.slides as Json, so carouselSlidesSchema is the boundary that
+ * keeps an untyped value out of the router on every read. */
+export {
+  CAROUSEL_STATUSES,
+  carouselStatusSchema,
+  CAROUSEL_SLIDE_KINDS,
+  carouselSlideKindSchema,
+  CAROUSEL_TEMPLATES,
+  carouselTemplateSchema,
+  CAROUSEL_PAGE_PRESETS,
+  carouselPagePresetSchema,
+  CAROUSEL_MIN_SLIDES,
+  CAROUSEL_MAX_SLIDES,
+  CAROUSEL_DEFAULT_SLIDES,
+  CAROUSEL_HEADING_MAX,
+  CAROUSEL_BODY_MAX,
+  CAROUSEL_TOPIC_MIN,
+  CAROUSEL_TOPIC_MAX,
+  carouselSlideSchema,
+  carouselSlidesSchema,
+  generateCarouselSchema,
+  updateCarouselSchema,
+  renderCarouselSchema,
+  getCarouselSchema,
+  discardCarouselSchema,
+  listCarouselsSchema,
+  listDocumentsSchema,
+  deleteDocumentSchema,
+} from "./carousel";
+export type {
+  CarouselStatus,
+  CarouselSlideKind,
+  CarouselTemplate,
+  CarouselPagePreset,
+  CarouselSlide,
+  CarouselSlides,
+  GenerateCarouselValues,
+  GenerateCarouselInput,
+  UpdateCarouselValues,
+  RenderCarouselValues,
+  GetCarouselValues,
+  DiscardCarouselValues,
+  ListCarouselsValues,
+  ListDocumentsValues,
+  DeleteDocumentValues,
+} from "./carousel";
 export { ANALYTICS_RANGE_DAYS, analyticsRangeSchema } from "./portal-analytics";
 export type {
   AnalyticsRangeDays,

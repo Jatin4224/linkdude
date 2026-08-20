@@ -87,6 +87,7 @@ model User {
   linkedinPosts    LinkedInPost[]
   profileAnalyses  ProfileAnalysis[]
   contentPlans     ContentPlan[]
+  carousels        Carousel[]
 
   // Signups-per-day rollups in the /portal analytics dashboard bucket on
   // createdAt across the whole table; without this they seq-scan every user.
@@ -215,6 +216,8 @@ model Organization {
   profileAnalyses   ProfileAnalysis[]
   profileLookups    ProfileLookup[]
   contentPlans      ContentPlan[]
+  carousels         Carousel[]
+  documents         Document[]
 
   // New-workspaces-per-day in the portal analytics dashboard.
   @@index([createdAt])
@@ -499,10 +502,13 @@ model LinkedInPost {
   commentary String  @db.Text // The post body as published
   imageUrn   String? // `urn:li:image:{id}` when media was attached
 
-  // scheduled | publishing | published | failed | canceled
-  // A row is created as `scheduled` (quota already spent at schedule time) or
-  // `published` (immediate publish). The background worker owns every
-  // transition out of `scheduled` — see publishDueScheduledPosts.
+  // draft | scheduled | publishing | published | failed | canceled
+  // A row is created as `draft` (nothing spent — see linkedinPosts.draft),
+  // `scheduled` (quota already spent at schedule time) or `published` (immediate
+  // publish). The background worker owns every transition out of `scheduled` —
+  // see publishDueScheduledPosts. A draft leaves that state only through
+  // linkedinPosts.create, which promotes the row IN PLACE so the post slot is
+  // spent exactly once, when the user commits.
   // Defaults to `published` so the migration backfills existing rows correctly.
   status String @default("published")
 
@@ -553,10 +559,27 @@ model LinkedInPost {
   originalFileId String?
   originalUrl    String?
 
+  // DOCUMENT ATTACHMENT — a rendered carousel published as a LinkedIn document
+  // post (the swipeable deck format). Mutually exclusive with the image columns
+  // above: LinkedIn's Posts API takes ONE `content.media`, so a post is either an
+  // image post or a document post, never both. Enforced by publishPostSchema.
+  //
+  // A relation rather than denormalised columns, unlike the image above, because
+  // the bytes already have an owner — the Document row — and copying its url here
+  // would let the two disagree after a re-render. SetNull for the same reason
+  // `accountId` is: deleting a file must never destroy the record of a post that
+  // is still live on the member's feed.
+  documentId String?
+
+  // urn:li:document:... returned by LinkedIn's Documents API once the asset has
+  // finished processing. Set at publish time, like imageUrn.
+  documentUrn String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     Document?       @relation(fields: [documentId], references: [id], onDelete: SetNull)
   // SetNull, NOT Cascade. Under Cascade, disconnecting LinkedIn silently
   // deleted every post row the org had — including PUBLISHED ones that are
   // still live on the member's feed, wiping the only record this app has of
@@ -568,11 +591,17 @@ model LinkedInPost {
   author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, publishedAt])
+  // The post library's sort: org-scoped, newest first, optionally narrowed by
+  // status. Every other composite index here is keyed on a DATE column, and a
+  // draft has neither publishedAt nor scheduledFor — so without this the library
+  // has nothing to use and falls back to a full tenant scan.
+  @@index([organizationId, createdAt])
   // Platform-wide "posts created per day": the composite indexes above are all
   // org-scoped, so a cross-tenant rollup has nothing to use without this.
   @@index([createdAt])
   @@index([accountId])
   @@index([authorId])
+  @@index([documentId])
   // The worker's claim query: find due rows by status + time.
   @@index([status, scheduledFor])
   // The calendar's month-range query.
@@ -744,4 +773,124 @@ model ContentPlan {
   @@index([organizationId, updatedAt])
   @@index([authorId])
   @@map("content_plan")
+}
+
+/// Document — a generated file this app produced and stored, currently always a
+/// rendered carousel PDF.
+///
+/// A first-class table rather than denormalised columns (the LinkedInPost.imageX
+/// precedent) because a file here is an ARTIFACT, not an attribute: it has its
+/// own byte size, page count and vendor handle, it outlives the thing that made
+/// it, and the next exporter this app grows writes rows here instead of adding a
+/// second set of columns somewhere else. `fileId` is the ImageKit handle and is
+/// the only way to delete the asset — losing it orphans the file forever.
+///
+/// SOURCE OF TRUTH KEYWORD: Document
+model Document {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope
+
+  /// ImageKit file handle. Required for deletion; an asset whose handle is gone
+  /// can never be removed from the account.
+  fileId String
+
+  /// Untransformed ImageKit delivery URL. No `tr:` twin here — unlike images, a
+  /// PDF has no transform, so the stored URL is the served URL.
+  url String
+
+  /// Original download name, shown in the UI and used for the download filename.
+  fileName String
+
+  /// HUMAN-READABLE name, unlike fileName. LinkedIn renders this as the document
+  /// post's visible title, so a slug ("today-i-am-sharing-the-llm-s...") is
+  /// exactly wrong there — it exposes the author's raw prompt as the deck's
+  /// public name. Sourced from the cover slide's heading, which is the title the
+  /// deck already gives itself.
+  ///
+  /// Nullable because rows created before this column existed genuinely have no
+  /// title; readers fall back to fileName rather than showing an empty string.
+  title String?
+
+  /// Kept explicit rather than assumed so a future non-PDF export (PNG bundle,
+  /// PPTX) needs no column and no backfill.
+  mimeType String @default("application/pdf")
+
+  /// Recorded at render time from the real buffer, so the UI can show a size
+  /// without a HEAD request to the vendor on every list render.
+  byteSize Int
+
+  /// Slide count. Denormalised from the deck because a Document must stay
+  /// readable after the Carousel that produced it is discarded.
+  pageCount Int
+
+  createdAt DateTime @default(now())
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  carousel      Carousel?
+  linkedinPosts LinkedInPost[]
+
+  @@index([organizationId, createdAt])
+  @@map("document")
+}
+
+/// Carousel — an AI-generated multi-slide deck, from topic through to rendered
+/// PDF. One row covers the whole lifecycle (draft → rendering → ready | failed);
+/// there is no separate drafts table, matching LinkedInPost.
+///
+/// NOTE: discarding a row does NOT refund the quota. The quota meters MODEL AND
+/// RENDER SPEND, not decks held, so the removal verb is `discard` rather than
+/// `delete` — a refunding delete would make create→delete→create an unlimited
+/// free tier. Same reasoning as ProfileAnalysis and ContentPlan.
+///
+/// SOURCE OF TRUTH KEYWORD: Carousel
+model Carousel {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope
+  authorId       String // The member who generated this deck
+
+  /// The prompt the deck was generated from. Kept so a deck can be regenerated
+  /// or explained after the fact without storing the whole model exchange.
+  topic String @db.Text
+
+  /// Which slide template rendered this deck. A String owned by the Zod tuple in
+  /// lib/types/carousel, matching every other vocabulary in this schema — a new
+  /// template is a config entry, never a migration.
+  templateId String @default("minimal")
+
+  /// Page geometry, as CAROUSEL_PAGE_PRESETS holds it. Persisted rather than
+  /// chosen at render time because it is an EDITORIAL property, not a rendering
+  /// flag: copy written for a 4:5 slide does not fit a square one, so a deck that
+  /// silently changed shape between renders would break its own text.
+  pagePreset String @default("portrait")
+
+  /// "draft" | "rendering" | "ready" | "failed", as CAROUSEL_STATUSES holds them.
+  status String @default("draft")
+
+  /// CarouselSlides — the slide array, re-validated on read through
+  /// carouselSlidesSchema so no untyped value reaches the router. Json rather
+  /// than a Slide table because slides are never queried independently: they are
+  /// always read, written and rendered as one ordered unit. Precedent:
+  /// ContentPlan.result.
+  slides Json
+
+  /// Set once the deck renders. SetNull rather than Cascade on purpose: deleting
+  /// a stored file must never destroy the content that produced it — the deck
+  /// stays editable and simply re-renders. Precedent: LinkedInPost.accountId,
+  /// where Cascade previously wiped published history.
+  documentId String? @unique
+
+  /// Why the last render failed, surfaced in the UI so a failure is actionable
+  /// rather than a status with no explanation.
+  lastError String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  document     Document?    @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, updatedAt])
+  @@index([authorId])
+  @@map("carousel")
 }

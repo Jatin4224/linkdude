@@ -8,7 +8,8 @@ import "server-only";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: getUploadAuthParams, buildTransformedUrl,
- *   deleteImage, fetchImageBinary, getImageKitClient
+ *   deleteImage, fetchImageBinary, fetchFileBinary, getImageKitClient,
+ *   uploadImageBytes, uploadFileBytes
  *
  * WHAT:  Every ImageKit touchpoint — minting signed upload credentials for the
  *        browser, composing delivery URLs with a `tr:` transform, fetching the
@@ -112,17 +113,35 @@ export { buildTransformedUrl } from "@/lib/config/imagekit";
 export async function fetchImageBinary(
   url: string,
 ): Promise<LinkedInImageBinary> {
+  return fetchFileBinary(url, "image/jpeg");
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: fetchFileBinary
+ *
+ * WHAT:  Downloads any stored asset as bytes. The generalised form of
+ *        fetchImageBinary.
+ * WHY:   LinkedIn will not pull from a third-party URL for EITHER media type, so
+ *        both images and documents make one hop through this server on their way
+ *        out. The only difference is the fallback MIME to assume when the vendor
+ *        sends no `content-type` — hence the parameter, and hence the image path
+ *        delegating here rather than duplicating the fetch.
+ * WHERE: Called by fetchImageBinary and by the document publish path in
+ *        src/services/linkedin.service.ts.
+ */
+export async function fetchFileBinary(
+  url: string,
+  fallbackMimeType: string,
+): Promise<LinkedInImageBinary> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(
-      `[imagekit] fetching transformed image failed (${response.status})`,
-    );
+    throw new Error(`[imagekit] fetching stored file failed (${response.status})`);
   }
 
   /* ImageKit may return a different type than was uploaded — `f-auto` and
    * format conversion are transform options — so the response header is the
    * only trustworthy source for what LinkedIn should be told it is receiving. */
-  const mimeType = response.headers.get("content-type") ?? "image/jpeg";
+  const mimeType = response.headers.get("content-type") ?? fallbackMimeType;
   return { mimeType, bytes: await response.arrayBuffer() };
 }
 
@@ -146,12 +165,38 @@ export async function uploadImageBytes(
   base64: string,
   fileName: string,
 ): Promise<PostImageValues> {
+  return uploadFileBytes(base64, fileName, IMAGEKIT_POST_FOLDER);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: uploadFileBytes
+ *
+ * WHAT:  Uploads bytes to a NAMED ImageKit folder and returns the stored
+ *        reference. The generalised form of uploadImageBytes.
+ * WHY:   ImageKit stores more than images, and this app now generates more than
+ *        images — a rendered carousel PDF has no browser to upload from and does
+ *        not belong in the post-media folder, because the two have different
+ *        owners and different lifecycles. Taking the folder as an argument is the
+ *        whole difference; everything else about the upload is identical, so the
+ *        image path delegates here rather than duplicating it.
+ *
+ *        Still base64, for the reason uploadImageBytes was: it is what the AI
+ *        SDK hands back, the SDK re-encodes anything else anyway, and it is the
+ *        shape this vendor boundary is already known to accept.
+ * WHERE: Called by uploadImageBytes (post media) and by
+ *        src/services/carousel.service.ts (rendered PDFs).
+ */
+export async function uploadFileBytes(
+  base64: string,
+  fileName: string,
+  folder: string,
+): Promise<PostImageValues> {
   const response = await getImageKitClient().files.upload({
     file: base64,
     fileName,
-    folder: IMAGEKIT_POST_FOLDER,
+    folder,
     /* Same reason as the browser path: never overwrite an existing asset. A
-     * collision here would silently rewrite an image another post is using. */
+     * collision here would silently rewrite a file another row is using. */
     useUniqueFileName: true,
   });
 

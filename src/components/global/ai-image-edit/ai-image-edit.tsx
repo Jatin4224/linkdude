@@ -31,6 +31,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2Icon, SparklesIcon, Undo2Icon } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import {
   aiImageEditSchema,
   AI_IMAGE_PROMPT_MAX,
@@ -118,9 +120,7 @@ export function AiImageEdit({
     try {
       setResult(await onGenerate(prompt));
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not edit the image.",
-      );
+      toast.error(getErrorMessage(error, "Could not edit the image."));
     } finally {
       setIsGenerating(false);
     }

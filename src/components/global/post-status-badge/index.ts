@@ -6,13 +6,13 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PostStatusBadge, PostStatusBadgeProps,
- *   LinkedInPostStatus, post status chip
+ *   postStatusLabel, LinkedInPostStatus, post status chip
  *
- * WHAT:  Barrel for the LinkedIn post status chip.
+ * WHAT:  Barrel for the LinkedIn post status chip and its label lookup.
  * WHY:   One import surface now that more than one route renders a post's state.
- * WHERE: The calendar grid and day-detail panel, and the dashboard home's
- *        activity panel.
+ * WHERE: The calendar grid and day-detail panel, the dashboard home's activity
+ *        panel, and the post library's table and status filter.
  */
 
-export { PostStatusBadge } from "./post-status-badge";
+export { PostStatusBadge, postStatusLabel } from "./post-status-badge";
 export type { PostStatusBadgeProps } from "./post-status-badge";

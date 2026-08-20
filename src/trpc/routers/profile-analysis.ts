@@ -24,7 +24,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter } from "../init";
+import { createTRPCRouter, toProcedureError } from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
 import {
@@ -119,16 +119,17 @@ export const profileAnalysisRouter = createTRPCRouter({
         });
       } catch (error) {
         /* Provider overload (503), schema-validation failures, and a failed
-         * save all land here. Re-thrown as a tRPC error so the page can render
-         * the reason inline rather than a generic 500 — and, because this is
-         * inside the procedure transaction, the throw is also what rolls the
-         * usage increment back. */
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Profile analysis failed. Please try again.",
+         * save all land here — the classifier separates them so the page can
+         * render an accurate reason inline rather than the vendor's own text.
+         * Still a throw, because this is inside the procedure transaction and
+         * the throw is what rolls the usage increment back. */
+        throw toProcedureError(error, {
+          context: "profileAnalysis.create",
+          fallbackMessage: "Profile analysis failed. Please try again.",
+          messages: {
+            AI_OUTPUT_UNUSABLE:
+              "The AI returned an analysis we couldn't read. Please try again.",
+          },
         });
       }
     }),

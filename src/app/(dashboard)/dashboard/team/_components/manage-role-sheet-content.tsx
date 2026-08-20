@@ -21,6 +21,8 @@ import * as React from "react";
 import { Loader2Icon, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import { trpc } from "@/trpc/react-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,9 +116,7 @@ export function ManageRoleSheetContent({
       toast.success("Role deleted");
       if (editingId === roleId) resetForm();
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Could not delete the role.",
-      );
+      toast.error(getErrorMessage(err, "Could not delete the role."));
     }
   }
 

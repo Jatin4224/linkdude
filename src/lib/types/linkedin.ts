@@ -6,12 +6,15 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_IMAGE_MIME_TYPES, LinkedInImageMimeType,
- *   LinkedInImageBinary, LINKEDIN_OAUTH_ERROR_CODES, LinkedInOAuthErrorCode,
+ *   LinkedInImageBinary, PostDocumentValues, LINKEDIN_OAUTH_ERROR_CODES,
+ *   LinkedInOAuthErrorCode,
  *   normalizeLinkedInOAuthError, LINKEDIN_POST_STATUSES, LinkedInPostStatus,
  *   isSchedulableStatus, scheduledForSchema, publishPostSchema,
  *   PublishPostValues, disconnectIntegrationSchema, listPostsSchema,
  *   deletePostSchema, listCalendarPostsSchema, ListCalendarPostsValues,
- *   LinkedInConnectionStatus
+ *   LinkedInConnectionStatus, saveDraftSchema, SaveDraftValues,
+ *   discardDraftSchema, getPostSchema, postStatusSchema,
+ *   listLibraryPostsSchema, ListLibraryPostsValues
  *
  * WHAT:  Input contracts for publishing and scheduling LinkedIn posts, the post
  *        lifecycle states, and the client-safe connection-status shape.
@@ -55,6 +58,26 @@ export interface LinkedInImageBinary {
 }
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: PostDocumentValues
+ *
+ * WHAT:  The stored reference to a rendered carousel PDF, as the publish path
+ *        needs it.
+ * WHY:   Resolved SERVER-SIDE from a Document row rather than accepted from the
+ *        client: the router is handed only an id, so a post can never be pointed
+ *        at a file the organization does not own.
+ *
+ *        `title` rides along because LinkedIn DISPLAYS it — for a document post
+ *        the title is the deck's visible name in the feed, unlike an image where
+ *        no such field exists.
+ * WHERE: Produced by the linkedinPosts router and the scheduled-post worker;
+ *        consumed by publishPost.
+ */
+export interface PostDocumentValues {
+  url: string;
+  title: string;
+}
+
+/**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_POST_STATUSES, LinkedInPostStatus,
  *   isSchedulableStatus
  *
@@ -64,6 +87,11 @@ export interface LinkedInImageBinary {
  *        out". Mirrors the bare-String convention in schema.prisma — this
  *        codebase has no Prisma enums, so this array is the enforcement point.
  *
+ *        `draft` is the state before the org has committed to anything: no
+ *        quota spent, no LinkedIn connection required, no date. It leaves that
+ *        state only through `linkedinPosts.create`, which promotes the row in
+ *        place — see publishPostSchema.draftId.
+ *
  *        `publishing` exists as a distinct state so the worker's claim is
  *        visible in the database: it is what makes double-publish impossible
  *        across overlapping runs, and what the stale-reaper looks for.
@@ -71,6 +99,7 @@ export interface LinkedInImageBinary {
  *        read by the calendar to decide how a post renders.
  */
 export const LINKEDIN_POST_STATUSES = [
+  "draft",
   "scheduled",
   "publishing",
   "published",
@@ -181,7 +210,7 @@ export function normalizeLinkedInOAuthError(
  *        quota, letting an org publish its plan limit twice over.
  * WHERE: Router input for linkedinPosts.create; resolver for the composer form.
  */
-export const publishPostSchema = z.object({
+const postContentSchema = z.object({
   commentary: z
     .string()
     .trim()
@@ -191,10 +220,116 @@ export const publishPostSchema = z.object({
       `Posts are limited to ${LINKEDIN_MAX_COMMENTARY} characters`,
     ),
   image: postImageSchema.optional(),
-  /* Absent ⇒ publish immediately. Present ⇒ queue it for the worker. */
-  scheduledFor: scheduledForSchema.optional(),
+  /* A rendered carousel to publish as a LinkedIn DOCUMENT post. Just the id —
+   * the url, filename and page count are read server-side from the Document row,
+   * so a client cannot point a post at a file the org does not own. */
+  documentId: z.string().min(1).optional(),
 });
+
+/* LinkedIn's Posts API takes ONE `content.media`. Sending both an image and a
+ * document would silently drop one of them, so the impossible combination is
+ * rejected rather than resolved by whichever the publish path happens to check
+ * first.
+ *
+ * Declared once and applied to BOTH schemas below: a draft that could hold an
+ * image and a deck at the same time would be unpublishable the moment it was
+ * promoted, and the user would only find out at the Publish button. */
+function carriesOneMedium(values: {
+  image?: unknown;
+  documentId?: string | undefined;
+}): boolean {
+  return !(values.image && values.documentId);
+}
+/* Not `as const`: zod's refine params type `path` as a MUTABLE PropertyKey[], so
+ * a readonly tuple is rejected at the call site. */
+const MEDIA_EXCLUSIVE_ERROR = {
+  message: "A post can carry either an image or a carousel, not both",
+  path: ["documentId"],
+};
+
+export const publishPostSchema = postContentSchema
+  .extend({
+    /* Absent ⇒ publish immediately. Present ⇒ queue it for the worker. */
+    scheduledFor: scheduledForSchema.optional(),
+    /* The draft this publish PROMOTES. Present ⇒ the server updates that row in
+     * place instead of inserting a new one, so the draft does not survive as a
+     * duplicate and the post slot is spent exactly once — here, by `create`,
+     * rather than at save time. The commentary and media still come from the
+     * request, because the user may have edited since the draft was loaded. */
+    draftId: z.string().min(1).optional(),
+  })
+  .refine(carriesOneMedium, MEDIA_EXCLUSIVE_ERROR);
 export type PublishPostValues = z.infer<typeof publishPostSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: saveDraftSchema, SaveDraftValues
+ *
+ * WHAT:  Input contract for saving a post the user is not ready to commit to.
+ * WHY:   Deliberately NOT publishPostSchema: a draft has no `scheduledFor` (an
+ *        unpublished post has no date, and accepting one here would create a
+ *        queued post the worker publishes without the user ever pressing
+ *        Publish) and no connected-account requirement.
+ *
+ *        `postId` present ⇒ update that draft, absent ⇒ create one. One verb for
+ *        both because it is ONE user action — pressing Save repeatedly must not
+ *        litter the library with copies — and neither branch touches the quota.
+ * WHERE: Router input for linkedinPosts.draft; called by the composer's Save
+ *        draft button.
+ */
+export const saveDraftSchema = postContentSchema
+  .extend({
+    postId: z.string().min(1).optional(),
+  })
+  .refine(carriesOneMedium, MEDIA_EXCLUSIVE_ERROR);
+export type SaveDraftValues = z.infer<typeof saveDraftSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: discardDraftSchema
+ *
+ * WHAT:  Identifies a draft to throw away.
+ * WHY:   Separate from deletePostSchema because the VERB is what matters, not the
+ *        shape: `delete` decrements the post counter and `discard` does not, and
+ *        a draft never spent a slot to refund. Same split as carousel.discard.
+ */
+export const discardDraftSchema = z.object({
+  postId: z.string().min(1),
+});
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: getPostSchema
+ *
+ * WHAT:  Identifies one post row to read back.
+ * WHERE: Router input for linkedinPosts.get; used by the composer to load a
+ *        draft from `?draftId=`.
+ */
+export const getPostSchema = z.object({
+  postId: z.string().min(1),
+});
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: postStatusSchema, listLibraryPostsSchema,
+ *   ListLibraryPostsValues
+ *
+ * WHAT:  Paging, status filter and text search for the post library.
+ * WHY:   Paged rather than range-bounded, unlike the calendar: a library grows
+ *        without limit and a draft has no date to bound it by. `status` is
+ *        validated against the union so the filter can never be a raw string the
+ *        database has to interpret, and `search` is capped because it becomes a
+ *        `contains` — an unbounded term is a free table scan.
+ * WHERE: Router input for linkedinPosts.listLibrary.
+ */
+export const postStatusSchema = z.enum(LINKEDIN_POST_STATUSES);
+
+export const listLibraryPostsSchema = z.object({
+  /* page / pageSize are read by the factory's `paginate` option, which clamps
+   * them — see resolvePaginationFor. Declared optional here so the client may
+   * omit both and take the defaults. */
+  page: z.number().int().positive().optional(),
+  pageSize: z.number().int().positive().optional(),
+  status: postStatusSchema.optional(),
+  search: z.string().trim().max(200).optional(),
+});
+export type ListLibraryPostsValues = z.infer<typeof listLibraryPostsSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: listPostsSchema

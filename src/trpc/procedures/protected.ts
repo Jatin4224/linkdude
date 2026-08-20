@@ -30,7 +30,16 @@ import superjson from "superjson";
 import { headers } from "next/headers";
 import type { Context } from "../init";
 import { createStructuredError } from "../init";
-import { ERROR_CODES, type StructuredErrorCause } from "@/lib/errors";
+import {
+  ERROR_CODES,
+  SANITIZED_ERROR_CODES,
+  SANITIZED_ERROR_MESSAGES,
+  createTraceId,
+  isStructuredErrorCause,
+  isUserFacingError,
+  logRawError,
+  type StructuredErrorCause,
+} from "@/lib/errors";
 import {
   apiLimiter,
   checkRateLimit,
@@ -69,8 +78,74 @@ import { getRequestForensics } from "@/lib/request-forensics";
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
+  /**
+   * SOURCE OF TRUTH KEYWORDS: errorFormatter, redaction net, sanitize, leak,
+   *   traceId, INTERNAL_SERVER_ERROR, StructuredErrorCause
+   *
+   * WHAT:  Attaches the structured cause to every error envelope AND, in
+   *        production, replaces the message of any UNHANDLED internal error with
+   *        generic copy plus a trace id.
+   * WHY:   Routers are supposed to catch through toProcedureError, but "supposed
+   *        to" is not a guarantee — one forgotten try/catch anywhere in the app
+   *        would put a raw provider or Prisma message on a user's screen. This
+   *        is the backstop that makes that impossible rather than unlikely: an
+   *        INTERNAL_SERVER_ERROR with no structured cause is BY DEFINITION an
+   *        unplanned throw, so its message was written by a vendor, not by us.
+   *        Deliberately production-only — locally the raw message is the fastest
+   *        path to a fix, and there is no user to leak it to.
+   * WHERE: The single tRPC instance every procedure and router is built from.
+   */
   errorFormatter({ shape, error }) {
-    return { ...shape, data: { ...shape.data, cause: error.cause } };
+    if (isStructuredErrorCause(error.cause)) {
+      return { ...shape, data: { ...shape.data, cause: error.cause } };
+    }
+
+    /* An authored message that reached here uncaught is still authored — the
+     * allowlist is about WHO WROTE the string, not about which layer caught it,
+     * so redacting it would only make the app less useful without making it
+     * safer. tRPC puts the original throw on `cause` when it wraps a plain Error. */
+    if (isUserFacingError(error.cause)) {
+      const traceId = createTraceId();
+      const cause: StructuredErrorCause = {
+        errorCode: error.cause.errorCode,
+        message: error.cause.message,
+        retryable: error.cause.retryable,
+        traceId,
+      };
+      logRawError(traceId, shape.data.path ?? "unknown", cause.errorCode, error.cause);
+      return { ...shape, message: cause.message, data: { ...shape.data, cause } };
+    }
+
+    const isUnhandledInternal =
+      error.code === "INTERNAL_SERVER_ERROR" &&
+      process.env.NODE_ENV === "production";
+
+    if (!isUnhandledInternal) {
+      return { ...shape, data: { ...shape.data, cause: error.cause } };
+    }
+
+    /* Logged here rather than trusting an upstream log: this branch exists
+     * precisely for throws nobody handled, so nothing else has recorded it. */
+    const traceId = createTraceId();
+    logRawError(
+      traceId,
+      shape.data.path ?? "unknown",
+      SANITIZED_ERROR_CODES.INTERNAL_ERROR,
+      error.cause ?? error,
+    );
+
+    const cause: StructuredErrorCause = {
+      errorCode: SANITIZED_ERROR_CODES.INTERNAL_ERROR,
+      message: SANITIZED_ERROR_MESSAGES.INTERNAL_ERROR,
+      traceId,
+      retryable: false,
+    };
+
+    return {
+      ...shape,
+      message: cause.message,
+      data: { ...shape.data, cause },
+    };
   },
   /* SSE numbers are tRPC defaults: survive proxy idle timeouts (~30s) while
    * staying under serverless hard caps (~10min). */

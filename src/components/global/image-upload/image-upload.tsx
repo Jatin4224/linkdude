@@ -29,6 +29,8 @@ import * as React from "react";
 import { ImageIcon, Loader2Icon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import {
   imageKitUploadResponseSchema,
   type PostImageValues,
@@ -132,9 +134,7 @@ export function ImageUpload({
     try {
       onChange(await uploadToImageKit(file, await getAuthParams()));
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not upload the image.",
-      );
+      toast.error(getErrorMessage(error, "Could not upload the image."));
     } finally {
       setIsUploading(false);
     }
