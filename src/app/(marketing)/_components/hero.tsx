@@ -86,8 +86,9 @@ export function LandingHero() {
           </h1>
 
           <p className="max-w-xl text-pretty text-lg text-muted-foreground">
-            Turn a topic into a post worth reading, schedule it straight to
-            LinkedIn, and fix the profile people land on when it works.
+            Turn a topic into a post worth reading — or a swipeable carousel —
+            schedule it straight to LinkedIn, and fix the profile people land on
+            when it works.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -117,8 +118,9 @@ export function LandingHero() {
             <span className="font-medium text-foreground">Free forever:</span>{" "}
             {formatResourceAllowance("linkedinPosts", "free")} ·{" "}
             {formatResourceAllowance("aiGeneration", "free")} ·{" "}
-            {formatResourceAllowance("profileAnalysis", "free")} ·{" "}
-            {formatResourceAllowance("contentPlan", "free")}. No card required.
+            {formatResourceAllowance("carousel", "free")} ·{" "}
+            {formatResourceAllowance("profileAnalysis", "free")}. No card
+            required.
           </p>
         </Reveal>
 

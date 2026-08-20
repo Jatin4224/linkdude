@@ -6,10 +6,11 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: FeatureShowcase, MARKETING_FEATURES, RESOURCES,
- *   getNavIcon, sticky scroll, Reveal, MarketingSection, product surfaces
+ *   getNavIcon, sticky scroll, Reveal, MarketingSection, product surfaces,
+ *   SURFACE_COUNT, SURFACE_WORDS
  *
- * WHAT:  The product section — a pinned copy column beside four cards, one per
- *        shipped surface.
+ * WHAT:  The product section — a pinned copy column beside one card per shipped
+ *        surface, with the heading counting them.
  * WHY:   The card TITLE and ICON come from RESOURCES[resource], not from the
  *        copy file, so the name a visitor reads here is the exact label they
  *        will later click in the sidebar. The sticky column is pure CSS
@@ -35,6 +36,23 @@ import { Spotlight } from "@/components/global/spotlight";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+/* The heading counts the cards below it, so the number is DERIVED rather than
+ * typed into the copy: "Four surfaces" survived two new surfaces shipping,
+ * because a sentence in JSX is the one place nobody looks when adding a feature.
+ * Spelled out to match the prose around it; the numeral is the fallback so an
+ * unlisted length degrades to "7 surfaces" instead of rendering nothing. */
+const SURFACE_WORDS: Readonly<Record<number, string>> = {
+  3: "Three",
+  4: "Four",
+  5: "Five",
+  6: "Six",
+  7: "Seven",
+  8: "Eight",
+};
+
+const SURFACE_COUNT: string =
+  SURFACE_WORDS[MARKETING_FEATURES.length] ?? String(MARKETING_FEATURES.length);
+
 export function FeatureShowcase() {
   return (
     <MarketingSection id={MARKETING_SECTION_IDS.features}>
@@ -44,12 +62,12 @@ export function FeatureShowcase() {
             The product
           </p>
           <h2 className="text-pretty text-3xl font-semibold tracking-tight sm:text-4xl">
-            Four surfaces. One workflow.
+            {SURFACE_COUNT} surfaces. One workflow.
           </h2>
           <p className="text-pretty text-muted-foreground">
-            Plan the month, write the post, ship it on schedule, and fix the
-            profile it lands on. Each one is useful alone. Together they close
-            the loop.
+            Plan the month, write the post or the deck, ship it on schedule, and
+            fix the profile it lands on. Each one is useful alone. Together they
+            close the loop.
           </p>
           <Button
             variant="brand"

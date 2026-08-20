@@ -569,22 +569,45 @@ The ordering `txTimeout > generation timeout` is the same relationship [doc 15](
 
 `isAiConfigured()` is checked **before** the quota is spent.
 
-The model call is wrapped, because the dominant real-world failure is vendor capacity:
+The model call is wrapped, because the dominant real-world failure is vendor capacity — a Gemini "this model is currently experiencing high demand" was the first error this feature hit in anger.
+
+An earlier version of this router matched that with a local regex and built its own `TRPCError`. It has since been replaced by a shared classifier:
 
 ```ts
-const isCapacity = /high demand|overloaded|currently unavailable|try again later|503|UNAVAILABLE|rate.?limit|quota/i.test(raw)
-
-throw new TRPCError({
-  code: isCapacity ? 'TOO_MANY_REQUESTS' : 'INTERNAL_SERVER_ERROR',
-  message: isCapacity
-    ? 'The AI model is busy right now. Nothing was used from your plan — try again in a minute.'
-    : /* … */,
-})
+try {
+  slides = await aiService.generateCarouselSlides(input)
+} catch (error) {
+  /* Classification, status and the trace id all come from the one classifier —
+   * the local regexes this replaced diverged from the copies in the other AI
+   * routers and passed the raw vendor message straight to the toast whenever
+   * nothing matched. Only the deck-specific wording is still decided here,
+   * because "fewer slides" is advice no generic handler could give. */
+  throw toProcedureError(error, {
+    context: 'carousel.create',
+    fallbackMessage: 'The carousel generation failed. Please try again.',
+    messages: {
+      AI_OUTPUT_UNUSABLE:
+        "The model returned a deck that didn't fit the slide limits. Try a narrower topic or fewer slides.",
+    },
+  })
+}
 ```
 
-`TOO_MANY_REQUESTS`, not a 500, because this is a **retryable upstream condition** and typing it correctly is what stops it being reported as a bug in the deck. The claim about the plan is true: the usage counter increments *inside* the transaction, so a failed generation rolls it back.
+**Why the regex went away.** Four AI routers had each grown their own copy of "is this a quota error?", and the copies had drifted. Worse, every one of them ended in `message: raw` — so any failure the regex missed handed the vendor's own wording to a toast. `src/lib/errors/` now owns that decision:
 
-Message matching is normally a bug — [doc 12](./12-calendar-and-scheduled-posts.md) says so. It is used here for the reason doc 15 gives: the SDK wraps the provider error and the structured code does not survive the round trip.
+| Piece | Job |
+|---|---|
+| `SANITIZED_ERROR_CODES` | The closed vocabulary: `AI_QUOTA_EXHAUSTED`, `AI_PROVIDER_UNAVAILABLE`, `AI_CONTENT_REJECTED`, `AI_OUTPUT_UNUSABLE`, `UPSTREAM_UNAVAILABLE`, `INTERNAL_ERROR` |
+| `classifyError(error, opts)` | Raw error → `{ trpcCode, code, message, traceId }` |
+| `toProcedureError(error, opts)` | The same, already wrapped in a `TRPCError` — what routers throw |
+| `safeMessage(error, ctx, fallback)` | One sanitized string, for the narrow spots that only need that |
+| `logRawError` / `createTraceId` | The raw text goes to the log under a trace id; the user gets the code |
+
+The `messages` option is the extension point: a router overrides the wording for the codes it can say something specific about, and inherits the rest. `AI_OUTPUT_UNUSABLE` is the only one carousel overrides, because "try fewer slides" is advice no generic handler could produce.
+
+**What survived the refactor unchanged:** a capacity failure still classifies to `TOO_MANY_REQUESTS`, not a 500, because it is a **retryable upstream condition** and typing it correctly is what stops it being reported as a bug in the deck. And the reassurance is still true — the usage counter increments *inside* the transaction, so a failed generation rolls it back and costs nothing.
+
+> Message matching is normally a bug — [doc 12](./12-calendar-and-scheduled-posts.md) says so, and [doc 15](./15-ai-edit-image.md) admits doing it anyway because the SDK wraps the provider error and the structured code does not survive the round trip. The classifier does not make that problem disappear; it **contains** it. The matching now lives in one file, is tested in one place, and every path that misses falls through to a sanitized `INTERNAL_ERROR` plus a trace id instead of to the vendor's raw prose.
 
 ### `carousel.render` — remote first, then the write
 
@@ -602,15 +625,32 @@ if (supersededFileId) await imagekitService.deleteImage(supersededFileId)
 
 ```ts
 } catch (error) {
+  /* Classified BEFORE the write, not after the throw, because the same
+   * sanitized string has to serve both — the persisted one is rendered in the
+   * deck list, so storing the raw error here would leak it on the next page
+   * load even though the toast was clean. The trace id rides along so a failure
+   * a user reports days later still maps to a log line. */
+  const { trpcCode, ...cause } = classifyError(error, {
+    context: 'carousel.render',
+    fallbackMessage: 'The carousel render failed. Please try again.',
+  })
+  const message = `${cause.message} (ref: ${cause.traceId})`
+
   /* DELIBERATELY NOT ctx.db. Every mutation here runs inside the factory's
    * transaction, and the rethrow below rolls it back — a failure written with
    * the tx client would be erased by the very throw that reports it. */
   await carouselService.markCarouselFailed(input.organizationId, input.id, message)
-  throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message })
+  throw new TRPCError({ code: trpcCode, cause, message })
 }
 ```
 
-Omitting the `db` argument uses the service's default (non-transactional) client. This is the **one** place in the router that must escape the transaction, and the first version of this code got it wrong — it passed `ctx.db`, so the `failed` status was rolled back by the same throw that reported it.
+Two separate lessons are encoded in that block, and both were learned the hard way.
+
+**The `db` argument is omitted on purpose.** Omitting it uses the service's default (non-transactional) client. This is the **one** place in the router that must escape the transaction, and the first version of this code got it wrong — it passed `ctx.db`, so the `failed` status was rolled back by the very throw that reported it. The status never persisted and nobody noticed until a render failed for real.
+
+**`classifyError` is called before the write, not `toProcedureError` after it.** `carousel.render` is the only place in the feature that *persists* an error message, and `Carousel.lastError` is rendered back into the deck list. A raw vendor string stored there would leak on the next page load even though the toast the user saw was clean — so the sanitized message is produced once and used for both the column and the response. The trace id is appended to the stored copy specifically so a failure reported days later still maps to a log line.
+
+That is also why this branch uses the lower-level `classifyError` while `create` uses `toProcedureError`: the latter returns a ready-made `TRPCError`, which is exactly right when you only need to throw, and one step too far when you need the message twice.
 
 ### `documents.delete` — the guard that protects the worker
 
@@ -914,6 +954,8 @@ SELECT * FROM usage_metrics WHERE "organizationId" = '<your org id>';
 | `.length()` on the model's slide array | A 6-slide answer is discarded whole; the org already paid | Count in the prompt, bounds in the schema |
 | `AI_MAX_TOKENS` (4096) for a deck | Truncates mid-array; reported as a schema mismatch | `CAROUSEL_GENERATION_MAX_TOKENS` |
 | `markCarouselFailed(..., ctx.db)` | The rethrow rolls back the very failure it reports | Omit `db` so it escapes the transaction |
+| A local `isCapacity` regex per router | Copies drift, and every miss hands the raw vendor string to a toast | `toProcedureError` / `classifyError` from `@/lib/errors` |
+| Storing the raw error in `lastError` | The deck list leaks it on the next page load, even though the toast was clean | Classify first, persist the sanitized message |
 | Forgetting `supersededFileId` | Every re-render leaks a `Document` row and an ImageKit asset | Return it; delete after commit |
 | `<a download>` on the ImageKit URL | Ignored cross-origin — opens in a tab instead of saving | `buildAttachmentUrl()` |
 | Fire-and-forget `invalidate()` after render | Download button points at the deleted previous file → 404 | `await` it before the toast |
@@ -1008,6 +1050,14 @@ next.config.ts                          + outputFileTracingIncludes for the font
 .../post-generation/_components/post-composer.tsx   imports the lifted date helpers
 package.json                            + pdf-lib
 ```
+
+**Depends on, but did not create:** `src/lib/errors/` — added by a later cross-cutting refactor that
+replaced the per-router error regexes in `carousel`, `linkedin-posts`, `ai-image-edit`, `content-plan`
+and `profile-analysis` with a single classifier. See [Step 6](#step-6--routers).
+
+**See also:** [17 — Drafts and the post library](./17-drafts-and-post-library.md). It adds `draftId` to
+`publishPostSchema` and a `draft` status to `LinkedInPost`, so a carousel can be saved as a draft and
+published later through the same path described in [Step 8](#step-8--phase-2-publishing-to-linkedin).
 
 ---
 

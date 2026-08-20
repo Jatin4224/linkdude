@@ -39,7 +39,10 @@ export function FreeTierStats() {
           className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(to_right,transparent,var(--brand),transparent)] opacity-70"
         />
 
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-y-8 px-6 py-12 md:grid-cols-4 md:gap-y-0 md:divide-x">
+        {/* 2 / 3 / 6 — every breakpoint divides the six tiles evenly, so no row
+            ever strands a lone number. `md:divide-x` only reads correctly while
+            the tiles are on one line, hence it arrives with the 6-up column. */}
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-y-8 px-6 py-12 md:grid-cols-3 md:gap-y-10 lg:grid-cols-6 lg:gap-y-0 lg:divide-x">
           {MARKETING_FREE_TIER_RESOURCES.map((resource) => {
             const raw = getRawResourceLimit(resource, "free");
             return (

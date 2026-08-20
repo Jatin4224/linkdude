@@ -34,10 +34,10 @@ import {
   ProblemCards,
 } from "./_components";
 
-const TITLE = `${APP_NAME} — AI LinkedIn posts, scheduled and on-brand`;
+const TITLE = `${APP_NAME} — AI LinkedIn posts and carousels, scheduled and on-brand`;
 
 const DESCRIPTION =
-  "Turn a topic into a LinkedIn post worth reading, schedule it straight to LinkedIn, and fix the profile it lands on. Free tier, no card required.";
+  "Turn a topic into a LinkedIn post or a swipeable carousel, save it as a draft or schedule it straight to LinkedIn, and fix the profile it lands on. Free tier, no card required.";
 
 export const metadata: Metadata = {
   /* `absolute` bypasses the root layout's "%s — <app>" template: a homepage

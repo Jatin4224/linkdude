@@ -87,7 +87,10 @@ export const MARKETING_NAV: readonly MarketingNavItem[] = [
 /**
  * SOURCE OF TRUTH KEYWORDS: MarketingFeature, MARKETING_FEATURES
  *
- * WHAT:  The four product surfaces the landing page sells, in order.
+ * WHAT:  The product surfaces the landing page sells, in order. The COUNT is
+ *        never restated in prose anywhere — FeatureShowcase spells this array's
+ *        length out in its own heading, so adding a card here updates the copy
+ *        rather than contradicting it.
  * WHY:   Each entry carries only the PITCH. The heading and the icon come from
  *        `RESOURCES[resource].name` / `.nav.icon` at render time, so the card
  *        and the sidebar item a customer later clicks always agree. `proof` is
@@ -106,7 +109,21 @@ export const MARKETING_FEATURES: readonly MarketingFeature[] = [
     resource: "linkedinPosts",
     headline: "A post, not a first draft",
     body: "Type a topic. Get it back written in your voice, with a hook built to earn the “see more” click — then edit it and publish, or queue it for Tuesday at 9am.",
-    proof: "Publishes over LinkedIn OAuth. Attach an image or don't.",
+    proof:
+      "Publishes over LinkedIn OAuth. Crop the image you attach, or describe the change and let AI redraw it.",
+  },
+  {
+    resource: "carousel",
+    headline: "Slide decks that stop the scroll",
+    body: "Type a topic, pick a length and a template, and get the whole deck back — cover, content slides, close. Edit any line, render it to a real PDF, and publish it as a swipeable LinkedIn document.",
+    proof:
+      "Three to twelve slides, three templates. Re-rendering an edited deck is free.",
+  },
+  {
+    resource: "postLibrary",
+    headline: "Nothing you wrote gets lost",
+    body: "Every draft, scheduled post, published post and failed one in a single list. Save a half-finished thought, and pick it up in the composer on the day it finally lands.",
+    proof: "Drafts cost nothing — you only spend a post when you publish it.",
   },
   {
     resource: "contentCalendar",
@@ -169,7 +186,7 @@ export const MARKETING_STEPS: readonly MarketingStep[] = [
   },
   {
     title: "Write and ship",
-    body: "Generate, edit, publish now — or drop it on the calendar.",
+    body: "Post or deck. Publish now, drop it on the calendar, or save it as a draft.",
   },
 ];
 
@@ -188,6 +205,21 @@ export const MARKETING_FAQ: readonly MarketingFaqItem[] = [
     question: "Will it sound like me, or like AI?",
     answer:
       "You see every draft in the composer before anything leaves your account, and you edit it there. The strategy behind the drafts is built from your own profile and your own answers, so the starting point is already closer to your voice than a blank box is.",
+  },
+  {
+    question: "Can it make carousels?",
+    answer:
+      "Yes, and as a real one. You give it a topic and a slide count, it writes the whole deck, and you edit any line you don't like. The app then renders it to an actual PDF and publishes it through LinkedIn's document API, which is what makes a deck swipeable in the feed rather than a strip of images. Three templates, three to twelve slides. Only the generation counts against your plan — re-rendering an edited deck is free.",
+  },
+  {
+    question: "Can I save a post and finish it later?",
+    answer:
+      "Yes, and a draft costs you nothing. Saving never touches your post allowance — you only spend a post at the moment you publish or schedule one. Drafts, scheduled posts, published posts and anything that failed all sit in one library, and opening a draft drops it straight back into the composer where you left it.",
+  },
+  {
+    question: "Can I change the image on a post?",
+    answer:
+      "You can crop and adjust anything you upload, or describe the change you want in plain English and let the model redraw the image for you. The result appears beside the original and only replaces your attachment once you accept it, so a generation you didn't want never overwrites your photo — and the original stays one click away.",
   },
   {
     question: "What happens when I hit a plan limit?",
@@ -262,7 +294,13 @@ export interface MarketingMatrixGroup {
 export const MARKETING_MATRIX_GROUPS: readonly MarketingMatrixGroup[] = [
   {
     label: "Create & publish",
-    resources: ["linkedinPosts", "aiGeneration", "contentPlan"],
+    resources: [
+      "linkedinPosts",
+      "aiGeneration",
+      "aiImageEdit",
+      "carousel",
+      "contentPlan",
+    ],
   },
   {
     label: "Profile intelligence",
@@ -281,14 +319,19 @@ export const MARKETING_MATRIX_GROUPS: readonly MarketingMatrixGroup[] = [
 export const MARKETING_PLAN_BULLET_RESOURCES = [
   "linkedinPosts",
   "aiGeneration",
+  "carousel",
   "profileAnalysis",
   "member",
 ] as const satisfies readonly LimitResourceKey[];
 
-/* The numbers the free-tier band shows. */
+/* The numbers the free-tier band shows. Six, and the band grids them 2/3/6 —
+ * keep any change to this list on a length that divides evenly, or the last row
+ * strands a lone tile. */
 export const MARKETING_FREE_TIER_RESOURCES = [
   "linkedinPosts",
   "aiGeneration",
+  "carousel",
+  "aiImageEdit",
   "profileAnalysis",
   "contentPlan",
 ] as const satisfies readonly LimitResourceKey[];
