@@ -55,6 +55,33 @@
   --brand-border: oklch(0.88 0.045 252);
 
   /*
+   * SOURCE OF TRUTH KEYWORDS: acid, acid-dim, acid-soft, acid-foreground, rail,
+   *   dim, brand-lift, landing accent, marketing accent, --color-acid, text-acid,
+   *   bg-acid, border-rail, text-dim, structural hairline, editorial grid
+   * WHAT:  The landing page's accent ramp (a lifted step above --brand) plus the
+   *        two neutrals its editorial grid is drawn with — `rail` for structural
+   *        hairlines and `dim` for mono metadata.
+   * WHY:   The marketing page needs an accent BRIGHTER than --brand: brand blue
+   *        is tuned to sit calmly beside app content, and on a near-black
+   *        editorial layout it disappears into the background instead of leading
+   *        the eye. `acid` is that same hue pushed up in lightness, so the two
+   *        stay one family and a rebrand still moves everything at once.
+   *        `rail` is deliberately DARKER than --border: --border outlines panels
+   *        the reader is meant to notice, while rail draws the page's underlying
+   *        grid, which should register as structure rather than as boxes. `dim`
+   *        sits between --muted-foreground and the background for the mono
+   *        labels that must be legible without competing with body copy.
+   * WHERE: src/app/(marketing)/_components/*, the marketing navbar and footer.
+   */
+  --brand-lift: oklch(0.62 0.15 252);
+  --acid: oklch(0.52 0.15 252);
+  --acid-dim: oklch(0.45 0.14 252);
+  --acid-soft: oklch(0.94 0.03 252);
+  --acid-foreground: oklch(0.99 0 0);
+  --rail: oklch(0.93 0 0);
+  --dim: oklch(0.58 0 0);
+
+  /*
    * SOURCE OF TRUTH KEYWORDS: ai, ai-foreground, ai-hover, generative accent,
    *   --color-ai, bg-ai, Button ai variant, sparkle, AI edit, orange accent
    * WHAT:  The generative-AI accent — a bright orange fill with a hover step and
@@ -90,6 +117,10 @@
    * sizes on the landing page. */
   --font-sans: var(--font-geist-sans), Geist, sans-serif;
   --font-serif: Georgia, serif;
+  /* The landing pages display accent face. Instrument Serif is only ever used
+   * ITALIC, as the second half of a two-part heading, so the Georgia fallback
+   * keeps that role rather than silently turning the clause upright. */
+  --font-display: var(--font-instrument-serif), Georgia, serif;
   --font-mono: var(--font-geist-mono), Geist Mono, monospace;
   --radius: 0.5rem;
   --shadow-x: 0px;
@@ -147,6 +178,18 @@
   --brand-soft-foreground: oklch(0.8 0.09 252);
   --brand-border: oklch(0.34 0.06 252);
 
+  /* The shipped values (dark is forcedTheme). See the :root block for why this
+   * ramp exists alongside --brand. `acid` is bright enough to carry a filled
+   * button with dark text on it, which is what makes the landing CTA read as the
+   * one thing on the page you are meant to press. */
+  --brand-lift: oklch(0.68 0.15 252);
+  --acid: oklch(0.74 0.145 252);
+  --acid-dim: oklch(0.62 0.15 252);
+  --acid-soft: oklch(0.25 0.055 252);
+  --acid-foreground: oklch(0.12 0.03 252);
+  --rail: oklch(0.175 0 0);
+  --dim: oklch(0.52 0 0);
+
   /* Pushed brighter than light mode: on a near-black card the same orange looks
    * muddy, and this fill is meant to be the loudest thing in its row. */
   --ai: oklch(0.76 0.175 60);
@@ -173,6 +216,10 @@
    * sizes on the landing page. */
   --font-sans: var(--font-geist-sans), Geist, sans-serif;
   --font-serif: Georgia, serif;
+  /* The landing pages display accent face. Instrument Serif is only ever used
+   * ITALIC, as the second half of a two-part heading, so the Georgia fallback
+   * keeps that role rather than silently turning the clause upright. */
+  --font-display: var(--font-instrument-serif), Georgia, serif;
   --font-mono: var(--font-geist-mono), Geist Mono, monospace;
   --radius: 0.5rem;
   --shadow-x: 0px;
@@ -222,6 +269,13 @@
   --color-brand-soft: var(--brand-soft);
   --color-brand-soft-foreground: var(--brand-soft-foreground);
   --color-brand-border: var(--brand-border);
+  --color-brand-lift: var(--brand-lift);
+  --color-acid: var(--acid);
+  --color-acid-dim: var(--acid-dim);
+  --color-acid-soft: var(--acid-soft);
+  --color-acid-foreground: var(--acid-foreground);
+  --color-rail: var(--rail);
+  --color-dim: var(--dim);
   --color-ai: var(--ai);
   --color-ai-foreground: var(--ai-foreground);
   --color-ai-hover: var(--ai-hover);
@@ -242,6 +296,7 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
+  --font-display: var(--font-display);
 
   /*
    * SOURCE OF TRUTH KEYWORDS: --ease-out, --ease-in-out, --ease-drawer, easing,
@@ -290,8 +345,8 @@
 }
 
 /*
- * SOURCE OF TRUTH KEYWORDS: bg-brand-glow, bg-grid-lines, border-hairline-gradient,
- *   text-gradient-brand, mask-fade-x, animate-marquee, data-reveal, Reveal,
+ * SOURCE OF TRUTH KEYWORDS: bg-brand-glow, bg-grid-lines, bg-grain, aurora-blob,
+ *   animate-ticker, marquee-scroll, data-reveal, Reveal,
  *   marketing utilities, prefers-reduced-motion
  * WHAT:  The presentation-only utilities the marketing surfaces compose from —
  *        a brand radial glow, a fading grid backdrop, a gradient hairline
@@ -334,49 +389,6 @@
       oklch(0 0 0) 0%,
       transparent 100%
     );
-  }
-
-  .mask-fade-x {
-    mask-image: linear-gradient(
-      to right,
-      transparent 0%,
-      oklch(0 0 0) 10%,
-      oklch(0 0 0) 90%,
-      transparent 100%
-    );
-  }
-
-  /* A real 1px gradient border: the ::before paints the gradient, then the
-   * two-layer mask punches out everything except the padding ring. */
-  .border-hairline-gradient {
-    position: relative;
-  }
-  .border-hairline-gradient::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    padding: 1px;
-    border-radius: inherit;
-    background: linear-gradient(
-      to bottom right,
-      color-mix(in oklch, var(--brand) 60%, transparent),
-      transparent 55%
-    );
-    mask:
-      linear-gradient(oklch(0 0 0) 0 0) content-box,
-      linear-gradient(oklch(0 0 0) 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-
-  .text-gradient-brand {
-    background: linear-gradient(
-      to bottom right,
-      var(--foreground) 30%,
-      color-mix(in oklch, var(--brand) 85%, var(--foreground))
-    );
-    background-clip: text;
-    color: transparent;
   }
 
   /* Film grain. An inline SVG feTurbulence rather than a PNG: it is ~200 bytes,
@@ -434,44 +446,6 @@
     animation: aurora-drift-b 27s ease-in-out infinite;
   }
 
-  /* Rotating conic ring for the highlighted plan. Same masked-::before trick as
-   * border-hairline-gradient, but the gradient itself turns — one moving
-   * element on the page, reserved for the thing we want looked at. */
-  @property --conic-angle {
-    syntax: "<angle>";
-    initial-value: 0deg;
-    inherits: false;
-  }
-  @keyframes conic-spin {
-    to {
-      --conic-angle: 360deg;
-    }
-  }
-  .border-conic-brand {
-    position: relative;
-  }
-  .border-conic-brand::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    padding: 1px;
-    border-radius: inherit;
-    background: conic-gradient(
-      from var(--conic-angle),
-      transparent 0deg,
-      var(--brand) 60deg,
-      color-mix(in oklch, var(--brand) 30%, transparent) 130deg,
-      transparent 200deg,
-      transparent 360deg
-    );
-    mask:
-      linear-gradient(oklch(0 0 0) 0 0) content-box,
-      linear-gradient(oklch(0 0 0) 0 0);
-    mask-composite: exclude;
-    animation: conic-spin 6s linear infinite;
-    pointer-events: none;
-  }
-
   /* Pointer-tracked glow. --spot-x/--spot-y are written on THIS element by the
    * Spotlight component, never on a shared parent — a variable on a parent
    * restyles every child on each pointer move. */
@@ -482,9 +456,14 @@
     border-radius: inherit;
     opacity: 0;
     transition: opacity 200ms var(--ease-out);
+    /* Size and tint are variables so one utility serves both call sites: the
+       app-surface cards keep the brand default, while the landing page's demo
+       frame — a much larger surface, where an 18rem pool reads as a smudge —
+       passes a wider radius and the accent hue. Fallbacks mean every existing
+       caller is untouched. */
     background: radial-gradient(
-      18rem circle at var(--spot-x, 50%) var(--spot-y, 50%),
-      color-mix(in oklch, var(--brand) 12%, transparent),
+      var(--spot-size, 18rem) circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      var(--spot-color, color-mix(in oklch, var(--brand) 12%, transparent)),
       transparent 70%
     );
     pointer-events: none;
@@ -508,34 +487,6 @@
     animation: sheen-sweep 5.5s var(--ease-in-out) infinite;
   }
 
-  /* Draws an SVG path on: the dash pattern starts fully offset and unwinds. */
-  .draw-line {
-    stroke-dasharray: var(--draw-length, 1000);
-    stroke-dashoffset: var(--draw-length, 1000);
-    transition: stroke-dashoffset 1.4s var(--ease-in-out);
-  }
-  [data-reveal="shown"] .draw-line,
-  .draw-line[data-drawn="true"] {
-    stroke-dashoffset: 0;
-  }
-
-  /* The charge running along the connector. A 70-unit lit segment inside an
-   * 830-unit gap, so exactly one pulse is on the wire at a time; the cycle
-   * length equals the path length, which is what makes the loop seamless.
-   * linear, because a charge travelling a wire has no reason to ease. */
-  .animate-spark {
-    stroke-dasharray: 70 830;
-    animation: spark-run 3.4s linear infinite;
-  }
-  @keyframes spark-run {
-    from {
-      stroke-dashoffset: 900;
-    }
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-
   /*
    * SOURCE OF TRUTH KEYWORDS: surface-raised, elevated card, top edge highlight,
    *   card gradient, premium surface
@@ -547,7 +498,9 @@
    *        source, which is what separates a panel from a hole. Built entirely
    *        from color-mix over existing tokens, so it re-themes with everything
    *        else. Uses ::before, leaving ::after free for the Spotlight glow.
-   * WHERE: The marketing feature cards, problem cards and pricing cards.
+   * WHERE: The dashboard panels (usage summary, quick actions, activity) and the
+   *        auth shell. The marketing cards that used to share it now carry their
+   *        own bento/pricing surfaces.
    */
   .surface-raised {
     position: relative;
@@ -584,8 +537,207 @@
     }
   }
 
-  .animate-marquee {
-    animation: marquee-scroll 42s linear infinite;
+  /*
+   * SOURCE OF TRUTH KEYWORDS: bg-brand-halo, animate-halo, bg-scanlines,
+   *   animate-scanline, bg-dot-grid, animate-ticker, animate-pulse-dot,
+   *   animate-caret, animate-shimmer, animate-line-in, text-stroke-acid,
+   *   mask-vignette, bubble-tail, halo-breathe, scanline-drift, caret-blink,
+   *   shimmer-pass, line-in, pulse-dot, landing page, marketing motion
+   * WHAT:  The presentation-only layer the redesigned landing page composes
+   *        from — the atmospheric halo, the CRT scanline and dot-grid backdrops,
+   *        the capability ticker, and the four loops the hero's app demo needs
+   *        (pulsing dot, typing caret, generating shimmer, post lines easing in).
+   * WHY:   Every one of these is a keyframe or a multi-declaration mask/gradient,
+   *        which is exactly the case the existing utilities layer above already
+   *        exists to hold — expressing them as arbitrary Tailwind values would
+   *        repeat unreadable class soup at a dozen call sites. Colours are theme
+   *        tokens or color-mix over them, so the page keeps zero hardcoded
+   *        colours. The `oklch(0 0 0)` inside mask-image is NOT a colour: a mask
+   *        reads only alpha, and that literal is the standard opaque carrier.
+   * WHERE: src/app/(marketing)/_components/* and the marketing navbar/footer.
+   */
+
+  /* The landing page's two layout constants, published as inherited custom
+   * properties on the outermost marketing element.
+   *
+   * They are variables rather than repeated arbitrary values because the design
+   * needs to do ARITHMETIC on the gutter, not just apply it: the hero's demo
+   * frame bleeds to the column edges with `-mx-(--gutter)`, and a bleed computed
+   * from a second copy of the clamp would drift out of alignment the moment
+   * either copy was edited. One declaration, and every section, the header row
+   * and the bleeding frame agree by construction. */
+  .landing-shell {
+    --gutter: clamp(20px, 3vw, 44px);
+    --section-y: clamp(64px, 8vw, 108px);
+  }
+
+  /* Atmospheric halo behind the hero. Breathes rather than sitting still so the
+   * top of the page has one slow-moving thing in it; the translateX(-50%) is
+   * repeated in every keyframe because a transform keyframe REPLACES the whole
+   * transform, and dropping it would slam the halo to the right. */
+  .bg-brand-halo {
+    background: radial-gradient(
+      40% 40% at 50% 50%,
+      color-mix(in oklch, var(--brand) 24%, transparent) 0%,
+      transparent 70%
+    );
+  }
+  @keyframes halo-breathe {
+    0%,
+    100% {
+      opacity: 0.65;
+      transform: translateX(-50%) scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: translateX(-50%) scale(1.07);
+    }
+  }
+  .animate-halo {
+    animation: halo-breathe 11s ease-in-out infinite;
+  }
+
+  /* CRT scanlines. `steps(3)` rather than a smooth translate: a continuously
+   * sliding line pattern reads as a rendering bug, a stepped one reads as a
+   * screen. */
+  .bg-scanlines {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      color-mix(in oklch, oklch(1 0 0) 3%, transparent) 0 1px,
+      transparent 1px 3px
+    );
+  }
+  @keyframes scanline-drift {
+    to {
+      transform: translateY(6px);
+    }
+  }
+  .animate-scanline {
+    animation: scanline-drift 1.6s steps(3) infinite;
+  }
+
+  /* The hero's dot grid, faded out from the top so it never reaches the copy. */
+  .bg-dot-grid {
+    background-image: radial-gradient(
+      color-mix(in oklch, oklch(1 0 0) 13%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 26px 26px;
+    mask-image: radial-gradient(
+      62% 55% at 50% 8%,
+      oklch(0 0 0) 0%,
+      transparent 100%
+    );
+  }
+
+  /* The capability ticker. Deliberately slow: a thin band of small type that
+   * moves quickly reads as something demanding to be caught up with, rather
+   * than as the ambient texture it is meant to be.
+   *
+   * REMOVED alongside this: .animate-marquee (42s), .mask-fade-x,
+   * .border-hairline-gradient, .text-gradient-brand, .border-conic-brand,
+   * .draw-line and .animate-spark. The landing page redesign was their only
+   * caller, and a utility nothing uses is a colour decision nobody can see. The
+   * marquee-scroll keyframes below stayed — this rule is what still drives
+   * them. */
+  .animate-ticker {
+    animation: marquee-scroll 46s linear infinite;
+  }
+
+  /* The "live" dot — on the logo, and on the hero's eyebrow pill. */
+  @keyframes pulse-dot {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+  .animate-pulse-dot {
+    animation: pulse-dot 2.2s ease-in-out infinite;
+  }
+
+  /* Text caret for the demo's typing phase. steps(1) so it snaps between on and
+   * off — a fading caret looks like a bug, not a cursor. */
+  @keyframes caret-blink {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+  .animate-caret {
+    animation: caret-blink 1.1s steps(1) infinite;
+  }
+
+  /* The sheen crossing the topic input while the model is "writing". Linear and
+   * unbroken, unlike .animate-sheen's one-pass-then-pause: this one is a
+   * progress signal, and a progress signal that stops looks stalled. */
+  @keyframes shimmer-pass {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(320%);
+    }
+  }
+  .animate-shimmer {
+    animation: shimmer-pass 1.1s linear infinite;
+  }
+
+  /* Each generated post line settling into place. The blur is what sells it as
+   * text resolving rather than a div fading in. */
+  @keyframes line-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+      filter: blur(3px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+  }
+  .animate-line-in {
+    animation: line-in 620ms var(--ease-out) both;
+    animation-delay: var(--line-delay, 0ms);
+  }
+
+  /* Outlined display numerals for the loop rows. A stroke rather than a low
+   * opacity fill: at 100px a faded solid numeral still reads as a heavy grey
+   * block, where an outline stays structural and lets the row breathe. */
+  .text-stroke-acid {
+    color: transparent;
+    -webkit-text-stroke: 1px color-mix(in oklch, var(--acid) 55%, transparent);
+  }
+
+  /* Fades the mascot's edges into the page instead of ending on a hard PNG
+   * boundary. Two radii because the closing CTA renders it larger. */
+  .mask-vignette {
+    mask-image: radial-gradient(
+      closest-side,
+      oklch(0 0 0) 74%,
+      transparent 100%
+    );
+  }
+  .mask-vignette-lg {
+    mask-image: radial-gradient(
+      closest-side,
+      oklch(0 0 0) 72%,
+      transparent 100%
+    );
+  }
+
+  /* The speech bubble's tail — a rotated square with two of its four shadow
+   * edges lit, so the "border" only appears on the outside of the corner. */
+  .bubble-tail {
+    background: color-mix(in oklch, var(--acid-soft) 62%, transparent);
+    box-shadow: 1px -1px 0 0 color-mix(in oklch, var(--acid) 26%, transparent);
   }
 
   /* Reveal's pre-enter state. The content is in the server HTML either way —
@@ -594,15 +746,44 @@
    * is if something interrupts, where a keyframe would restart from zero. */
   [data-reveal] {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(18px);
     transition:
-      opacity 600ms var(--ease-out),
-      transform 600ms var(--ease-out);
+      opacity 780ms var(--ease-out),
+      transform 780ms var(--ease-out);
     transition-delay: var(--reveal-delay, 0ms);
   }
-  [data-reveal="shown"] {
+  /* Two ways out of the hidden state, and BOTH are permanent. `shown` is the
+   * observer's normal path; `data-reveal-failsafe` is set by Reveal's timers
+   * when the observer never reported (see reveal.tsx). Separate attributes so a
+   * re-render that rewrites data-reveal can never take a revealed element back
+   * to invisible — the failure mode that blanks a page. */
+  [data-reveal="shown"],
+  [data-reveal-failsafe="true"] {
     opacity: 1;
     transform: none;
+  }
+
+  /* The CSS-only failsafe, and the reason a JS failure cannot blank this page.
+   *
+   * Reveal's effect stamps data-reveal-armed on mount, which REMOVES this rule.
+   * So: if the client bundle hydrates, the observer runs and the scroll reveal
+   * behaves normally. If it never does — a chunk 404s, an error throws before
+   * hydration, a browser refuses the bundle — nothing removes the rule and every
+   * hidden block resolves itself to visible after 4s regardless.
+   *
+   * <noscript> cannot cover this: the failure that matters is JS ENABLED but not
+   * ARRIVING, which noscript never fires for. A 1ms animation delayed 4s and
+   * filled forwards is the whole mechanism — it costs no main-thread work while
+   * it waits, and it ends on exactly the values [data-reveal="shown"] sets, so
+   * the two can never disagree about where an element finishes. */
+  @keyframes reveal-failsafe {
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  [data-reveal]:not([data-reveal-armed="true"]) {
+    animation: reveal-failsafe 1ms linear 4s forwards;
   }
 
   /* Last and equal-specificity, so it wins for BOTH reveal states: a
@@ -617,22 +798,30 @@
       transform: none;
       transition: none;
     }
-    .animate-marquee,
     .animate-aurora-a,
     .animate-aurora-b,
     .animate-sheen,
-    .animate-spark,
-    .border-conic-brand::before {
+    .animate-halo,
+    .animate-scanline,
+    .animate-ticker,
+    .animate-pulse-dot,
+    .animate-caret,
+    .animate-shimmer {
       animation: none;
     }
-    /* Without the running pulse the spark path would sit as one static dash, so
-     * hide it and leave the drawn track to carry the connection. */
-    .animate-spark {
-      display: none;
+    /* The post lines are CONTENT, so this one resolves to its finished state
+     * rather than being cancelled — `animation: none` on a `both`-filled
+     * entrance would leave them at the keyframe's opacity: 0. */
+    .animate-line-in {
+      animation: none;
+      opacity: 1;
+      transform: none;
+      filter: none;
     }
-    .draw-line {
-      stroke-dashoffset: 0;
-      transition: none;
+    /* Nothing is left to blink, so the caret would sit as a permanent bar next
+     * to text it no longer belongs to. */
+    .animate-caret {
+      opacity: 1;
     }
   }
 

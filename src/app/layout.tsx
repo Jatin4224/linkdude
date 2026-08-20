@@ -20,7 +20,7 @@
  */
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { BRANDING } from "@/lib/config";
@@ -49,6 +49,23 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/* SOURCE OF TRUTH KEYWORDS: Instrument_Serif, --font-instrument-serif,
+ *   --font-display, font-display, display accent, italic clause
+ *
+ * The landing page's display accent face. Loaded ITALIC ONLY because that is the
+ * only cut the design uses — every heading pairs an upright Geist clause with an
+ * italic serif one, and shipping the upright cut too would double the bytes for
+ * a style nothing renders. next/font self-hosts and preloads it, so it costs no
+ * third-party request and produces no layout shift. Resolved through
+ * --font-display in globals.css (Georgia italic is the fallback), which is what
+ * the `font-display` utility reads. */
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
+  style: "italic",
+});
+
 export const metadata: Metadata = {
   metadataBase: BRANDING.metadataBase,
   title: {
@@ -67,7 +84,12 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("h-full", geistSans.variable, geistMono.variable)}
+      className={cn(
+        "h-full",
+        geistSans.variable,
+        geistMono.variable,
+        instrumentSerif.variable,
+      )}
     >
       <body
         className="min-h-full flex flex-col antialiased"

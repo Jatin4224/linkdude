@@ -5,91 +5,81 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: FinalCta, GET_STARTED_HREF, GET_STARTED_LABEL,
- *   AUTH_ROUTES, BRAND_MASCOT, bg-brand-glow, bg-grid-lines, closing band
+ * SOURCE OF TRUTH KEYWORDS: FinalCta, MARKETING_CLOSING, LandingCtaPair,
+ *   AUTH_ROUTES, BRAND_MASCOT, formatResourceAllowance, mask-vignette-lg,
+ *   DisplayHeading, closing band
  *
- * WHAT:  The closing full-bleed band — one restated promise and the last CTA.
- * WHY:   A reader who scrolled this far has read the pricing table; the job here
- *        is to remove the last excuse, which is why the free-tier line repeats
- *        under the button rather than making them scroll back up for it. Reuses
- *        the hero's glow and grid so the page closes on the surface it opened on.
+ * WHAT:  The closing band — the mascot, one restated promise, and the last CTA.
+ * WHY:   A reader who scrolled this far has already been past pricing; the job
+ *        here is to remove the last excuse, which is why the free-tier line
+ *        repeats under the buttons rather than making them scroll back up for
+ *        it. Those numbers are read from RESOURCES, not typed — this is the
+ *        page's final promise and the one a reader is most likely to hold us to.
  * WHERE: src/app/(marketing)/page.tsx, last section before the footer.
  */
 
 import Image from "next/image";
-import Link from "next/link";
 
 import BRAND_MASCOT from "@/app/assets/images/linkdin-dude.png";
-import {
-  AUTH_ROUTES,
-  GET_STARTED_HREF,
-  GET_STARTED_LABEL,
-} from "@/lib/config";
+import { AUTH_ROUTES, MARKETING_CLOSING } from "@/lib/config";
 import { formatResourceAllowance } from "@/lib/resources";
+import { MarketingSection } from "@/components/global/marketing";
 import { Reveal } from "@/components/global/reveal";
-import { Button } from "@/components/ui/button";
+import { DisplayHeading } from "./display-heading";
+import { LandingCtaPair } from "./landing-cta";
 
 export function FinalCta() {
   return (
-    <section className="relative isolate overflow-hidden border-t">
+    <MarketingSection
+      flush
+      spacingClassName="py-[clamp(72px,9vw,124px)]"
+      className="overflow-hidden"
+    >
+      {/* Rises from below the fold rather than sitting behind the heading, so
+          the page closes on a glow instead of a hard edge against the footer. */}
       <div
         aria-hidden="true"
-        className="bg-grid-lines pointer-events-none absolute inset-0 -z-20 opacity-50"
-      />
-      <div
-        aria-hidden="true"
-        className="bg-brand-glow pointer-events-none absolute inset-x-0 -top-32 -z-10 h-120"
+        className="pointer-events-none absolute -bottom-80 left-1/2 -z-10 h-[620px] w-[1000px] -translate-x-1/2 bg-[radial-gradient(44%_44%_at_50%_50%,color-mix(in_oklch,var(--acid)_14%,transparent)_0%,transparent_70%)]"
       />
 
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 py-28 text-center">
+      <div className="flex flex-col items-center gap-7 text-center">
         <Reveal>
           <Image
             src={BRAND_MASCOT}
             alt=""
-            width={192}
-            height={192}
+            width={232}
+            height={232}
             aria-hidden="true"
-            className="mx-auto h-auto w-28 mask-[radial-gradient(closest-side,oklch(0_0_0)_72%,transparent_100%)]"
+            className="mask-vignette-lg h-auto w-[clamp(88px,9vw,116px)]"
           />
         </Reveal>
 
-        <Reveal delay={60} className="flex flex-col items-center gap-6">
-          <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-            Your next thirty posts are one conversation away.
-          </h2>
-          <p className="max-w-xl text-pretty text-muted-foreground">
-            Connect LinkedIn, answer a few questions, and leave with a month of
-            posts already on the calendar.
+        <Reveal delay={70}>
+          <DisplayHeading size="closing" heading={MARKETING_CLOSING.heading} />
+        </Reveal>
+
+        <Reveal delay={140}>
+          <p className="max-w-[34em] text-pretty text-base leading-[1.65] text-muted-foreground">
+            {MARKETING_CLOSING.body}
           </p>
+        </Reveal>
 
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button
-              variant="brand"
-              size="lg"
-              className="h-11 px-6 text-base"
-              nativeButton={false}
-              render={<Link href={GET_STARTED_HREF} />}
-            >
-              {GET_STARTED_LABEL}
-            </Button>
-            <Button
-              variant="ghost"
-              size="lg"
-              className="h-11 px-6 text-base"
-              nativeButton={false}
-              render={<Link href={AUTH_ROUTES.signIn} />}
-            >
-              Sign in
-            </Button>
-          </div>
+        <Reveal delay={210} className="mt-2">
+          <LandingCtaPair
+            secondaryLabel="Sign in"
+            secondaryHref={AUTH_ROUTES.signIn}
+            className="justify-center"
+          />
+        </Reveal>
 
-          <p className="text-xs text-muted-foreground">
+        <Reveal delay={280}>
+          <p className="font-mono text-[11.5px] text-dim">
             {formatResourceAllowance("linkedinPosts", "free")} and{" "}
-            {formatResourceAllowance("aiGeneration", "free")} a month on the free
-            plan. No card, no trial timer.
+            {formatResourceAllowance("aiGeneration", "free")} a month, free. No
+            card, no trial timer.
           </p>
         </Reveal>
       </div>
-    </section>
+    </MarketingSection>
   );
 }

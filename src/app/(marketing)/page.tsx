@@ -6,7 +6,8 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LandingPage, metadata, APP_NAME, LandingHero,
- *   FeatureShowcase, PricingSection, PlanComparisonTable, FaqSection, FinalCta
+ *   CapabilityTicker, FreeTierCounters, LoopSection, InsideBento,
+ *   PricingSection, FaqSection, FinalCta
  *
  * WHAT:  The public landing page at "/" — the running order of the pitch.
  * WHY:   A static server component. It reads no session, calls no tRPC procedure
@@ -15,6 +16,12 @@
  *        the whole reason "/" no longer forwards anyone: the route that used to
  *        live here was an auth probe, and signed-in users now reach the
  *        dashboard directly from the auth form's callback instead.
+ *
+ *        Six sections, in the order a sceptical reader asks their questions:
+ *        what is it (hero, with the product on screen rather than described),
+ *        what can it do (ticker), what does it cost to try (counters), how does
+ *        it work (the loop), what is actually in it (the bento), what does it
+ *        cost (pricing), and what am I still worried about (FAQ).
  * WHERE: Rendered inside src/app/(marketing)/layout.tsx.
  */
 
@@ -22,16 +29,14 @@ import type { Metadata } from "next";
 
 import { APP_NAME } from "@/lib/config";
 import {
-  CapabilityMarquee,
+  CapabilityTicker,
   FaqSection,
-  FeatureShowcase,
   FinalCta,
-  FreeTierStats,
-  HowItWorks,
+  FreeTierCounters,
+  InsideBento,
   LandingHero,
-  PlanComparisonTable,
+  LoopSection,
   PricingSection,
-  ProblemCards,
 } from "./_components";
 
 const TITLE = `${APP_NAME} — AI LinkedIn posts, scheduled and on-brand`;
@@ -63,13 +68,11 @@ export default function LandingPage() {
   return (
     <>
       <LandingHero />
-      <CapabilityMarquee />
-      <ProblemCards />
-      <FeatureShowcase />
-      <HowItWorks />
-      <FreeTierStats />
+      <CapabilityTicker />
+      <FreeTierCounters />
+      <LoopSection />
+      <InsideBento />
       <PricingSection />
-      <PlanComparisonTable />
       <FaqSection />
       <FinalCta />
     </>

@@ -4,172 +4,102 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-"use client";
-
 /**
  * SOURCE OF TRUTH KEYWORDS: MarketingNavbar, MARKETING_NAV, GET_STARTED_HREF,
- *   GET_STARTED_LABEL, PlatformLogo, AUTH_ROUTES, public navbar, sticky header,
- *   Sheet, mobile menu
+ *   GET_STARTED_LABEL, BrandMark, APP_NAME, AUTH_ROUTES, public navbar,
+ *   sticky header, nav pill, animate-pulse-dot, acid button
  *
- * WHAT:  The public site header — brand, in-page nav, sign-in and the primary
- *        CTA, with the nav collapsing into a sheet below md.
+ * WHAT:  The public site header — brand lockup, the nav pill, sign-in, and the
+ *        primary CTA.
  * WHY:   Lives in components/global rather than a route `_components` folder
- *        because it is rendered by the (marketing) LAYOUT, not by one page: every
- *        future public route inherits it unchanged. It is transparent over the
- *        hero and only grows a hairline and a blur once the page scrolls, so the
- *        first screen reads as one surface instead of a bar stuck on top of an
- *        image.
+ *        because it is rendered by the (marketing) LAYOUT, not by one page:
+ *        every future public route inherits it unchanged.
+ *
+ *        A SERVER component, unlike the version this replaced. That one was
+ *        "use client" for one reason — a scroll listener that faded the
+ *        background in past 8px — and this design has the bar translucent from
+ *        the first pixel, so the listener, the state and the hydration all went
+ *        with it. The header now costs the page nothing in client JS.
+ *
+ *        There is no mobile sheet either: the nav is four short in-page anchors,
+ *        and at narrow widths the pill simply wraps onto its own row (order-3 +
+ *        basis-full below). A drawer to hold four anchors is a dialog, a focus
+ *        trap and a client boundary in exchange for nothing.
  * WHERE: src/app/(marketing)/layout.tsx.
  */
 
-import * as React from "react";
 import Link from "next/link";
-import { MenuIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 
 import {
+  APP_NAME,
   AUTH_ROUTES,
   GET_STARTED_HREF,
   GET_STARTED_LABEL,
   MARKETING_NAV,
+  MARKETING_SECTION_IDS,
 } from "@/lib/config";
-import { PlatformLogo } from "@/components/global/platform-logo";
+import { BrandMark } from "@/components/global/platform-logo";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 
 export function MarketingNavbar() {
-  const [scrolled, setScrolled] = React.useState(false);
-
-  React.useEffect(() => {
-    function onScroll() {
-      setScrolled(window.scrollY > 8);
-    }
-    /* Passive: this listener never calls preventDefault, and saying so keeps it
-     * off the scrolling critical path. */
-    window.addEventListener("scroll", onScroll, { passive: true });
-    /* Fire once for a restored scroll position on reload. */
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   return (
     <header
-      data-scrolled={scrolled}
       /* A translucent material rather than an opaque strip: content scrolls
-         under it and stays faintly visible, which is what keeps the page
-         reading as one surface. `saturate` compensates for the colour a heavy
-         blur drains out of whatever is behind it. */
-      className="sticky top-0 z-50 transition-colors duration-200 data-[scrolled=true]:bg-background/70 supports-backdrop-filter:data-[scrolled=true]:backdrop-blur-xl supports-backdrop-filter:data-[scrolled=true]:backdrop-saturate-150"
+         under it and stays faintly visible, which is what keeps the page reading
+         as one surface. `saturate` compensates for the colour a heavy blur
+         drains out of whatever is behind it. */
+      className="sticky top-0 z-50 border-b border-[color-mix(in_oklch,var(--rail)_65%,transparent)] bg-[color-mix(in_oklch,var(--background)_74%,transparent)] supports-backdrop-filter:backdrop-blur-[22px] supports-backdrop-filter:backdrop-saturate-150"
     >
-      {/* Scroll edge effect: a soft gradient where content passes under the bar,
-          instead of a 1px rule. A hard divider announces the chrome; a fade lets
-          it sit on top of the page. Only appears once there is something to
-          separate from. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-full h-8 bg-[linear-gradient(to_bottom,color-mix(in_oklch,var(--background)_70%,transparent),transparent)] opacity-0 transition-opacity duration-200 group-data-[scrolled=true]:opacity-100 in-data-[scrolled=true]:opacity-100"
-      />
+      <nav className="mx-auto flex min-h-[62px] w-full max-w-[1240px] flex-wrap items-center justify-between gap-x-4 gap-y-2.5 px-(--gutter) py-2.5">
+        <Link
+          href={`#${MARKETING_SECTION_IDS.top}`}
+          className="flex items-center gap-2.5"
+        >
+          <BrandMark className="size-[26px] rounded-[7px]" />
+          <span className="font-mono text-[13px] font-medium uppercase tracking-[0.02em]">
+            {APP_NAME}
+          </span>
+          <span
+            aria-hidden="true"
+            className="animate-pulse-dot size-[5px] rounded-full bg-acid"
+          />
+        </Link>
 
-      <nav className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-6 px-6">
-        <PlatformLogo href="/" />
-
-        <div className="hidden items-center gap-7 md:flex">
-          {MARKETING_NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {item.label}
-            </Link>
-          ))}
+        {/* order-3 + basis-full: below roughly 1000px the pill drops onto its own
+            centred row rather than colliding with the CTA, which is why the CTA
+            carries flex-none and the row allows wrapping. */}
+        <div className="order-3 flex basis-full justify-center lg:order-none lg:basis-auto">
+          <div className="flex flex-wrap justify-center rounded-full border border-rail p-1">
+            {MARKETING_NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="rounded-full px-3.5 py-1.5 font-mono text-[11.5px] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <Button
-            variant="ghost"
-            size="sm"
-            nativeButton={false}
-            render={<Link href={AUTH_ROUTES.signIn} />}
+        <div className="flex flex-none items-center gap-4">
+          <Link
+            href={AUTH_ROUTES.signIn}
+            className="font-mono text-[11.5px] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:text-foreground"
           >
             Sign in
-          </Button>
+          </Link>
           <Button
-            variant="brand"
-            size="sm"
+            variant="acid"
+            className="h-[34px] whitespace-nowrap rounded-[9px] px-3.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.05em] shadow-[0_0_24px_-6px_color-mix(in_oklch,var(--acid)_55%,transparent)]"
             nativeButton={false}
             render={<Link href={GET_STARTED_HREF} />}
           >
             {GET_STARTED_LABEL}
+            <ArrowRightIcon className="size-[13px]" />
           </Button>
         </div>
-
-        <Sheet>
-          <SheetTrigger
-            render={<Button variant="ghost" size="icon" className="md:hidden" />}
-          >
-            <MenuIcon />
-            <span className="sr-only">Open menu</span>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-72">
-            <SheetHeader>
-              <SheetTitle>Menu</SheetTitle>
-            </SheetHeader>
-            <div className="flex flex-col gap-1 px-4">
-              {/* SheetClose wraps each link so tapping an in-page anchor closes
-                  the sheet — otherwise it scrolls behind an open overlay.
-                  nativeButton={false} everywhere below: these all resolve to an
-                  <a>, and base-ui warns (correctly) if a button-role component
-                  renders a non-button without being told to expect one. */}
-              {MARKETING_NAV.map((item) => (
-                <SheetClose
-                  key={item.href}
-                  nativeButton={false}
-                  render={<Link href={item.href} />}
-                  className="rounded-md px-2 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {item.label}
-                </SheetClose>
-              ))}
-            </div>
-            <div className="mt-auto flex flex-col gap-2 p-4">
-              <SheetClose
-                nativeButton={false}
-                render={
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="w-full"
-                    nativeButton={false}
-                    render={<Link href={AUTH_ROUTES.signIn} />}
-                  />
-                }
-              >
-                Sign in
-              </SheetClose>
-              <SheetClose
-                nativeButton={false}
-                render={
-                  <Button
-                    variant="brand"
-                    size="lg"
-                    className="w-full"
-                    nativeButton={false}
-                    render={<Link href={GET_STARTED_HREF} />}
-                  />
-                }
-              >
-                {GET_STARTED_LABEL}
-              </SheetClose>
-            </div>
-          </SheetContent>
-        </Sheet>
       </nav>
     </header>
   );

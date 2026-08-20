@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: oklch(0.015 0 0); }
+  * { box-sizing: border-box; }
+  a { color: inherit; text-decoration: none; }
+  a:hover { color: oklch(1 0 0); }
+  /* Media queries are the one thing inline styles cannot express. The form
+     column is written FIRST in the DOM (tab + screen-reader order reach the
+     Google button before the sales copy) and only painted right at wide
+     widths; below that the brand column is dropped entirely so the form is
+     never pushed off the first screen. */
+  @media (min-width: 1040px) {
+    [data-auth-grid] { grid-template-columns: 1.02fr 0.98fr; }
+    [data-auth-form] { order: 2; }
+    [data-auth-brand] { display: flex; order: 1; }
+  }
+  @keyframes halo-breathe { 0%, 100% { opacity: 0.7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.07); } }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @keyframes sheen-sweep { 0% { transform: translateX(-140%); } 28%, 100% { transform: translateX(240%); } }
+  @keyframes scanline-drift { from { transform: translateY(0); } to { transform: translateY(6px); } }
+  @keyframes line-in { from { opacity: 0; transform: translateY(6px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+  @keyframes spin-loader { to { transform: rotate(360deg); } }
+</style>
+</helmet>
+
+<div data-screen-label="Sign up" data-auth-grid="1" style="position: relative; isolation: isolate; min-height: 100svh; display: grid; grid-template-columns: 1fr; background: oklch(0.015 0 0); color: oklch(0.99 0 0); font-family: Geist, sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; --brand: oklch(0.58 0.155 252); --brand-lift: oklch(0.68 0.15 252); --brand-soft: oklch(0.24 0.045 252); --brand-soft-fg: oklch(0.82 0.085 252); --brand-border: oklch(0.36 0.065 252); --acid: oklch(0.74 0.145 252); --acid-dim: oklch(0.62 0.15 252); --acid-soft: oklch(0.25 0.055 252); --card: oklch(0.135 0 0); --muted: oklch(0.22 0 0); --muted-fg: oklch(0.7 0 0); --dim: oklch(0.52 0 0); --border: oklch(0.25 0 0); --rail: oklch(0.175 0 0); --mono: 'Geist Mono', monospace; --display: 'Instrument Serif', Georgia, serif;">
+
+  <div aria-hidden="true" style="position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0.045; mix-blend-mode: overlay; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
+  <div aria-hidden="true" style="position: fixed; inset: 0; z-index: 59; pointer-events: none; opacity: 0.3; animation: scanline-drift 1.6s steps(3) infinite; background-image: repeating-linear-gradient(to bottom, color-mix(in oklch, oklch(1 0 0) 3%, transparent) 0 1px, transparent 1px 3px);"></div>
+
+  <div data-auth-form="1" style="position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 26px; padding: clamp(40px, 6vw, 72px) clamp(24px, 4vw, 56px);">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -2; pointer-events: none; opacity: 0.35; background-image: repeating-linear-gradient(to bottom, var(--rail) 0 1px, transparent 1px 96px); mask-image: radial-gradient(70% 60% at 50% 40%, oklch(0 0 0) 0%, transparent 100%);"></div>
+    <div aria-hidden="true" style="position: absolute; bottom: -300px; right: -160px; z-index: -1; width: 760px; height: 620px; pointer-events: none; background: radial-gradient(42% 42% at 50% 50%, color-mix(in oklch, var(--acid) 13%, transparent) 0%, transparent 70%);"></div>
+
+    <div style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 22px;">
+      <a href="#" data-auth-lockup="1" style="display: inline-flex; width: fit-content; align-items: center; gap: 9px; font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: 0.02em; text-transform: uppercase;">
+        <img src="assets/linkdin-dude.png" alt="" width="64" height="64" style="width: 26px; height: 26px; border-radius: 7px; object-fit: cover; flex: none;" />
+        LinkDude
+        <span aria-hidden="true" style="width: 5px; height: 5px; border-radius: 9999px; background: var(--acid); animation: pulse-dot 2.2s ease-in-out infinite;"></span>
+      </a>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <p style="margin: 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--acid);">{{ kicker }}</p>
+        <h1 style="margin: 0; font-size: clamp(30px, 3.2vw, 40px); font-weight: 600; line-height: 0.96; letter-spacing: -0.045em; text-transform: uppercase;">{{ title }}</h1>
+        <p style="margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--muted-fg); text-wrap: pretty;">{{ description }}</p>
+      </div>
+
+      <div style="border-radius: 18px; padding: clamp(22px, 2.4vw, 28px); background: linear-gradient(to bottom, color-mix(in oklch, var(--card) 88%, oklch(1 0 0)), var(--card) 44%); box-shadow: inset 0 0 0 1px var(--border), inset 0 1px 0 color-mix(in oklch, oklch(1 0 0) 15%, transparent), 0 40px 90px -50px color-mix(in oklch, var(--brand) 55%, transparent); display: flex; flex-direction: column; gap: 16px;">
+        <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" style="border-radius: 11px; border: 1px solid oklch(0.42 0.14 25); background: color-mix(in oklch, oklch(0.42 0.14 25) 22%, transparent); padding: 11px 13px; font-size: 13px; line-height: 1.5; color: oklch(0.86 0.09 25);">{{ errorMessage }}</div>
+        </sc-if>
+
+        <sc-if value="{{ showCheckEmail }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <span style="display: flex; width: 46px; height: 46px; align-items: center; justify-content: center; border-radius: 12px; background: color-mix(in oklch, var(--acid-soft) 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--acid) 30%, transparent); color: var(--acid);">
+              <span style="width: 21px; height: 21px; background: currentColor; mask: url(https://unpkg.com/lucide-static@latest/icons/mail-check.svg) center/contain no-repeat; -webkit-mask: url(https://unpkg.com/lucide-static@latest/icons/mail-check.svg) center/contain no-repeat;"></span>
+            </span>
+            <div style="display: flex; flex-direction: column; gap: 7px;">
+              <p style="margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.02em;">Check your email</p>
+              <p style="margin: 0; font-size: 13.5px; line-height: 1.62; color: var(--muted-fg); text-wrap: pretty;">We sent a verification link to <span style="font-family: var(--mono); font-size: 12.5px; color: oklch(0.99 0 0);">{{ submittedEmail }}</span>. Click it to finish creating your account.</p>
+            </div>
+            <a href="#" style="display: inline-flex; height: 42px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 11px; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.99 0 0);">Back to sign in</a>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showGoogleAction }}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{ onGoogle }}" style="{{ googleBtnStyle }}">
+          <sc-if value="{{ isPending }}" hint-placeholder-val="{{ false }}">
+            <span aria-hidden="true" style="width: 16px; height: 16px; flex: none; border-radius: 9999px; border: 2px solid color-mix(in oklch, oklch(1 0 0) 35%, transparent); border-top-color: oklch(1 0 0); animation: spin-loader 700ms linear infinite;"></span>
+          </sc-if>
+          <sc-if value="{{ showGlyph }}" hint-placeholder-val="{{ true }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 16px; height: 16px; flex: none;">
+              <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" fill="currentColor"></path>
+            </svg>
+          </sc-if>
+          {{ googleLabel }}
+        </button>
+
+        <div style="display: flex; flex-direction: column; gap: 11px; border-top: 1px solid var(--rail); padding-top: 16px;">
+          <sc-for list="{{ assurances }}" as="a" hint-placeholder-count="3">
+            <p style="margin: 0; display: flex; align-items: flex-start; gap: 9px; font-size: 12.5px; line-height: 1.55; color: var(--muted-fg);">
+              <span style="margin-top: 2px; width: 13px; height: 13px; flex: none; background: var(--acid-dim); mask-position: center; mask-size: contain; mask-repeat: no-repeat; -webkit-mask-position: center; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; mask-image: {{ a.iconUrl }}; -webkit-mask-image: {{ a.iconUrl }};"></span>
+              {{ a.text }}
+            </p>
+          </sc-for>
+        </div>
+        </sc-if>
+      </div>
+
+      <p style="margin: 0; text-align: center; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim);">Not affiliated with LinkedIn Corporation.</p>
+    </div>
+  </div>
+
+  <div data-auth-brand="1" style="position: relative; display: none; overflow: hidden; flex-direction: column; justify-content: space-between; gap: 40px; padding: clamp(28px, 4vw, 52px) clamp(24px, 4vw, 60px); border-right: 1px solid var(--rail);">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -2; pointer-events: none; opacity: 0.5; background-image: radial-gradient(color-mix(in oklch, oklch(1 0 0) 13%, transparent) 1px, transparent 1px); background-size: 26px 26px; mask-image: radial-gradient(72% 60% at 30% 12%, oklch(0 0 0) 0%, transparent 100%);"></div>
+    <div aria-hidden="true" style="position: absolute; top: -340px; left: -120px; z-index: -1; width: 900px; height: 760px; pointer-events: none; animation: halo-breathe 11s ease-in-out infinite; background: radial-gradient(40% 40% at 50% 50%, color-mix(in oklch, var(--brand) 26%, transparent) 0%, transparent 70%);"></div>
+
+    <a href="#" aria-hidden="true" tabindex="-1" style="display: inline-flex; width: fit-content; align-items: center; gap: 9px; font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: 0.02em; text-transform: uppercase;">
+      <img src="assets/linkdin-dude.png" alt="" width="64" height="64" style="width: 26px; height: 26px; border-radius: 7px; object-fit: cover; flex: none;" />
+      LinkDude
+      <span aria-hidden="true" style="width: 5px; height: 5px; border-radius: 9999px; background: var(--acid); animation: pulse-dot 2.2s ease-in-out infinite;"></span>
+    </a>
+
+    <div style="display: flex; flex-direction: column; gap: clamp(24px, 3vw, 34px); max-width: 30em;">
+      <span style="position: relative; display: inline-flex; width: fit-content; align-items: center; gap: 9px; overflow: hidden; border-radius: 9999px; border: 1px solid var(--acid-soft); background: color-mix(in oklch, var(--acid-soft) 34%, transparent); padding: 6px 15px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--acid); white-space: nowrap;">
+        <span aria-hidden="true" style="width: 5px; height: 5px; border-radius: 9999px; background: var(--acid); animation: pulse-dot 2.4s ease-in-out infinite;"></span>
+        Free forever · no card
+        <span aria-hidden="true" style="position: absolute; top: 0; bottom: 0; left: -100%; width: 50%; pointer-events: none; animation: sheen-sweep 6.5s cubic-bezier(0.77,0,0.175,1) infinite; background: linear-gradient(to right, transparent, color-mix(in oklch, var(--acid) 26%, transparent), transparent);"></span>
+      </span>
+
+      <p style="margin: 0; font-size: clamp(36px, 4.6vw, 62px); font-weight: 600; line-height: 0.92; letter-spacing: -0.05em; text-transform: uppercase; text-wrap: balance;">You're one post away from becoming a <span style="font-family: var(--display); font-style: italic; font-weight: 400; text-transform: none; letter-spacing: -0.02em; color: var(--acid);">LinkedIn influencer.</span></p>
+
+      <p style="margin: 0; max-width: 30em; font-size: clamp(15px, 1.3vw, 17px); line-height: 1.65; color: var(--muted-fg); text-wrap: pretty;">Thought leadership, minus the three hours staring at an empty box. LinkDude writes the hook. You take the credit.</p>
+
+      <div style="position: relative; display: flex; align-items: flex-end; gap: 12px; max-width: 30em;">
+        <div style="position: relative; flex: 1; border-radius: 16px 16px 4px 16px; background: linear-gradient(to bottom, color-mix(in oklch, var(--card) 88%, oklch(1 0 0)), var(--card) 44%); box-shadow: inset 0 0 0 1px var(--border), inset 0 1px 0 color-mix(in oklch, oklch(1 0 0) 15%, transparent); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;">
+          <p style="margin: 0; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim);">Drafted while you were away</p>
+          <p style="margin: 0; font-size: 13.5px; line-height: 1.62; animation: line-in 700ms 120ms cubic-bezier(0.23,1,0.32,1) both;">{{ teaserLine }}</p>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 2px;">
+            <span style="display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; border-radius: 8px; background: color-mix(in oklch, var(--acid-soft) 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--acid) 30%, transparent); padding: 6px 10px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--acid);">
+              <span style="width: 12px; height: 12px; flex: none; background: currentColor; mask: url(https://unpkg.com/lucide-static@latest/icons/calendar-check.svg) center/contain no-repeat; -webkit-mask: url(https://unpkg.com/lucide-static@latest/icons/calendar-check.svg) center/contain no-repeat;"></span>
+              Tue 9:00 AM
+            </span>
+            <span style="white-space: nowrap; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim);">3 more in the queue</span>
+          </div>
+          <span aria-hidden="true" style="position: absolute; right: -5px; bottom: 11px; width: 11px; height: 11px; transform: rotate(45deg); background: color-mix(in oklch, var(--card) 96%, oklch(1 0 0)); box-shadow: 1px -1px 0 0 var(--border);"></span>
+        </div>
+        <img src="assets/linkdin-dude.png" alt="" aria-hidden="true" style="width: clamp(64px, 7vw, 84px); height: auto; flex: none; mask-image: radial-gradient(closest-side, oklch(0 0 0) 74%, transparent 100%);" />
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 1px; background: var(--rail); border: 1px solid var(--rail); border-radius: 14px; overflow: hidden; max-width: 34em;">
+      <sc-for list="{{ freeTier }}" as="f" hint-placeholder-count="4">
+        <div style="background: oklch(0.015 0 0); padding: 16px 14px; display: flex; flex-direction: column; gap: 6px;">
+          <p style="margin: 0; font-size: clamp(22px, 2.2vw, 30px); font-weight: 600; line-height: 0.9; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; color: {{ f.color }};">{{ f.value }}</p>
+          <p style="margin: 0; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim);">{{ f.label }}</p>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:900},&quot;showCheckEmail&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;States&quot;},&quot;submittedEmail&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;priya@example.com&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;errorMessage&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;teaserLine&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;We priced our first ten customers wrong. All ten. Not too high — too specific…&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const ICON = (n) => `url(https://unpkg.com/lucide-static@latest/icons/${n}.svg)`;
+
+const FREE_TIER = [
+  { value: "10", label: "Posts / mo", accent: true },
+  { value: "25", label: "AI generations", accent: false },
+  { value: "2", label: "Carousels", accent: false },
+  { value: "3", label: "Profile analyses", accent: false },
+];
+
+const ASSURANCES = [
+  { icon: "credit-card", text: "No card required. The free plan has no trial timer." },
+  { icon: "shield-check", text: "Nothing posts to LinkedIn until you approve it." },
+  { icon: "sparkles", text: "First post drafted in about a minute after you connect." },
+];
+
+const TEASER = "We priced our first ten customers wrong. All ten. Not too high — too specific…";
+
+class Component extends DCLogic {
+  state = { pending: false };
+
+  onGoogle = () => {
+    if (this.state.pending) return;
+    this.setState({ pending: true });
+    this.t = setTimeout(() => this.setState({ pending: false }), 2200);
+  };
+
+  componentWillUnmount() { clearTimeout(this.t); }
+
+  renderVals() {
+    const pending = this.state.pending;
+    const error = this.props.errorMessage ?? "";
+    const checkEmail = this.props.showCheckEmail ?? false;
+
+    return {
+      kicker: checkEmail ? "Almost there" : "Create an account",
+      title: checkEmail ? "One click left" : "Start posting",
+      description: checkEmail
+        ? "We just need to confirm the address before your workspace opens."
+        : "Sign up with your Google account to get started.",
+      showCheckEmail: checkEmail,
+      showGoogleAction: !checkEmail,
+      submittedEmail: this.props.submittedEmail ?? "priya@example.com",
+      hasError: !!error && !checkEmail,
+      errorMessage: error,
+      isPending: pending,
+      showGlyph: !pending,
+      googleLabel: pending ? "Opening Google…" : "Continue with Google",
+      googleBtnStyle: `display: inline-flex; height: 50px; width: 100%; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 12px; font-family: 'Geist Mono', monospace; font-size: 12.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; cursor: ${pending ? "default" : "pointer"}; background: var(--acid); color: oklch(0.12 0.03 252); box-shadow: 0 16px 40px -14px color-mix(in oklch, var(--acid) 70%, transparent), inset 0 1px 0 color-mix(in oklch, oklch(1 0 0) 40%, transparent); opacity: ${pending ? 0.72 : 1}; transition: opacity 240ms ease;`,
+      onGoogle: this.onGoogle,
+      teaserLine: this.props.teaserLine ?? TEASER,
+      freeTier: FREE_TIER.map((f) => ({ ...f, color: f.accent ? "var(--acid)" : "oklch(0.99 0 0)" })),
+      assurances: ASSURANCES.map((a) => ({ ...a, iconUrl: ICON(a.icon) })),
+    };
+  }
+}
+</script>
+</body>
+</html>
