@@ -6,33 +6,43 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_SECTION_IDS, MarketingSectionId,
- *   MARKETING_NAV, MarketingNavItem, MarketingHeading, MARKETING_HERO,
- *   MARKETING_LOOP_STEPS, MarketingLoopStep, MARKETING_SURFACES,
- *   MarketingSurface, MARKETING_SURFACE_ROWS, MARKETING_DEMO,
- *   MARKETING_SECTION_HEADINGS, MARKETING_PLAN_PITCHES, MARKETING_FAQ,
- *   MARKETING_FOOTER_GROUPS, MARKETING_MATRIX_GROUPS, MARKETING_CLOSING,
- *   MARKETING_PLAN_BULLET_RESOURCES, MARKETING_FREE_TIER_RESOURCES,
- *   MARKETING_HERO_POST, GET_STARTED_HREF, GET_STARTED_LABEL, landing page copy,
- *   marketing copy, two-part heading, italic clause
+ *   MARKETING_HERO_BEATS, MarketingHeroBeat, MARKETING_HERO_ORBIT,
+ *   MARKETING_STATEMENT, MARKETING_FREE_CAPS, MARKETING_COMPOSER,
+ *   MARKETING_COMPOSER_TONES, MARKETING_POST_LINES, MARKETING_COMPOSER_QUEUE,
+ *   MarketingComposerQueueItem, MARKETING_STEPS, MarketingStep,
+ *   MarketingStepArtifact, MARKETING_PROFILE_ROWS, MarketingProfileRow,
+ *   MARKETING_CALENDAR, MARKETING_CLOSING, MARKETING_FOOTER_GROUPS,
+ *   MarketingFooterGroup, MarketingNavItem, GET_STARTED_HREF,
+ *   GET_STARTED_LABEL, MARKETING_DISCLAIMER, landing page copy, paper design
  *
- * WHAT:  Every editorial decision the public landing page makes — section ids
- *        and the nav that points at them, the two-part headings, the loop rows,
- *        which product surfaces get a bento tile and what each one claims, the
- *        hero demo's script, the plan pitches, the FAQ, the footer columns, and
- *        how the pricing comparison rows are grouped.
+ * WHAT:  Every editorial decision the public landing page makes — the hero's two
+ *        beats and the marks scattered around them, the blue statement band, the
+ *        composer screenshot's contents, the three how-it-works steps and the
+ *        artifact each one shows, the closing band, and the footer columns.
  * WHY:   Copy lives here, not inside the section components, for the same reason
  *        plan names live in PLANS: editing the pitch should be a data edit in one
  *        file, not a hunt through JSX. Everything that is a FACT about the
- *        product (feature names, icons, quotas, prices) is deliberately absent —
- *        those are read live from RESOURCES and PLANS at render time, so a
- *        marketing claim can never drift from what the app actually enforces.
- *        Surface and matrix entries are keyed by ResourceKey, so renaming a
- *        resource breaks the build instead of silently emptying a section.
- * WHERE: Consumed by src/components/global/marketing/* and every section under
- *        src/app/(marketing)/_components. Re-exported from @/lib/config.
+ *        product — the free plan's caps, the capability list in the ticker — is
+ *        deliberately absent, because those are read live from RESOURCES at
+ *        render time and a marketing claim must never be able to drift from what
+ *        the gate actually enforces. Only which resources to SHOW is editorial,
+ *        and that is what MARKETING_FREE_CAPS holds.
+ *
+ *        Display headlines are typed as PaperDisplayLine rather than as strings,
+ *        so the design system's rule 5 (individually boxed words in Archivo
+ *        Black) is expressed in the data and enforced by the renderer. Rule 4 —
+ *        one blue per screen — is a copy constraint that lives here too: at most
+ *        one word per section may carry the `blue` variant.
+ * WHERE: Consumed by src/app/(marketing)/_components/* and
+ *        src/components/global/marketing/*. Re-exported from @/lib/config.
  */
 
-import type { LimitResourceKey, ResourceKey } from "@/lib/resources";
+import type { LimitResourceKey } from "@/lib/resources";
+import type {
+  PaperDisplayLine,
+  PaperOrbitMark,
+  PaperScatterMark,
+} from "@/lib/types/paper";
 import { APP_DOMAIN, APP_NAME } from "./branding";
 import { AUTH_ROUTES } from "./auth-routes";
 import { REGISTRATION_OPEN } from "./registration";
@@ -41,40 +51,22 @@ import { REGISTRATION_OPEN } from "./registration";
  * SOURCE OF TRUTH KEYWORDS: MARKETING_SECTION_IDS, MarketingSectionId
  *
  * WHAT:  The anchor id of each in-page section.
- * WHY:   The nav links and the `id=` on the sections read the same constant, so
- *        an anchor can never point at a section that renamed itself.
+ * WHY:   The footer links, the `id=` on the sections and the header's
+ *        past-the-hero scroll test all read the same constant, so an anchor can
+ *        never point at a section that renamed itself — and the header cannot
+ *        end up watching an element that no longer exists.
  */
 export const MARKETING_SECTION_IDS = {
   top: "top",
-  loop: "loop",
-  product: "product",
-  pricing: "pricing",
-  faq: "faq",
+  why: "why",
+  free: "free",
+  composer: "composer",
+  how: "how",
+  start: "start",
 } as const;
 
 export type MarketingSectionId =
   (typeof MARKETING_SECTION_IDS)[keyof typeof MARKETING_SECTION_IDS];
-
-/**
- * SOURCE OF TRUTH KEYWORDS: MarketingHeading, two-part heading, italic clause,
- *   font-display, display accent, DisplayHeading
- *
- * WHAT:  A display heading split into its upright clause and its italic one.
- * WHY:   The whole typographic idea of this page is one heading in two voices —
- *        an uppercase Geist statement, then the turn of the sentence set in
- *        Instrument Serif italic in the accent colour. Modelling it as two
- *        fields rather than one string with markup in it means the rule lives in
- *        the component that renders it, so every heading on the page is
- *        guaranteed to break the same way and a copy edit never has to get the
- *        markup right.
- * WHERE: DisplayHeading in src/app/(marketing)/_components/display-heading.tsx.
- */
-export interface MarketingHeading {
-  /** Upright, uppercase, Geist. */
-  lead: string;
-  /** Instrument Serif italic, accent colour, NOT uppercased. */
-  accent: string;
-}
 
 /**
  * SOURCE OF TRUTH KEYWORDS: GET_STARTED_HREF, GET_STARTED_LABEL
@@ -86,7 +78,7 @@ export interface MarketingHeading {
  *        stops promising an account they are not allowed to create. One switch,
  *        every CTA on the page — the value is inlined at build time, so the page
  *        stays fully static.
- * WHERE: Navbar, hero, pricing cards, final CTA, footer.
+ * WHERE: The header, the hero, the blue band, the closing band, the footer.
  */
 export const GET_STARTED_HREF: string = REGISTRATION_OPEN
   ? AUTH_ROUTES.signUp
@@ -96,336 +88,326 @@ export const GET_STARTED_LABEL: string = REGISTRATION_OPEN
   ? "Get started free"
   : "Sign in";
 
-export interface MarketingNavItem {
-  label: string;
-  href: string;
+/** The reassurance that rides under every CTA. Makes no numeric promise, so
+ *  there is nothing here for a plan change to contradict. */
+export const MARKETING_REASSURANCE = "Free forever · no card";
+
+/** The one line the product is legally required to be clear about. Repeated on
+ *  the landing footer and the sign-in form column. */
+export const MARKETING_DISCLAIMER = "Not affiliated with LinkedIn Corporation.";
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MarketingHeroBeat, MARKETING_HERO_BEATS, hero beats,
+ *   sticky hero, scroll beat, punch line
+ *
+ * WHAT:  The hero's beats. Scroll progress through the sticky stage maps to an
+ *        index in this array; each beat swaps all three fields at once.
+ * WHY:   TWO beats, not four. The hero is 280svh of scroll that shows one idea
+ *        at a time, and every extra beat is another screen-height a reader has
+ *        to travel before reaching the product. The first sets up the problem
+ *        and the second lands it, which is also why the CTA only appears on the
+ *        LAST beat — the ask is not earned until the setup has paid off, and the
+ *        component derives that from the array length rather than a flag, so
+ *        adding a third beat moves the CTA automatically.
+ *
+ *        `punch` is the heavy Archivo Black line that crosses the mascot's body.
+ *        At most one word may be `blue` across the whole hero (rule 4), which is
+ *        why beat one boxes its last word in ink instead.
+ * WHERE: src/app/(marketing)/_components/sticky-hero.tsx.
+ */
+export interface MarketingHeroBeat {
+  /** Light copy, top-left of the stage. */
+  lead: string;
+  /** Light copy, top-right — the turn of the sentence. */
+  aside: string;
+  /** The display line across the bottom band. */
+  punch: PaperDisplayLine;
 }
 
-export const MARKETING_NAV: readonly MarketingNavItem[] = [
-  { label: "The loop", href: `#${MARKETING_SECTION_IDS.loop}` },
-  { label: "Inside", href: `#${MARKETING_SECTION_IDS.product}` },
-  { label: "Pricing", href: `#${MARKETING_SECTION_IDS.pricing}` },
-  { label: "FAQ", href: `#${MARKETING_SECTION_IDS.faq}` },
+export const MARKETING_HERO_BEATS: readonly MarketingHeroBeat[] = [
+  {
+    lead: "Before an idea becomes a post",
+    aside: "it is usually",
+    punch: [
+      { text: "Something", variant: "plain" },
+      { text: "you", variant: "plain" },
+      { text: "noticed", variant: "ink" },
+    ],
+  },
+  {
+    lead: "You had the thought on Tuesday",
+    aside: "and by Friday",
+    punch: [
+      { text: "It died in your", variant: "plain" },
+      { text: "notes app", variant: "blue" },
+    ],
+  },
 ];
 
 /**
- * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO, hero copy, eyebrow, subhead
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_ORBIT, PaperOrbitMark, sphere,
+ *   latitude, longitude, hero orbit, decorative marks
  *
- * WHAT:  The first screen's copy.
- * WHY:   APP_NAME is interpolated rather than typed, so renaming the app in .env
- *        doesn't leave the headline selling a product that no longer goes by
- *        that name. The reassurance line is the only allowance claim on the page
- *        that is NOT generated — it makes no numeric promise, so there is
- *        nothing for it to contradict.
+ * WHAT:  The marks that orbit the hero mascot on an invisible sphere.
+ * WHY:   Latitudes are spread across the range rather than clustered, because
+ *        marks sharing a latitude travel the same ring and read as a necklace
+ *        instead of a globe. Longitudes are spread too, so the sphere never has
+ *        a bare side facing the reader. Radii vary a little: a set at one exact
+ *        distance describes a perfect sphere, which reads as a diagram — an
+ *        uneven shell reads as objects that happen to be floating.
+ *
+ *        NINE marks, not six. The previous flat scatter only had to fill the
+ *        visible plane; a sphere hides roughly half its contents behind the
+ *        mascot at any moment, so the same apparent density costs more of them.
+ * WHERE: src/app/(marketing)/_components/sticky-hero.tsx via PaperOrbit.
  */
-export const MARKETING_HERO = {
-  eyebrow: "For founders who keep meaning to post",
-  heading: {
-    lead: "You already know",
-    accent: "what to say.",
-  },
-  subhead: `Type the thing you already know. ${APP_NAME} writes it as a post in your voice, queues it for the morning it should go out, and fixes the profile people land on when it works.`,
-  secondaryCta: "See the loop",
-  reassurance: "Free forever · no card · no trial timer",
+export const MARKETING_HERO_ORBIT: readonly PaperOrbitMark[] = [
+  { icon: "square-dashed", latitude: 38, longitude: 0, size: 34, radius: 1 },
+  { icon: "arrow-right", latitude: 12, longitude: 45, size: 46, radius: 1.05 },
+  { icon: "asterisk", latitude: -30, longitude: 90, size: 28, radius: 0.92 },
+  { icon: "grid", latitude: 52, longitude: 135, size: 24, radius: 0.88 },
+  { icon: "triangle", latitude: -8, longitude: 180, size: 44, radius: 1.02 },
+  { icon: "waves", latitude: 26, longitude: 225, size: 38, radius: 0.95 },
+  { icon: "square-dashed", latitude: -46, longitude: 270, size: 26, radius: 1.04 },
+  { icon: "asterisk", latitude: 4, longitude: 305, size: 32, radius: 0.9 },
+  { icon: "grid", latitude: -22, longitude: 335, size: 22, radius: 1.06 },
+];
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_AUTH_SCATTER
+ *
+ * WHAT:  The same treatment on the sign-in brand panel, at a smaller count.
+ * WHY:   Four marks, not six, and all on one layer: the panel has no mascot in
+ *        front of them to hide behind, and the run is placed to lead the eye
+ *        from the mascot back toward the form column.
+ * WHERE: src/components/global/auth/auth-shell.tsx via PaperScatter.
+ */
+export const MARKETING_AUTH_SCATTER: readonly PaperScatterMark[] = [
+  { icon: "square-dashed", top: "13%", right: "12%", size: 30, tilt: -12, duration: 7.5, delay: 0 },
+  { icon: "asterisk", top: "28%", left: "7%", size: 26, tilt: 14, duration: 8.4, delay: 0.7 },
+  { icon: "arrow-right", top: "40%", right: "26%", size: 38, tilt: 6, duration: 9.2, delay: 1.4 },
+  { icon: "grid", top: "10%", left: "36%", size: 22, tilt: 20, duration: 8, delay: 2 },
+];
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_STATEMENT, blue band, statement section
+ *
+ * WHAT:  The full-height blue band that answers the hero.
+ * WHY:   The one section on the page that IS the accent rather than merely
+ *        using it, so its display line inverts — the product name is boxed in
+ *        white, because a blue box on blue is nothing. APP_NAME is interpolated
+ *        rather than typed so a rename in .env cannot leave the loudest sentence
+ *        on the site selling a product that no longer goes by that name.
+ */
+export const MARKETING_STATEMENT = {
+  intro: "That's why we're",
+  heading: [
+    { text: "Building", variant: "plain" },
+    { text: APP_NAME, variant: "paper" },
+  ] as PaperDisplayLine,
+  body: "Type the thing you already know. It comes back written in your voice, queued for the morning it should go out.",
 } as const;
 
 /**
- * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_POST, MARKETING_DEMO, demo script,
- *   hero demo, composer mock, queue cards, phase machine copy
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_FREE_CAPS, free plan caps, quota band
  *
- * WHAT:  The sample post the hero's app demo writes, and the chrome around it —
- *        the topic being typed, the status line for each phase, and the queue.
- * WHY:   A realistic post, not lorem ipsum: the demo IS the product shot, and it
- *        has to survive being read. The topic and the post are a matched pair —
- *        the demo types the topic and then "generates" this post from it, so
- *        editing one without the other breaks the illusion the section is built
- *        on. Kept as data so the phase machine in app-demo.tsx holds timing and
- *        no prose.
- * WHERE: src/app/(marketing)/_components/app-demo.tsx.
+ * WHAT:  Which of the free plan's allowances the caps row shows, and the two
+ *        mono labels that frame it.
+ * WHY:   The KEYS are editorial — four cells is what the ruled row is designed
+ *        for — but the numbers and the labels are not here at all: both are read
+ *        from RESOURCES at render time, so this row cannot advertise an
+ *        allowance the gate would refuse, and a cap edited in the registry
+ *        updates the marketing claim in the same commit. `satisfies` refuses any
+ *        key that is not actually a quota, so a cell can never reference a
+ *        resource with no number to show.
+ * WHERE: src/app/(marketing)/_components/free-plan-caps.tsx.
  */
-export const MARKETING_HERO_POST = {
-  authorName: "Priya Raman",
-  authorRole: "Founder",
-  paragraphs: [
-    "We priced our first ten customers wrong. All ten.",
-    "Not too high — too specific. A number per feature taught them to buy features instead of outcomes.",
-    "The eleventh got one number and one promise. She closed in a day.",
-    "Price the outcome. Let the features be free.",
-  ],
+export const MARKETING_FREE_CAPS = {
+  label: "What free actually means",
+  note: "Every month · no card",
+  resources: [
+    "linkedinPosts",
+    "aiGeneration",
+    "carousels",
+    "profileAnalysis",
+  ] as const satisfies readonly LimitResourceKey[],
 } as const;
 
-export const MARKETING_DEMO = {
-  topic: "what I learned pricing our first ten customers",
-  /* Chrome only. Built from APP_DOMAIN so a rebrand moves it, and prefixed
-   * "app." because that is the subdomain the real dashboard would sit on. */
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_COMPOSER, MARKETING_COMPOSER_TONES,
+ *   MARKETING_POST_LINES, MARKETING_COMPOSER_QUEUE, MarketingComposerQueueItem,
+ *   composer screenshot, product shot
+ *
+ * WHAT:  The composer screenshot's heading and everything drawn inside it — the
+ *        chrome, the topic, the tone chips, the draft, and the queue beside it.
+ * WHY:   A realistic post, not lorem ipsum: this section IS the product shot,
+ *        and it has to survive being read closely. The topic and the post are a
+ *        matched pair — the panel shows this post generated from that topic —
+ *        so editing one without the other breaks the illusion the section is
+ *        built on. The address bar is composed from APP_DOMAIN so a rebrand
+ *        moves it, and the generations counter is NOT here: it is derived from
+ *        the free plan's real aiGeneration cap in the component.
+ * WHERE: src/app/(marketing)/_components/composer-showcase.tsx.
+ */
+export const MARKETING_COMPOSER = {
+  lead: "No mockups. This is the part that does the work.",
+  heading: [
+    { text: "The", variant: "plain" },
+    { text: "composer", variant: "blue" },
+  ] as PaperDisplayLine,
   addressBar: `app.${APP_DOMAIN} / create`,
+  topic: "what I learned pricing our first ten customers",
+  authorName: "Priya Raman",
+  authorInitials: "PR",
+  authorRole: "Draft · in your voice",
   scheduleLabel: "Tue 9:00 AM",
-  /* One entry per phase of the demo's state machine. DemoPhase indexes these
-   * records, so adding a phase without its copy is a build error. */
-  status: {
-    typing: "ready when you are",
-    generating: "writing…",
-    written: "draft · in your voice",
-    queued: "scheduled · in your voice",
-  },
-  hint: {
-    typing: "",
-    generating: "",
-    written: "draft saved",
-    queued: "queued for Tuesday",
-  },
-  queue: [
-    { time: "TUE 9:00", title: "Pricing our first ten" },
-    { time: "THU 8:30", title: "Hiring slowly on purpose" },
-    { time: "FRI 9:00", title: "The 90-day question" },
-    { time: "MON 8:00", title: "What we stopped building" },
-  ],
+  savedLabel: "Draft saved",
+  publishLabel: "Publish",
+  queueLabel: "Queue",
+  queueRange: "Next 7 days",
 } as const;
 
-/**
- * SOURCE OF TRUTH KEYWORDS: MarketingLoopStep, MARKETING_LOOP_STEPS, the loop,
- *   Write Ship Land, mascot bubble
- *
- * WHAT:  The three jobs the product does, in the order they happen.
- * WHY:   This section replaced the separate "problems" and "how it works" bands.
- *        One row states the job, the body says what it does, and `bubble` is the
- *        mascot's line — the concrete capability that proves the claim above it.
- *        `bubble` must stay TRUE of the shipped feature; it is the sentence a
- *        reader will hold us to.
- */
-export interface MarketingLoopStep {
-  kicker: string;
+/* The first chip is the selected one — the design gives exactly one of them the
+ * blue fill, which is this section's single use of rule 4's one blue. */
+export const MARKETING_COMPOSER_TONES: readonly string[] = [
+  "Founder voice",
+  "Contrarian",
+  "Story",
+  "Teardown",
+];
+
+export const MARKETING_POST_LINES: readonly string[] = [
+  "We priced our first ten customers wrong. All ten.",
+  "Not too high — too specific. A number per feature taught them to buy features instead of outcomes.",
+  "The eleventh got one number and one promise. She closed in a day.",
+  "Price the outcome. Let the features be free.",
+];
+
+export interface MarketingComposerQueueItem {
+  when: string;
   title: string;
-  body: string;
-  bubble: string;
+  /** The next one out. Exactly one entry may set this. */
+  live?: boolean;
 }
 
-export const MARKETING_LOOP_STEPS: readonly MarketingLoopStep[] = [
-  {
-    kicker: "Write",
-    title: "A post, not a first draft",
-    body: 'Type a topic. It comes back with a hook built to earn the "see more" click, in the voice your profile and your answers taught it. Edit any line before it goes anywhere.',
-    bubble:
-      "Or turn the same topic into a 3–12 slide carousel — rendered to a PDF and posted as a swipeable document.",
-  },
-  {
-    kicker: "Ship",
-    title: "Queued, not remembered",
-    body: "Publish now, or drop it on the calendar for the morning it should go out. Scheduled posts fire on their own, and drafts cost you nothing until they do.",
-    bubble: "Reschedule or cancel anything up to the moment it fires.",
-  },
-  {
-    kicker: "Land",
-    title: "The profile catches it",
-    body: "A post that works sends people to your profile. Paste it in and get a score, a critique per section, and rewrites for the headline and About people actually read.",
-    bubble: "Per-role and per-project rewrites on paid plans.",
-  },
+export const MARKETING_COMPOSER_QUEUE: readonly MarketingComposerQueueItem[] = [
+  { when: "TUE 9:00", title: "Pricing our first ten customers", live: true },
+  { when: "THU 8:30", title: "Why we killed the free trial" },
+  { when: "FRI 9:00", title: "Carousel · 7 slides · hiring" },
+  { when: "MON 9:00", title: "What the first 90 days should look like" },
 ];
 
 /**
- * SOURCE OF TRUTH KEYWORDS: MarketingSurface, MARKETING_SURFACES, bento,
- *   inside section, product surfaces
+ * SOURCE OF TRUTH KEYWORDS: MarketingStep, MarketingStepArtifact,
+ *   MARKETING_STEPS, how it works, dark band, step artifact
  *
- * WHAT:  The product surfaces the "Inside" bento shows, in layout order.
- * WHY:   Each entry carries only the PITCH — the tile's small-caps label comes
- *        from `RESOURCES[resource].name` at render time, so the tile and the
- *        sidebar item a customer later clicks always agree, and a renamed
- *        resource is a compile error rather than a stale marketing claim.
- *        `wide` is the one layout decision that belongs to the copy: the
- *        calendar tile earns two columns because it renders a month grid, and
- *        which tile that is changes if the running order does.
+ * WHAT:  The three jobs the product does, in the order they happen, each paired
+ *        with the artifact drawn beside it.
+ * WHY:   `artifact` is a closed union rather than a component reference so the
+ *        copy stays data: the section switches on it exhaustively, which means a
+ *        fourth step is a compile error until someone has decided what it shows.
+ *        On this band the display words invert — `plain` reads white against the
+ *        ink ground, and `paper` boxes a word in white where the blue box is
+ *        already spent elsewhere in the section.
  */
-export interface MarketingSurface {
-  resource: ResourceKey;
-  headline: string;
+export type MarketingStepArtifact = "draft" | "calendar" | "score";
+
+export interface MarketingStep {
+  marker: string;
+  lead: string;
+  headline: PaperDisplayLine;
   body: string;
-  /** Spans two columns in the bento grid. */
-  wide?: boolean;
+  artifact: MarketingStepArtifact;
 }
 
-export const MARKETING_SURFACES: readonly MarketingSurface[] = [
+export const MARKETING_STEPS: readonly MarketingStep[] = [
   {
-    resource: "contentCalendar",
-    headline: "Your cadence, visible",
-    body: "Everything scheduled and everything published on one grid. A gap you can see is a gap you fill — the month you notice late is the month you stop.",
-    wide: true,
+    marker: "[1]",
+    lead: `${APP_NAME} lets you`,
+    headline: [
+      { text: "Write", variant: "plain" },
+      { text: "what you", variant: "plain" },
+      { text: "already know", variant: "blue" },
+    ],
+    body: "Type a topic. It comes back with a hook built to earn the “see more” click. Edit any line before it goes anywhere.",
+    artifact: "draft",
   },
   {
-    resource: "profileAnalysis",
-    headline: "Fix what the click lands on",
-    body: "A score, a section-by-section critique, and rewrites you can paste straight back in.",
+    marker: "[2]",
+    lead: "then",
+    headline: [
+      { text: "Queue it", variant: "plain" },
+      { text: "for Tuesday", variant: "paper" },
+    ],
+    body: "Publish now or drop it on the calendar. Scheduled posts fire on their own, and drafts cost you nothing until they do.",
+    artifact: "calendar",
   },
   {
-    resource: "linkedinPosts",
-    headline: "Nothing you wrote gets lost",
-    body: "Drafts, scheduled, published and failed in one list. A draft never spends a post.",
-  },
-  {
-    resource: "contentPlan",
-    headline: "Thirty days, decided",
-    body: "A guided chat reads your profile and returns pillars, cadence and the next thing to post.",
-  },
-  {
-    resource: "carousels",
-    headline: "Decks that stop the scroll",
-    body: "A topic becomes a 3–12 slide deck, rendered to a real PDF and published as a swipeable document.",
+    marker: "[3]",
+    lead: "and",
+    headline: [
+      { text: "Fix the profile", variant: "plain" },
+      { text: "it lands on", variant: "blue" },
+    ],
+    body: "A post that works sends people to your profile. Get a score, a critique per section, and rewrites you can paste back in.",
+    artifact: "score",
   },
 ];
 
-/**
- * SOURCE OF TRUTH KEYWORDS: MARKETING_SURFACE_ROWS, bento mock rows
- *
- * WHAT:  The three mock rows rendered inside each of the small bento tiles.
- * WHY:   Illustrative UI, not claims — a label and a status chip, keyed by the
- *        same ResourceKey as the tile so a tile can never end up showing another
- *        surface's rows. The wide calendar tile and the profile-score tile draw
- *        their own mock instead, so they are deliberately absent here and the
- *        renderer treats a missing entry as "this tile draws itself".
- */
-export interface MarketingSurfaceRow {
-  label: string;
-  value: string;
+/* The score artifact's headline figure. `value` drives both the numeral and the
+ * meter's width, so the two can never disagree. */
+export const MARKETING_PROFILE_SCORE = {
+  label: "Profile score",
+  value: 82,
+  outOf: 100,
+} as const;
+
+export interface MarketingProfileRow {
+  section: string;
+  verdict: string;
+  /** Already strong — rendered grey rather than accented. */
+  good?: boolean;
 }
 
-export const MARKETING_SURFACE_ROWS: Readonly<
-  Partial<Record<ResourceKey, readonly MarketingSurfaceRow[]>>
-> = {
-  linkedinPosts: [
-    { label: "Pricing our first ten", value: "Scheduled" },
-    { label: "Hiring slowly on purpose", value: "Draft" },
-    { label: "The 90-day question", value: "Published" },
-  ],
-  contentPlan: [
-    { label: "Pillar · Pricing in public", value: "3×/wk" },
-    { label: "Pillar · Hiring", value: "1×/wk" },
-    { label: "Pillar · Build notes", value: "2×/wk" },
-  ],
-  carousels: [
-    { label: "Cover · Pricing mistakes", value: "01" },
-    { label: "The number per feature", value: "02" },
-    { label: "One number, one promise", value: "03" },
-  ],
-};
-
-/**
- * SOURCE OF TRUTH KEYWORDS: MARKETING_SECTION_HEADINGS, section kickers,
- *   numbered sections
- *
- * WHAT:  The kicker and two-part heading for each numbered section.
- * WHY:   The numbering ("01 /", "02 /") is part of the copy rather than derived
- *        from array position: the sections are separate components, and a
- *        derived counter would let a reorder in page.tsx silently renumber the
- *        design. Keyed by section id so a heading and its anchor stay together.
- */
-export interface MarketingSectionHeading {
-  kicker: string;
-  heading: MarketingHeading;
-  /** Supporting paragraph beside the heading. Empty means the section has none. */
-  body: string;
-}
-
-export const MARKETING_SECTION_HEADINGS = {
-  loop: {
-    kicker: "01 / The loop",
-    heading: { lead: "Write it. Ship it.", accent: "Land it." },
-    body: "Three jobs in the order they actually happen. Each one is useful alone — together they're the reason the posting sticks past week two.",
-  },
-  product: {
-    kicker: "02 / Inside",
-    heading: {
-      lead: "Six surfaces you'd otherwise open",
-      accent: "six tabs for.",
-    },
-    body: "",
-  },
-  pricing: {
-    kicker: "03 / Pricing",
-    heading: { lead: "Start free.", accent: "Pay when it's working." },
-    body: "Every plan includes the whole product. What changes is how much of it you can use.",
-  },
-  faq: {
-    kicker: "04 / Questions",
-    heading: { lead: "Asked before", accent: "signing up" },
-    body: "",
-  },
-} as const satisfies Record<string, MarketingSectionHeading>;
-
-/**
- * SOURCE OF TRUTH KEYWORDS: MARKETING_PLAN_PITCHES, plan pitch, pricing copy
- *
- * WHAT:  The one-line pitch under each plan's price.
- * WHY:   Looked up by PlanKey at render time rather than typed into the card, so
- *        a plan renamed in .env keeps its pitch and a plan added to PLAN_KEYS
- *        renders with no pitch instead of the wrong one. Deliberately says
- *        nothing numeric — the bullets underneath are generated from RESOURCES,
- *        and a pitch that repeated a cap would be the one place on this page
- *        that could contradict the gate.
- */
-export const MARKETING_PLAN_PITCHES: Readonly<Record<string, string>> = {
-  free: "Enough to publish for a month and see whether it changes anything.",
-  starter: "For posting several times a week without watching the counter.",
-  pro: "Daily posting, carousels every week, and the audit trail.",
-  enterprise: "Unlimited everything, and seats for the whole team.",
-};
-
-export interface MarketingFaqItem {
-  question: string;
-  answer: string;
-}
-
-export const MARKETING_FAQ: readonly MarketingFaqItem[] = [
-  {
-    question: "Does it actually post to LinkedIn?",
-    answer:
-      "Yes. You connect your account once over LinkedIn's official OAuth, and from then on you can publish immediately or schedule for later. Scheduled posts go out on their own; you can reschedule or cancel any of them until the moment they fire.",
-  },
-  {
-    question: "Will it sound like me, or like AI?",
-    answer:
-      "You see every draft in the composer before anything leaves your account, and you edit it there. The strategy behind the drafts is built from your own profile and your own answers, so the starting point is already closer to your voice than a blank box is.",
-  },
-  {
-    question: "Can it make carousels?",
-    answer:
-      "Yes. Give it a topic and it returns a 3–12 slide deck you can edit slide by slide, rendered to a real PDF and published to LinkedIn as a swipeable document rather than a link. Carousels have their own monthly allowance, separate from your posts.",
-  },
-  {
-    question: "Can I save a post and finish it later?",
-    answer:
-      "Yes. Anything you generate can sit as a draft for as long as you like, and a draft costs you nothing against your plan until you publish or schedule it. Drafts, scheduled posts, published posts and anything that failed all live in one list.",
-  },
-  {
-    question: "What happens when I hit a plan limit?",
-    answer:
-      "You see it coming — the usage meter sits above the action, so you know how much is left before you spend it. When you do reach the cap the app names the next plan up rather than just failing.",
-  },
-  {
-    question: "Can my team share a workspace?",
-    answer:
-      "Yes. Workspaces are organisations with real role-based access control, so you can invite teammates and define exactly which actions each role is allowed to take. Seat counts scale with the plan.",
-  },
-  {
-    question: "Do I need a card to start?",
-    answer:
-      "No. The free tier is genuinely free and needs no card, and the paid plans start with a trial. You only enter payment details when you decide to upgrade.",
-  },
+export const MARKETING_PROFILE_ROWS: readonly MarketingProfileRow[] = [
+  { section: "Headline", verdict: "Rewrite ready" },
+  { section: "About", verdict: "Rewrite ready" },
+  { section: "Experience", verdict: "Strong", good: true },
 ];
+
+/* The calendar artifact's month. Two states, because that is the distinction the
+ * real calendar draws: already out, and going out. */
+export const MARKETING_CALENDAR = {
+  month: "March",
+  scheduledLabel: "9 scheduled",
+  days: 28,
+  published: [2, 4, 9, 11] as readonly number[],
+  scheduled: [16, 18, 20, 23, 25, 27, 30] as readonly number[],
+} as const;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_CLOSING, final CTA copy
  *
- * WHAT:  The closing band's heading and body.
- * WHY:   The quota line under the buttons is NOT here — it is generated from
- *        RESOURCES in the component, because it is the page's last numeric
- *        promise and the one most likely to be read as a commitment.
+ * WHAT:  The closing band's lead-in, display line and reassurance.
+ * WHY:   The page's last words, and its only three-box display line — ink for
+ *        the middle word, blue for the last, which is the one place the two
+ *        boxed treatments appear together and still spends only one blue.
  */
 export const MARKETING_CLOSING = {
-  heading: {
-    lead: "Your next thirty posts are",
-    accent: "one conversation away.",
-  },
-  body: "Connect LinkedIn, answer a few questions, and leave with a month of posts already on the calendar.",
+  lead: "Your next thirty posts are",
+  heading: [
+    { text: "One", variant: "plain" },
+    { text: "conversation", variant: "ink" },
+    { text: "away", variant: "blue" },
+  ] as PaperDisplayLine,
+  secondaryLabel: "Sign in",
+  reassurance: "Free forever · no card · no trial timer",
 } as const;
+
+export interface MarketingNavItem {
+  label: string;
+  href: string;
+}
 
 export interface MarketingFooterGroup {
   label: string;
@@ -434,14 +416,16 @@ export interface MarketingFooterGroup {
 
 /* Product links are ON-PAGE ANCHORS, never /dashboard/* — a dashboard link in a
  * public footer sends an anonymous visitor into a redirect to sign-in, which
- * reads as a broken site. */
+ * reads as a broken site. The reference's Company and Legal columns are dropped
+ * for the same reason: those pages do not exist in this app, and three columns
+ * of href="#" is a worse failure than three columns that go somewhere. */
 export const MARKETING_FOOTER_GROUPS: readonly MarketingFooterGroup[] = [
   {
     label: "Product",
     items: [
-      { label: "The loop", href: `#${MARKETING_SECTION_IDS.loop}` },
-      { label: "Inside", href: `#${MARKETING_SECTION_IDS.product}` },
-      { label: "Pricing", href: `#${MARKETING_SECTION_IDS.pricing}` },
+      { label: "How it works", href: `#${MARKETING_SECTION_IDS.how}` },
+      { label: "The composer", href: `#${MARKETING_SECTION_IDS.composer}` },
+      { label: "What free means", href: `#${MARKETING_SECTION_IDS.free}` },
     ],
   },
   {
@@ -452,68 +436,81 @@ export const MARKETING_FOOTER_GROUPS: readonly MarketingFooterGroup[] = [
     ],
   },
   {
-    label: "Support",
+    label: "Why now",
     items: [
-      { label: "FAQ", href: `#${MARKETING_SECTION_IDS.faq}` },
-      { label: "Why it works", href: `#${MARKETING_SECTION_IDS.loop}` },
+      { label: "The idea", href: `#${MARKETING_SECTION_IDS.why}` },
+      { label: "Start posting", href: `#${MARKETING_SECTION_IDS.start}` },
     ],
   },
 ];
 
 /**
- * SOURCE OF TRUTH KEYWORDS: MarketingMatrixGroup, MARKETING_MATRIX_GROUPS
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_AUTH_PANEL, MARKETING_AUTH_ASSURANCES,
+ *   AuthFormMode, sign-in copy, sign-up copy, brand panel, assurance lines,
+ *   kicker, welcome back, start posting
  *
- * WHAT:  How the pricing comparison rows are grouped and ordered.
- * WHY:   Row ORDER is editorial, so it lives here rather than in RESOURCES,
- *        which is ordered by architecture. Typed as ResourceKey so a renamed
- *        resource is a compile error; anything not listed is appended by the
- *        table under a trailing group, so a newly added quota can never vanish
- *        from pricing just because nobody updated this list.
+ * WHAT:  Everything editorial on the sign-in / sign-up screen — the marketing
+ *        panel beside the form, and the three assurance lines under the button,
+ *        in the order each mode wants them.
+ * WHY:   Sign-in and sign-up are ONE component; only these strings differ. Keying
+ *        them by AuthFormMode rather than branching in JSX means adding a mode is
+ *        a compile error here until it has copy, and it keeps the auth component
+ *        about the auth flow rather than about the pitch. The two orderings are
+ *        the point of the split: a returning user is reassured that nothing
+ *        posts without them, while someone creating an account needs to hear
+ *        "no card" first — same three facts, different lead.
+ * WHERE: src/components/global/auth/auth-shell.tsx (the panel) and
+ *        src/components/global/auth/auth-form.tsx (kicker, title, assurances).
  */
-export interface MarketingMatrixGroup {
-  label: string;
-  resources: readonly ResourceKey[];
-}
+export const MARKETING_AUTH_PANEL = {
+  badge: "Free forever · no card",
+  heading: [
+    { text: "You're one post away from becoming a", variant: "plain" },
+    { text: "LinkedIn influencer", variant: "blue" },
+  ] as PaperDisplayLine,
+  body: `Thought leadership, minus the three hours staring at an empty box. ${APP_NAME} writes the hook. You take the credit.`,
+  footnote: "Ten posts a month, free",
+} as const;
 
-export const MARKETING_MATRIX_GROUPS: readonly MarketingMatrixGroup[] = [
-  {
-    label: "Create & publish",
-    resources: [
-      "linkedinPosts",
-      "aiGeneration",
-      "carousels",
-      "aiImageEdit",
-      "contentPlan",
-    ],
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_AUTH_COPY, kicker, title, description,
+ *   googleDescription, emailDescription, sign-in copy, sign-up copy
+ *
+ * WHAT:  The kicker, title and description at the top of the auth form column,
+ *        per mode and per available method.
+ * WHY:   Two descriptions per mode, not one, because EMAIL_AUTH_ENABLED changes
+ *        what the screen actually offers: "Sign in with your Google account to
+ *        continue" is wrong on a screen that also has an email field, and a
+ *        single generic line would be wrong on both. Keyed by mode so the form
+ *        picks copy rather than branching on strings.
+ * WHERE: src/components/global/auth/auth-form.tsx.
+ */
+export const MARKETING_AUTH_COPY = {
+  "sign-in": {
+    kicker: "Sign in",
+    title: "Welcome back",
+    googleDescription: "Sign in with your Google account to continue.",
+    emailDescription: "Enter your email below to sign in to your account.",
   },
-  {
-    label: "Profile intelligence",
-    resources: ["profileAnalysis", "profileLookup", "profileDeepInsights"],
+  "sign-up": {
+    kicker: "Create an account",
+    title: "Start posting",
+    googleDescription: "Sign up with your Google account to get started.",
+    emailDescription: "Enter your details below to create your account.",
   },
-  {
-    label: "Team & workspace",
-    resources: ["member", "auditLogs"],
-  },
-];
+} as const;
 
-/* The quotas worth repeating as bullets on a pricing card. Deliberately short —
- * the full matrix is one disclosure below it. `satisfies` is load-bearing: it
- * refuses any key that isn't actually a quota, so a bullet can never reference a
- * resource that has no number to show. */
-export const MARKETING_PLAN_BULLET_RESOURCES = [
-  "linkedinPosts",
-  "aiGeneration",
-  "carousels",
-  "profileAnalysis",
-  "contentPlan",
-  "member",
-] as const satisfies readonly LimitResourceKey[];
-
-/* The numbers the free-tier counter row shows. */
-export const MARKETING_FREE_TIER_RESOURCES = [
-  "linkedinPosts",
-  "aiGeneration",
-  "carousels",
-  "profileAnalysis",
-  "contentPlan",
-] as const satisfies readonly LimitResourceKey[];
+export const MARKETING_AUTH_ASSURANCES: Readonly<
+  Record<"sign-in" | "sign-up", readonly string[]>
+> = {
+  "sign-in": [
+    "Nothing posts to LinkedIn until you approve it.",
+    "No card required. The free plan has no trial timer.",
+    "Disconnect your LinkedIn account at any time.",
+  ],
+  "sign-up": [
+    "No card required. The free plan has no trial timer.",
+    "Nothing posts to LinkedIn until you approve it.",
+    "First post drafted about a minute after you connect.",
+  ],
+};

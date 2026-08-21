@@ -20,7 +20,13 @@
  */
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import {
+  Archivo,
+  Archivo_Black,
+  Geist,
+  Geist_Mono,
+  Instrument_Serif,
+} from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { BRANDING } from "@/lib/config";
@@ -66,6 +72,36 @@ const instrumentSerif = Instrument_Serif({
   style: "italic",
 });
 
+/* SOURCE OF TRUTH KEYWORDS: Archivo, Archivo_Black, --font-archivo,
+ *   --font-archivo-black, --font-paper-sans, --font-paper-display, paper-scope,
+ *   font-paper-display, public surfaces, landing typography, auth typography
+ *
+ * WHAT:  The two faces the public "paper" surfaces are set in — Archivo for
+ *        everything, Archivo Black for display type.
+ * WHY:   The paper design system is carried almost entirely by its type: Archivo
+ *        Black at 0.82 line-height with words boxed in blue IS the look, and
+ *        substituting a heavier Geist weight for it changes the design rather
+ *        than approximating it. Loaded here, at the ROOT, because next/font must
+ *        be called at module scope in a layout — the `.paper-scope` class in
+ *        globals.css is what limits them to the public pages, so the app's own
+ *        surfaces keep Geist and pay nothing but the two extra font files.
+ *        Archivo carries 400/500/600 (the three weights the design actually
+ *        uses); Archivo Black ships one weight by definition.
+ * WHERE: Resolved through --font-paper-sans / --font-paper-display in
+ *        globals.css, consumed by .paper-scope and the `font-paper-display`
+ *        utility across (marketing) and (auth). */
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+const archivoBlack = Archivo_Black({
+  variable: "--font-archivo-black",
+  subsets: ["latin"],
+  weight: "400",
+});
+
 export const metadata: Metadata = {
   metadataBase: BRANDING.metadataBase,
   title: {
@@ -73,6 +109,19 @@ export const metadata: Metadata = {
     template: `%s — ${BRANDING.appName}`,
   },
   description: BRANDING.appDescription,
+  /* The app-wide social defaults. They live HERE rather than on the landing page
+   * because they are true of every route, and because a page that declares its
+   * own `openGraph` block replaces the inherited one entirely — images included.
+   * Keeping the only declaration at the root means src/app/opengraph-image.tsx
+   * attaches to every page instead of just the ones nobody customised. Note the
+   * absence of `images`: naming one here would override the generated card. */
+  openGraph: {
+    type: "website",
+    siteName: BRANDING.appName,
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({
@@ -89,6 +138,8 @@ export default function RootLayout({
         geistSans.variable,
         geistMono.variable,
         instrumentSerif.variable,
+        archivo.variable,
+        archivoBlack.variable,
       )}
     >
       <body

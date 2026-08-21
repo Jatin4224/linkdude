@@ -5,16 +5,20 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: MarketingFooter, MARKETING_FOOTER_GROUPS, BrandMark,
- *   APP_NAME, APP_DESCRIPTION, public footer, site footer, border-rail
+ * SOURCE OF TRUTH KEYWORDS: MarketingFooter, MARKETING_FOOTER_GROUPS,
+ *   MARKETING_DISCLAIMER, PaperLockup, PaperLabel, APP_DESCRIPTION, site footer,
+ *   border-ink, bottom bar
  *
- * WHAT:  The public site footer — brand lockup and blurb, link columns, and the
- *        bottom bar.
+ * WHAT:  The public site footer — brand lockup and blurb, three link columns,
+ *        and the bottom bar.
  * WHY:   A server component with no interactivity, so it costs the page nothing
- *        in client JS. Like the navbar it belongs to the (marketing) layout
- *        rather than a single route, so every future public page gets it. It
- *        sits INSIDE the page's ruled column, which is what closes the grid off
- *        at the bottom rather than letting the rails run into nothing.
+ *        in client JS. Like the header it belongs to the (marketing) LAYOUT
+ *        rather than a single route, so every future public page gets it.
+ *
+ *        One ink rule along the top and one hairline above the bottom bar: the
+ *        difference between them is the whole hierarchy. Ink closes the page;
+ *        the hairline only separates the copyright from the columns, and using
+ *        ink for both would make the bottom bar look like a second footer.
  * WHERE: src/app/(marketing)/layout.tsx.
  */
 
@@ -23,58 +27,53 @@ import Link from "next/link";
 import {
   APP_DESCRIPTION,
   APP_NAME,
+  MARKETING_DISCLAIMER,
   MARKETING_FOOTER_GROUPS,
   MARKETING_SECTION_IDS,
 } from "@/lib/config";
-import { BrandMark } from "@/components/global/platform-logo";
+import { PaperLabel, PaperLockup } from "@/components/global/paper";
 
 export function MarketingFooter() {
   return (
-    <footer className="border-t border-rail">
-      <div className="grid grid-cols-2 gap-10 px-(--gutter) py-[clamp(40px,5vw,56px)] md:grid-cols-[2fr_repeat(3,1fr)]">
-        <div className="col-span-2 flex flex-col gap-4 md:col-span-1">
-          <Link
-            href={`#${MARKETING_SECTION_IDS.top}`}
-            className="flex w-fit items-center gap-2.5"
-          >
-            <BrandMark className="size-[26px] rounded-[7px]" />
-            <span className="font-mono text-[13px] font-medium uppercase tracking-[0.02em]">
-              {APP_NAME}
-            </span>
-          </Link>
-          <p className="max-w-xs text-pretty text-[13.5px] leading-relaxed text-muted-foreground">
-            {APP_DESCRIPTION}
-          </p>
+    <footer className="relative z-6 border-t border-ink bg-paper px-(--gutter) pt-[clamp(30px,4vw,48px)] pb-[22px] text-ink">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-[clamp(26px,4vw,44px)]">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] items-start gap-[clamp(24px,3vw,44px)]">
+          <div className="flex max-w-[22em] flex-col gap-3">
+            <PaperLockup href={`#${MARKETING_SECTION_IDS.top}`} />
+            <p className="m-0 text-sm leading-normal text-pretty text-grey">
+              {APP_DESCRIPTION}
+            </p>
+          </div>
+
+          {MARKETING_FOOTER_GROUPS.map((group) => (
+            <div key={group.label} className="flex flex-col gap-2.5">
+              <PaperLabel size="band">{group.label}</PaperLabel>
+              <ul className="flex list-none flex-col gap-2.5 p-0">
+                {group.items.map((item) => (
+                  <li key={`${group.label}-${item.label}`}>
+                    <Link
+                      href={item.href}
+                      className="text-sm text-grey transition-colors hover:text-ink"
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
-        {MARKETING_FOOTER_GROUPS.map((group) => (
-          <div key={group.label} className="flex flex-col gap-3.5">
-            <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-dim">
-              {group.label}
-            </p>
-            <ul className="flex flex-col gap-2.5">
-              {group.items.map((item) => (
-                <li key={`${group.label}-${item.label}`}>
-                  <Link
-                    href={item.href}
-                    className="text-[13.5px] text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-2 border-t border-rail px-(--gutter) py-5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-dim sm:flex-row sm:items-center sm:justify-between">
-        {/* The page is prerendered, so this year is stamped at build time and
-            refreshes on the next deploy — not a live clock. */}
-        <p>
-          © {new Date().getFullYear()} {APP_NAME}
-        </p>
-        <p>Not affiliated with LinkedIn Corporation.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hair pt-[18px]">
+          {/* The page is prerendered, so this year is stamped at build time and
+              refreshes on the next deploy — not a live clock. */}
+          <PaperLabel size="band" tone="grey" className="tracking-[0.09em]">
+            © {new Date().getFullYear()} {APP_NAME}
+          </PaperLabel>
+          <PaperLabel size="band" tone="grey" className="tracking-[0.09em]">
+            {MARKETING_DISCLAIMER}
+          </PaperLabel>
+        </div>
       </div>
     </footer>
   );

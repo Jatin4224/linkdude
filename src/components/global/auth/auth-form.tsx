@@ -9,14 +9,15 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: AuthForm, AuthFormProps, GoogleOnlyForm,
  *   EMAIL_AUTH_ENABLED, GOOGLE_AUTH_ENABLED, authClient, signInSchema,
- *   signUpSchema, GoogleGlyph
+ *   signUpSchema, GoogleGlyph, PaperButton, PaperLabel, MARKETING_AUTH_COPY,
+ *   MARKETING_AUTH_ASSURANCES, AuthAssurances, AuthError, paper design
  *
  * WHAT:  Reusable email+password+Google auth surface. `AuthForm` is a thin
  *        dispatcher that mounts a concrete RHF form per mode (sign-in or
  *        sign-up), or the Google-only panel when email auth is switched off.
- *        The layout is a bare centered column (no card): centered heading, the
- *        form, a "Or continue with" Google button below the primary action,
- *        then a cross-link footer.
+ *        The layout is the paper design's form column: a blue mono kicker, a
+ *        title, a grey description, the error slot, the action, then the three
+ *        numbered assurance lines.
  * WHY:   CLAUDE.md mandates zod + react-hook-form for every input surface, so
  *        both forms resolve against the shared schemas in src/lib/types. Two
  *        concrete forms (not one generic) give exact RHF `Path<>` inference
@@ -25,6 +26,14 @@
  *        The EMAIL_AUTH_ENABLED branch sits in the dispatcher rather than
  *        inside each form so the email forms — and their RHF/zod hooks — never
  *        mount at all in Google-only mode.
+ *
+ *        This was a VISUAL replacement, not a rewrite: every handler, schema,
+ *        redirect and error path below is unchanged. What changed is that the
+ *        Google button and the error alert now render through the paper design
+ *        system, and that rule 4 (one blue per screen) decides which control
+ *        gets the saturated fill — in Google-only mode that is the Google
+ *        button, and with email enabled it is the submit, so Google steps down
+ *        to the outline variant rather than the page carrying two blues.
  * WHERE: Mounted by src/app/(auth)/sign-in|sign-up/page.tsx inside AuthShell;
  *        talks to authClient (src/lib/better-auth/auth-client.ts); schemas live
  *        in src/lib/types/auth.ts; flags live in src/lib/config/auth-methods.ts.
@@ -37,7 +46,6 @@ import { Loader2Icon, MailCheckIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -53,8 +61,11 @@ import {
   AUTH_ROUTES,
   EMAIL_AUTH_ENABLED,
   GOOGLE_AUTH_ENABLED,
+  MARKETING_AUTH_ASSURANCES,
+  MARKETING_AUTH_COPY,
   ROUTES,
 } from "@/lib/config";
+import { PaperLabel, PaperButton } from "@/components/global/paper";
 import { useDevEmailToast } from "@/hooks/use-dev-email-toast";
 import {
   signInSchema,
@@ -131,76 +142,79 @@ function SignInForm({ callbackURL }: { callbackURL: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <AuthHeading
-        title="Login to your account"
-        description="Enter your email below to login to your account"
-      />
-      <AuthError error={error} />
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="grid gap-6"
-          noValidate
-        >
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    autoComplete="email"
-                    placeholder="m@example.com"
-                    disabled={isBusy}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <div className="flex items-center">
-                  <FormLabel>Password</FormLabel>
-                  <Link
-                    href={AUTH_ROUTES.forgotPassword}
-                    className="ml-auto text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-                <FormControl>
-                  <Input
-                    type="password"
-                    autoComplete="current-password"
-                    disabled={isBusy}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <AuthSubmit
-            label="Login"
-            isSubmitting={isSubmitting}
-            isBusy={isBusy}
-          />
-          <GoogleButton
-            label="Login with Google"
-            onClick={() => google.run(callbackURL, setError)}
-            isPending={google.isPending}
-            isBusy={isBusy}
-          />
-        </form>
-      </Form>
+    <div className="flex flex-col gap-[30px]">
+      <AuthHeading mode="sign-in" method="email" />
+
+      <div className="flex flex-col gap-[18px]">
+        <AuthError error={error} />
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="grid gap-5"
+            noValidate
+          >
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      autoComplete="email"
+                      placeholder="m@example.com"
+                      disabled={isBusy}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center">
+                    <FormLabel>Password</FormLabel>
+                    <Link
+                      href={AUTH_ROUTES.forgotPassword}
+                      className="ml-auto text-sm underline-offset-4 hover:underline"
+                    >
+                      Forgot your password?
+                    </Link>
+                  </div>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      autoComplete="current-password"
+                      disabled={isBusy}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <AuthSubmit
+              label="Sign in"
+              isSubmitting={isSubmitting}
+              isBusy={isBusy}
+            />
+            <GoogleButton
+              label="Continue with Google"
+              onClick={() => google.run(callbackURL, setError)}
+              isPending={google.isPending}
+              isBusy={isBusy}
+            />
+          </form>
+        </Form>
+
+        <AuthAssurances mode="sign-in" />
+      </div>
+
       <AuthFooter
         prompt="Don't have an account?"
         ctaLabel="Sign up"
@@ -260,113 +274,115 @@ function SignUpForm({ callbackURL }: { callbackURL: string }) {
 
   if (submittedEmail) {
     return (
-      <div className="flex flex-col items-center gap-6 text-center">
-        <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
-          <MailCheckIcon className="size-8 text-primary" />
+      <div className="flex flex-col gap-5">
+        <div className="flex size-12 items-center justify-center border border-ink">
+          <MailCheckIcon aria-hidden="true" className="size-5 text-blue" />
         </div>
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold">Check your email</h1>
-          <p className="text-balance text-sm text-muted-foreground">
+        <div className="flex flex-col gap-2.5">
+          <h1 className="m-0 text-[clamp(26px,2.6vw,34px)] leading-tight font-medium tracking-[-0.035em]">
+            Check your email
+          </h1>
+          <p className="m-0 text-pretty text-[clamp(15px,1.4vw,18px)] leading-normal text-grey">
             We sent a verification link to{" "}
-            <span className="font-medium text-foreground">
-              {submittedEmail}
-            </span>
-            . Click it to finish creating your account.
+            <span className="text-ink">{submittedEmail}</span>. Click it to
+            finish creating your account.
           </p>
         </div>
-        <Link
-          href={AUTH_ROUTES.signIn}
-          className="text-sm underline underline-offset-4"
-        >
-          Back to sign in
-        </Link>
+        <AuthFooter
+          prompt="Wrong address?"
+          ctaLabel="Back to sign in"
+          ctaHref={AUTH_ROUTES.signIn}
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <AuthHeading
-        title="Create an account"
-        description="Enter your details below to create your account"
-      />
-      <AuthError error={error} />
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="grid gap-6"
-          noValidate
-        >
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Name</FormLabel>
-                <FormControl>
-                  <Input
-                    type="text"
-                    autoComplete="name"
-                    placeholder="John Doe"
-                    disabled={isBusy}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    autoComplete="email"
-                    placeholder="m@example.com"
-                    disabled={isBusy}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <Input
-                    type="password"
-                    autoComplete="new-password"
-                    disabled={isBusy}
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>At least 8 characters.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <AuthSubmit
-            label="Sign up"
-            isSubmitting={isSubmitting}
-            isBusy={isBusy}
-          />
-          <GoogleButton
-            label="Sign up with Google"
-            onClick={() => google.run(callbackURL, setError)}
-            isPending={google.isPending}
-            isBusy={isBusy}
-          />
-        </form>
-      </Form>
+    <div className="flex flex-col gap-[30px]">
+      <AuthHeading mode="sign-up" method="email" />
+
+      <div className="flex flex-col gap-[18px]">
+        <AuthError error={error} />
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="grid gap-5"
+            noValidate
+          >
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      autoComplete="name"
+                      placeholder="John Doe"
+                      disabled={isBusy}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      autoComplete="email"
+                      placeholder="m@example.com"
+                      disabled={isBusy}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      disabled={isBusy}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>At least 8 characters.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <AuthSubmit
+              label="Create account"
+              isSubmitting={isSubmitting}
+              isBusy={isBusy}
+            />
+            <GoogleButton
+              label="Continue with Google"
+              onClick={() => google.run(callbackURL, setError)}
+              isPending={google.isPending}
+              isBusy={isBusy}
+            />
+          </form>
+        </Form>
+
+        <AuthAssurances mode="sign-up" />
+      </div>
+
       <AuthFooter
         prompt="Already have an account?"
         ctaLabel="Sign in"
@@ -382,14 +398,16 @@ function SignUpForm({ callbackURL }: { callbackURL: string }) {
  * SOURCE OF TRUTH KEYWORDS: GoogleOnlyForm
  *
  * WHAT:  The whole auth surface when NEXT_PUBLIC_EMAIL_AUTH_ENABLED=false —
- *        heading, error slot, and a single Google button.
- * WHY:   With one method there is nothing to "continue with", so the divider is
- *        dropped and the button becomes the primary action. Both routes render
- *        the same thing on purpose: implicit sign-up is on in this mode (see
- *        auth.ts), so one button both creates the account and signs an existing
- *        user in — which is why the label is "Continue with", and why the
- *        sign-in ↔ sign-up cross-link footer is omitted rather than pointing at
- *        an identical page.
+ *        heading, error slot, one button, and the assurance lines.
+ * WHY:   This is the screen the design was drawn for: one saturated element on
+ *        the whole page, so its states carry the entire interaction. With one
+ *        method there is nothing to "continue with", so the divider is dropped
+ *        and the button becomes the primary action. Both routes render the same
+ *        thing on purpose: implicit sign-up is on in this mode (see auth.ts), so
+ *        one button both creates the account and signs an existing user in —
+ *        which is why the label is "Continue with", and why the sign-in ↔
+ *        sign-up cross-link footer is omitted rather than pointing at an
+ *        identical page.
  * WHERE: Returned by AuthForm when EMAIL_AUTH_ENABLED is false.
  */
 function GoogleOnlyForm({
@@ -400,55 +418,108 @@ function GoogleOnlyForm({
   callbackURL: string;
 }) {
   const { error, setError, google } = useAuthEffects();
-  const isSignUp = mode === "sign-up";
 
   return (
-    <div className="flex flex-col gap-6">
-      <AuthHeading
-        title={isSignUp ? "Create an account" : "Welcome back"}
-        description={
-          isSignUp
-            ? "Sign up with your Google account to get started."
-            : "Sign in with your Google account to continue."
-        }
-      />
-      <AuthError error={error} />
-      <GoogleButton
-        label="Continue with Google"
-        onClick={() => google.run(callbackURL, setError)}
-        isPending={google.isPending}
-        isBusy={google.isPending}
-        withDivider={false}
-      />
+    <div className="flex flex-col gap-[30px]">
+      <AuthHeading mode={mode} method="google" />
+
+      <div className="flex flex-col gap-[18px]">
+        <AuthError error={error} />
+        <GoogleButton
+          label="Continue with Google"
+          onClick={() => google.run(callbackURL, setError)}
+          isPending={google.isPending}
+          isBusy={google.isPending}
+          withDivider={false}
+        />
+        <AuthAssurances mode={mode} />
+      </div>
     </div>
   );
 }
 
 /* ---------- Shared bits ---------- */
 
+/* Kicker, title, description. `method` picks between the two descriptions the
+ * mode carries — see MARKETING_AUTH_COPY for why there are two. */
 function AuthHeading({
-  title,
-  description,
+  mode,
+  method,
 }: {
-  title: string;
-  description: string;
+  mode: AuthFormMode;
+  method: "google" | "email";
 }) {
+  const copy = MARKETING_AUTH_COPY[mode];
   return (
-    <div className="flex flex-col items-center gap-2 text-center">
-      <h1 className="text-2xl font-bold">{title}</h1>
-      <p className="text-balance text-sm text-muted-foreground">
-        {description}
+    <div className="flex flex-col gap-[11px]">
+      <PaperLabel tone="blue" className="text-[11px] tracking-[0.14em]">
+        {copy.kicker}
+      </PaperLabel>
+      <h1 className="m-0 text-[clamp(26px,2.6vw,34px)] leading-tight font-medium tracking-[-0.035em]">
+        {copy.title}
+      </h1>
+      <p className="m-0 text-pretty text-[clamp(15px,1.4vw,18px)] leading-normal text-grey">
+        {method === "google" ? copy.googleDescription : copy.emailDescription}
       </p>
     </div>
   );
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: AuthAssurances, MARKETING_AUTH_ASSURANCES
+ *
+ * WHAT:  The three numbered promises under the action, ruled off from it.
+ * WHY:   These answer the objections that actually stop a signup — nothing
+ *        posts without approval, no card, and you can leave — so they sit below
+ *        the button where someone hesitating will read them, not above it where
+ *        they would delay someone who has already decided. The list is ruled
+ *        with `border-hair` INSIDE the ink top rule, which is the design's
+ *        distinction between a boundary and a separator.
+ */
+function AuthAssurances({ mode }: { mode: AuthFormMode }) {
+  return (
+    <ul className="flex list-none flex-col border-t border-ink p-0">
+      {MARKETING_AUTH_ASSURANCES[mode].map((text, index, all) => (
+        <li
+          key={text}
+          className={
+            index === all.length - 1
+              ? "flex items-start gap-3 py-3"
+              : "flex items-start gap-3 border-b border-hair py-3"
+          }
+        >
+          <PaperLabel
+            as="span"
+            size="micro"
+            tone="blue"
+            className="flex-none pt-0.5 tracking-[0.1em]"
+          >
+            {`0${index + 1}`}
+          </PaperLabel>
+          <p className="m-0 text-[13.5px] leading-normal">{text}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: AuthError, red alert, --red, --red-surface,
+ *   --red-ink, role=alert
+ *
+ * WHAT:  The error banner above the action.
+ * WHY:   Restyled, not rewired — the state and the messages it renders are
+ *        unchanged. Square, 1px red border on the red surface tint, with the
+ *        darker red for the text: red is the ONLY colour on either page allowed
+ *        outside the paper/ink/blue palette, and it appears only here, which is
+ *        what makes it register instantly when it does.
+ */
 function AuthError({ error }: { error: string | null }) {
   if (!error) return null;
   return (
     <div
       role="alert"
-      className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"
+      className="border border-red bg-red-surface px-3.5 py-3 text-[13px] leading-normal text-red-ink"
     >
       {error}
     </div>
@@ -465,18 +536,14 @@ function AuthSubmit({
   isBusy: boolean;
 }) {
   return (
-    /* `brand` rather than the default: this is the same commit action as every
-       CTA on the public site, and a white button here made auth look like a
-       different product from the page the user arrived from. */
-    <Button
-      type="submit"
-      variant="brand"
-      className="w-full"
-      disabled={isBusy}
-    >
-      {isSubmitting ? <Loader2Icon className="size-4 animate-spin" /> : null}
+    /* The commit action, so it takes the one blue on this screen — which is why
+       the Google button below it steps down to `outline`. */
+    <PaperButton type="submit" size="lg" block pending={isSubmitting} disabled={isBusy}>
+      {isSubmitting ? (
+        <Loader2Icon aria-hidden="true" className="size-4 animate-spin" />
+      ) : null}
       {label}
-    </Button>
+    </PaperButton>
   );
 }
 
@@ -499,28 +566,34 @@ function GoogleButton({
   return (
     <>
       {withDivider ? (
-        <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
-          <span className="relative z-10 bg-background px-2 text-muted-foreground">
-            Or continue with
-          </span>
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="h-px flex-1 bg-hair" />
+          <PaperLabel as="span" size="micro" tone="grey">
+            or
+          </PaperLabel>
+          <span aria-hidden="true" className="h-px flex-1 bg-hair" />
         </div>
       ) : null}
-      <Button
-        /* Google-only mode makes this the commit action of the page, so it
-           takes the same brand treatment as every other primary CTA. */
-        variant={withDivider ? "outline" : "brand"}
-        type="button"
-        className="w-full"
+      <PaperButton
+        /* Google-only mode makes this the commit action of the page, so it takes
+           the one blue; beside an email submit it must not compete with it. */
+        variant={withDivider ? "outline" : "blue"}
+        size="lg"
+        block
         onClick={onClick}
-        disabled={isBusy}
+        pending={isPending}
+        disabled={isBusy && !isPending}
       >
         {isPending ? (
-          <Loader2Icon className="size-4 animate-spin" />
+          <span
+            aria-hidden="true"
+            className="size-[15px] flex-none animate-spin rounded-full border-2 border-current/40 border-t-current"
+          />
         ) : (
           <GoogleGlyph />
         )}
-        {label}
-      </Button>
+        {isPending ? "Opening Google…" : label}
+      </PaperButton>
     </>
   );
 }
@@ -535,12 +608,12 @@ function AuthFooter({
   ctaHref: string;
 }) {
   return (
-    <div className="text-center text-sm">
+    <p className="m-0 text-sm text-grey">
       {prompt}{" "}
-      <Link href={ctaHref} className="underline underline-offset-4">
+      <Link href={ctaHref} className="text-ink underline underline-offset-4">
         {ctaLabel}
       </Link>
-    </div>
+    </p>
   );
 }
 

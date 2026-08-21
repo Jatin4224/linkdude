@@ -5,81 +5,89 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: FinalCta, MARKETING_CLOSING, LandingCtaPair,
- *   AUTH_ROUTES, BRAND_MASCOT, formatResourceAllowance, mask-vignette-lg,
- *   DisplayHeading, closing band
+ * SOURCE OF TRUTH KEYWORDS: FinalCta, MARKETING_CLOSING, PaperDisplay,
+ *   PaperButton, PaperMascot, PaperLabel, closing band, last CTA, AUTH_ROUTES
  *
- * WHAT:  The closing band — the mascot, one restated promise, and the last CTA.
- * WHY:   A reader who scrolled this far has already been past pricing; the job
- *        here is to remove the last excuse, which is why the free-tier line
- *        repeats under the buttons rather than making them scroll back up for
- *        it. Those numbers are read from RESOURCES, not typed — this is the
- *        page's final promise and the one a reader is most likely to hold us to.
- * WHERE: src/app/(marketing)/page.tsx, last section before the footer.
+ * WHAT:  The closing band — the mascot, the page's largest display line, the two
+ *        calls to action and the last reassurance.
+ * WHY:   The only place on the page where an ink box and a blue box appear in
+ *        the same line, and it still spends exactly one blue (rule 4): "One
+ *        CONVERSATION away", with conversation in ink and away in blue. That
+ *        escalation is what makes the last headline read as the biggest, rather
+ *        than merely the largest.
+ *
+ *        Two CTAs rather than one, and the second is the outline variant on
+ *        purpose: someone who already has an account should not have to find
+ *        sign-in in the footer, but they must not be offered a second blue
+ *        button competing with the primary ask.
+ * WHERE: src/app/(marketing)/page.tsx, last before the footer.
  */
 
-import Image from "next/image";
+import { ArrowRightIcon } from "lucide-react";
 
-import BRAND_MASCOT from "@/app/assets/images/linkdin-dude.png";
-import { AUTH_ROUTES, MARKETING_CLOSING } from "@/lib/config";
-import { formatResourceAllowance } from "@/lib/resources";
-import { MarketingSection } from "@/components/global/marketing";
-import { Reveal } from "@/components/global/reveal";
-import { DisplayHeading } from "./display-heading";
-import { LandingCtaPair } from "./landing-cta";
+import {
+  AUTH_ROUTES,
+  GET_STARTED_HREF,
+  GET_STARTED_LABEL,
+  MARKETING_CLOSING,
+  MARKETING_SECTION_IDS,
+} from "@/lib/config";
+import {
+  PaperLabel,
+  PaperButton,
+  PaperDisplay,
+  PaperMascot,
+  PaperReveal,
+} from "@/components/global/paper";
 
 export function FinalCta() {
   return (
-    <MarketingSection
-      flush
-      spacingClassName="py-[clamp(72px,9vw,124px)]"
-      className="overflow-hidden"
+    <section
+      id={MARKETING_SECTION_IDS.start}
+      className="relative z-6 bg-paper px-[clamp(16px,3vw,34px)] py-[clamp(72px,11vw,150px)] text-ink"
     >
-      {/* Rises from below the fold rather than sitting behind the heading, so
-          the page closes on a glow instead of a hard edge against the footer. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-80 left-1/2 -z-10 h-[620px] w-[1000px] -translate-x-1/2 bg-[radial-gradient(44%_44%_at_50%_50%,color-mix(in_oklch,var(--acid)_14%,transparent)_0%,transparent_70%)]"
+      <PaperReveal
+        distance={30}
+        className="flex flex-col items-center gap-6 text-center"
+      >
+      <PaperMascot
+        width={240}
+        height={240}
+        className="h-auto w-[clamp(140px,17vw,240px)]"
       />
 
-      <div className="flex flex-col items-center gap-7 text-center">
-        <Reveal>
-          <Image
-            src={BRAND_MASCOT}
-            alt=""
-            width={232}
-            height={232}
-            aria-hidden="true"
-            className="mask-vignette-lg h-auto w-[clamp(88px,9vw,116px)]"
-          />
-        </Reveal>
+      <p className="m-0 text-[clamp(18px,2.2vw,30px)] tracking-[-0.02em] text-grey">
+        {MARKETING_CLOSING.lead}
+      </p>
 
-        <Reveal delay={70}>
-          <DisplayHeading size="closing" heading={MARKETING_CLOSING.heading} />
-        </Reveal>
+      {/* The clamp FLOOR is the load-bearing number here, not the ceiling.
+          "Conversation" is twelve characters of Archivo Black in one unbreakable
+          span, so at the old 46px floor it measured ~392px inside a 358px column
+          on a 390px phone — three pixels of horizontal page scroll, traced to
+          exactly this word. The floor has to be small enough for the LONGEST
+          word in the line at the narrowest supported screen; 30px clears it with
+          room, and the 10vw term still takes over above ~300px so nothing about
+          the desktop composition changes. */}
+      <PaperDisplay
+        as="h2"
+        words={MARKETING_CLOSING.heading}
+        className="max-w-[14em] justify-center text-center text-[clamp(30px,10vw,150px)]"
+      />
 
-        <Reveal delay={140}>
-          <p className="max-w-[34em] text-pretty text-base leading-[1.65] text-muted-foreground">
-            {MARKETING_CLOSING.body}
-          </p>
-        </Reveal>
-
-        <Reveal delay={210} className="mt-2">
-          <LandingCtaPair
-            secondaryLabel="Sign in"
-            secondaryHref={AUTH_ROUTES.signIn}
-            className="justify-center"
-          />
-        </Reveal>
-
-        <Reveal delay={280}>
-          <p className="font-mono text-[11.5px] text-dim">
-            {formatResourceAllowance("linkedinPosts", "free")} and{" "}
-            {formatResourceAllowance("aiGeneration", "free")} a month, free. No
-            card, no trial timer.
-          </p>
-        </Reveal>
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-1.5">
+        <PaperButton href={GET_STARTED_HREF} size="lg">
+          {GET_STARTED_LABEL}
+          <ArrowRightIcon className="size-4" />
+        </PaperButton>
+        <PaperButton href={AUTH_ROUTES.signIn} variant="outline" size="lg">
+          {MARKETING_CLOSING.secondaryLabel}
+        </PaperButton>
       </div>
-    </MarketingSection>
+
+      <PaperLabel size="band" tone="grey" className="tracking-[0.08em]">
+        {MARKETING_CLOSING.reassurance}
+      </PaperLabel>
+      </PaperReveal>
+    </section>
   );
 }

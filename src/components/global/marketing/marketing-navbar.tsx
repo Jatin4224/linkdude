@@ -4,103 +4,86 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+"use client";
+
 /**
- * SOURCE OF TRUTH KEYWORDS: MarketingNavbar, MARKETING_NAV, GET_STARTED_HREF,
- *   GET_STARTED_LABEL, BrandMark, APP_NAME, AUTH_ROUTES, public navbar,
- *   sticky header, nav pill, animate-pulse-dot, acid button
+ * SOURCE OF TRUTH KEYWORDS: MarketingNavbar, useHeroScroll, mix-blend-difference,
+ *   PaperLockup, PaperButton, GET_STARTED_HREF, GET_STARTED_LABEL,
+ *   MARKETING_SECTION_IDS, fixed header, hero blend, solid bar
  *
- * WHAT:  The public site header — brand lockup, the nav pill, sign-in, and the
- *        primary CTA.
- * WHY:   Lives in components/global rather than a route `_components` folder
- *        because it is rendered by the (marketing) LAYOUT, not by one page:
- *        every future public route inherits it unchanged.
+ * WHAT:  The public site header — the brand lockup and one CTA, fixed over the
+ *        hero and switching to a solid paper bar once the hero is behind it.
+ * WHY:   Over the hero the bar has NO background at all: it uses
+ *        `mix-blend-mode: difference`, so white type inverts against whatever
+ *        the mascot and the display line put underneath it. That is what lets a
+ *        header sit on top of a full-bleed hero without either a scrim or a
+ *        colour that only works for one beat.
  *
- *        A SERVER component, unlike the version this replaced. That one was
- *        "use client" for one reason — a scroll listener that faded the
- *        background in past 8px — and this design has the bar translucent from
- *        the first pixel, so the listener, the state and the hydration all went
- *        with it. The header now costs the page nothing in client JS.
+ *        Difference-blend is also exactly why it has to STOP. Past the hero the
+ *        header would be blending against unpredictable content — a blue band, a
+ *        white composer panel, a dark band — and "inverted" stops meaning
+ *        "legible". So at that point it becomes an opaque paper bar with an ink
+ *        bottom rule and the CTA takes its solid blue fill, which is the state
+ *        it keeps for the rest of the page.
  *
- *        There is no mobile sheet either: the nav is four short in-page anchors,
- *        and at narrow widths the pill simply wraps onto its own row (order-3 +
- *        basis-full below). A drawer to hold four anchors is a dialog, a focus
- *        trap and a client boundary in exchange for nothing.
+ *        A client component for that one boolean, which is the smallest it can
+ *        be: the reading comes from useHeroScroll, shared with the hero itself,
+ *        so the page runs ONE rAF-throttled scroll listener's worth of work per
+ *        frame rather than two independent ones.
+ *
+ *        There is no nav: the design gives the header a wordmark and a single
+ *        call to action, and the page is a scroll sequence rather than a set of
+ *        destinations. A menu here would be a list of anchors into a story that
+ *        only reads in order.
  * WHERE: src/app/(marketing)/layout.tsx.
  */
 
-import Link from "next/link";
-import { ArrowRightIcon } from "lucide-react";
-
 import {
-  APP_NAME,
-  AUTH_ROUTES,
   GET_STARTED_HREF,
   GET_STARTED_LABEL,
-  MARKETING_NAV,
+  MARKETING_HERO_BEATS,
   MARKETING_SECTION_IDS,
 } from "@/lib/config";
-import { BrandMark } from "@/components/global/platform-logo";
-import { Button } from "@/components/ui/button";
+import { PaperButton, PaperLockup } from "@/components/global/paper";
+import { useHeroScroll } from "@/hooks/use-hero-scroll";
+import { cn } from "@/lib/utils";
 
 export function MarketingNavbar() {
+  const { isPastHero } = useHeroScroll(
+    MARKETING_SECTION_IDS.top,
+    MARKETING_HERO_BEATS.length,
+  );
+
   return (
     <header
-      /* A translucent material rather than an opaque strip: content scrolls
-         under it and stays faintly visible, which is what keeps the page reading
-         as one surface. `saturate` compensates for the colour a heavy blur
-         drains out of whatever is behind it. */
-      className="sticky top-0 z-50 border-b border-[color-mix(in_oklch,var(--rail)_65%,transparent)] bg-[color-mix(in_oklch,var(--background)_74%,transparent)] supports-backdrop-filter:backdrop-blur-[22px] supports-backdrop-filter:backdrop-saturate-150"
+      className={cn(
+        "fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b px-(--gutter) transition-[padding,background-color] duration-200 ease-out",
+        isPastHero
+          ? "border-ink bg-paper py-3"
+          : "border-transparent py-[18px] mix-blend-difference",
+      )}
     >
-      <nav className="mx-auto flex min-h-[62px] w-full max-w-[1240px] flex-wrap items-center justify-between gap-x-4 gap-y-2.5 px-(--gutter) py-2.5">
-        <Link
-          href={`#${MARKETING_SECTION_IDS.top}`}
-          className="flex items-center gap-2.5"
-        >
-          <BrandMark className="size-[26px] rounded-[7px]" />
-          <span className="font-mono text-[13px] font-medium uppercase tracking-[0.02em]">
-            {APP_NAME}
-          </span>
-          <span
-            aria-hidden="true"
-            className="animate-pulse-dot size-[5px] rounded-full bg-acid"
-          />
-        </Link>
+      <PaperLockup
+        href={`#${MARKETING_SECTION_IDS.top}`}
+        className={cn(
+          "text-[19px]",
+          /* Over the hero the type must be white for difference to invert it;
+             on the solid bar it is ordinary ink. */
+          isPastHero ? "text-ink" : "text-ink-foreground",
+        )}
+      />
 
-        {/* order-3 + basis-full: below roughly 1000px the pill drops onto its own
-            centred row rather than colliding with the CTA, which is why the CTA
-            carries flex-none and the row allows wrapping. */}
-        <div className="order-3 flex basis-full justify-center lg:order-none lg:basis-auto">
-          <div className="flex flex-wrap justify-center rounded-full border border-rail p-1">
-            {MARKETING_NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-full px-3.5 py-1.5 font-mono text-[11.5px] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-none items-center gap-4">
-          <Link
-            href={AUTH_ROUTES.signIn}
-            className="font-mono text-[11.5px] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Sign in
-          </Link>
-          <Button
-            variant="acid"
-            className="h-[34px] whitespace-nowrap rounded-[9px] px-3.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.05em] shadow-[0_0_24px_-6px_color-mix(in_oklch,var(--acid)_55%,transparent)]"
-            nativeButton={false}
-            render={<Link href={GET_STARTED_HREF} />}
-          >
-            {GET_STARTED_LABEL}
-            <ArrowRightIcon className="size-[13px]" />
-          </Button>
-        </div>
-      </nav>
+      <PaperButton
+        href={GET_STARTED_HREF}
+        size="sm"
+        variant={isPastHero ? "blue" : "outline"}
+        className={cn(
+          !isPastHero &&
+            "border-ink-foreground text-ink-foreground hover:bg-ink-foreground hover:text-ink",
+        )}
+      >
+        {GET_STARTED_LABEL}
+      </PaperButton>
     </header>
   );
 }

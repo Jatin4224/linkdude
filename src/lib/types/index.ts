@@ -26,7 +26,10 @@
  *   imageKitUploadResponseSchema, ImageKitUploadResponse, imageTransformSchema,
  *   LinkedInConnectionStatus, LINKEDIN_IMAGE_MIME_TYPES,
  *   analyzeProfileSchema, AnalyzeProfileValues, profileAnalysisSchema,
- *   ProfileAnalysis, SectionFeedback, ProfileImprovement
+ *   ProfileAnalysis, SectionFeedback, ProfileImprovement, PaperWordVariant,
+ *   PaperDisplayWord, PaperDisplayLine, PaperIconName,
+ *   PaperOrbitMark,
+ *   PaperScatterMark
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -333,3 +336,11 @@ export type {
   PlanBreakdownRow,
   RevenueMetrics,
 } from "./portal-analytics";
+export type {
+  PaperWordVariant,
+  PaperDisplayWord,
+  PaperDisplayLine,
+  PaperIconName,
+  PaperScatterMark,
+  PaperOrbitMark,
+} from "./paper";

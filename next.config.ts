@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
    * single bundled face and every weight would rasterise identically. */
   outputFileTracingIncludes: {
     "/api/trpc/[trpc]": ["./src/app/assets/fonts/**"],
+    /* Same reason, different consumer: the OG card reads Geist-700 off disk at
+     * request time so satori has a bold face to draw with. Nothing imports the
+     * file, so without this entry the tracer leaves it out of the deployed
+     * bundle and the card silently renders every weight identically. */
+    "/opengraph-image": ["./src/app/assets/fonts/**"],
   },
 };
 

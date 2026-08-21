@@ -5,17 +5,16 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: MarketingNavbar, MarketingFooter, MarketingSection,
- *   MarketingSectionProps, PageAtmosphere
+ * SOURCE OF TRUTH KEYWORDS: MarketingNavbar, MarketingFooter, public chrome
  *
- * WHAT:  Barrel for the public-page chrome and the section shell.
- * WHY:   One import surface for the (marketing) layout and every section under
- *        it, so the layout reads as a shell rather than four import paths.
- * WHERE: src/app/(marketing)/layout.tsx and src/app/(marketing)/_components/*.
+ * WHAT:  Barrel for the public-page chrome.
+ * WHY:   One import surface for the (marketing) layout, so the layout reads as a
+ *        shell rather than two import paths. The section SHELL that used to live
+ *        here is gone: the paper design gives each band its own ground — paper,
+ *        blue, ink — and its own bleed, so a shared wrapper had nothing left to
+ *        own except a border it would have had to opt out of three times.
+ * WHERE: src/app/(marketing)/layout.tsx.
  */
 
 export { MarketingNavbar } from "./marketing-navbar";
 export { MarketingFooter } from "./marketing-footer";
-export { PageAtmosphere } from "./page-atmosphere";
-export { MarketingSection } from "./marketing-section";
-export type { MarketingSectionProps } from "./marketing-section";

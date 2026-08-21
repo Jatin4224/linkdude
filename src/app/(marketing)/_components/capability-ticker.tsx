@@ -5,48 +5,61 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: CapabilityTicker, RESOURCE_ENTRIES, animate-ticker,
- *   marquee-scroll, capability band, ticker, prefers-reduced-motion
+ * SOURCE OF TRUTH KEYWORDS: CapabilityTicker, RESOURCE_ENTRIES,
+ *   animate-paper-ticker, marquee-scroll, PaperLabel, ticker band, marquee,
+ *   prefers-reduced-motion
  *
  * WHAT:  A thin scrolling band of the workspace capabilities a plan can grant,
- *        read straight off the resource registry.
+ *        read straight off the resource registry, running along the bottom edge
+ *        of the blue band.
  * WHY:   This is the slot a landing page usually fills with customer logos. We
  *        have no customers to name, and inventing them would be a lie printed on
  *        the homepage — so the band shows what the product actually does
  *        instead. Deriving it from RESOURCE_ENTRIES means a new gated feature
  *        joins the band the day it ships, and one that is removed leaves it the
- *        same day.
- * WHERE: src/app/(marketing)/page.tsx, directly under the hero.
+ *        same day; nothing here is a claim anybody has to remember to update.
+ *
+ *        Two identical tracks translating -50% is what makes the loop seamless.
+ *        The second is aria-hidden so the list is not announced twice, and the
+ *        rules above and below it are white at 25% rather than a second colour,
+ *        because the band is part of the blue section, not a divider between two.
+ * WHERE: src/app/(marketing)/page.tsx, directly under BlueStatement.
  */
 
 import { RESOURCE_ENTRIES } from "@/lib/resources";
-import { MarketingSection } from "@/components/global/marketing";
-import { cn } from "@/lib/utils";
+import { PaperLabel } from "@/components/global/paper";
 
 /* Only plan-gated surfaces: a resource with neither a quota nor a flag is
- * internal plumbing, not something to advertise. */
-const CAPABILITIES = RESOURCE_ENTRIES.filter(
-  ([, def]) => def.limit ?? def.flag,
-).map(([, def]) => def.name);
+ * internal plumbing, not something to advertise.
+ *
+ * Deduped by NAME, not by key: `carousels` and `carousel` are two resources —
+ * the monthly allowance and the document it renders — but they are one
+ * capability to a reader, and the registry gives both the same display name, so
+ * without this the band printed "CAROUSELS CAROUSELS" back to back. */
+const CAPABILITIES = [
+  ...new Set(
+    RESOURCE_ENTRIES.filter(([, def]) => def.limit ?? def.flag).map(
+      ([, def]) => def.name,
+    ),
+  ),
+];
 
 function TickerTrack({ hidden }: { hidden: boolean }) {
   return (
     <ul
       aria-hidden={hidden || undefined}
-      className="flex shrink-0 items-center gap-[30px] pr-[30px]"
+      className="flex flex-none items-center gap-6.5 pr-6.5"
     >
-      {CAPABILITIES.map((name, index) => (
-        <li
-          key={name}
-          className={cn(
-            "whitespace-nowrap font-mono text-[11.5px] uppercase tracking-[0.13em]",
-            /* Every third item takes the accent. A single-colour ticker reads as
-               one long string of text; the rhythm is what makes it scan as a
-               list of separate things. */
-            index % 3 === 2 ? "text-acid-dim" : "text-dim",
-          )}
-        >
-          {name}
+      {CAPABILITIES.map((name) => (
+        <li key={name} className="list-none">
+          <PaperLabel
+            as="span"
+            size="band"
+            tone="inherit"
+            className="whitespace-nowrap text-blue-foreground/90"
+          >
+            {name}
+          </PaperLabel>
         </li>
       ))}
     </ul>
@@ -55,18 +68,11 @@ function TickerTrack({ hidden }: { hidden: boolean }) {
 
 export function CapabilityTicker() {
   return (
-    <MarketingSection
-      bleed
-      spacingClassName="py-3.5"
-      className="overflow-hidden bg-[color-mix(in_oklch,var(--card)_24%,transparent)]"
-    >
-      {/* Two identical tracks translating -50% is what makes the loop seamless;
-          the second is hidden from assistive tech so the list isn't announced
-          twice. */}
-      <div className="animate-ticker flex w-max">
+    <section className="relative z-6 overflow-hidden border-y border-blue-foreground/25 bg-blue py-3.5">
+      <div className="animate-paper-ticker flex w-max">
         <TickerTrack hidden={false} />
         <TickerTrack hidden />
       </div>
-    </MarketingSection>
+    </section>
   );
 }
