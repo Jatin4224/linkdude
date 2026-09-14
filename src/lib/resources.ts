@@ -816,6 +816,49 @@ export const RESOURCES = {
       requirePermission: "create",
     },
   },
+  /* Job Assist, v1: a pasted hiring post becomes an email and a LinkedIn
+   * message in the member's voice. Resume tailoring and an applications list
+   * build on this later under their own keys. */
+  jobEmails: {
+    name: "Job Emails",
+    description:
+      "Turn a hiring post into an email and a LinkedIn message in your voice",
+    /* `create` only. Nothing is stored (the aiGeneration precedent), so there
+     * is nothing to read, edit or remove, and this counter measures model
+     * spend. */
+    permissions: ["create"],
+    limit: {
+      perPlan: {
+        free: 5,
+        starter: 100,
+        pro: 500,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to write more job emails",
+      availableOnFreeTrial: true,
+      unit: "job emails",
+    },
+    rateLimit: {
+      create: { count: 10, window: "1 m" },
+    },
+    audit: {
+      entity: "jobEmails",
+      describe: {
+        create: "Drafted a job application email",
+      },
+    },
+    nav: {
+      label: "Job Assist",
+      href: "/dashboard/jobs",
+      icon: "Briefcase",
+      section: "create",
+      order: 8,
+      /* Brand-new key, same caveat as carousel: owners see it at once, and a
+       * custom role needs an explicit grant in the role editor. */
+      requirePermission: "create",
+    },
+  },
 } as const satisfies Record<string, ResourceDefinition>;
 
 export type ResourceKey = keyof typeof RESOURCES;

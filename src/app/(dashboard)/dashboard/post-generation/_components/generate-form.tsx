@@ -8,7 +8,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: GenerateForm, GenerateFormProps, POST_TONE_LABELS,
- *   POST_LENGTH_LABELS, voiceActive
+ *   POST_LENGTH_LABELS, VoiceStatusLine
  *
  * WHAT:  The composer's left pane — Topic / Blog tabs plus tone and length
  *        selects, submitting a validated generation request, and a line saying
@@ -24,10 +24,9 @@
  */
 
 import * as React from "react";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AudioLinesIcon, Loader2Icon, SparklesIcon } from "lucide-react";
+import { Loader2Icon, SparklesIcon } from "lucide-react";
 
 import {
   generatePostSchema,
@@ -38,7 +37,7 @@ import {
   type PostLength,
 } from "@/lib/types";
 import { POST_LENGTH_LABELS, POST_TONE_LABELS } from "@/lib/config";
-import { RESOURCES } from "@/lib/resources";
+import { VoiceStatusLine } from "@/components/global/voice-status";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -72,11 +71,6 @@ export interface GenerateFormProps {
   onGenerate: (values: GeneratePostValues) => void;
   isGenerating: boolean;
   disabled?: boolean;
-  /**
-   * Whether drafts use the member's voice. `undefined` hides the line: the
-   * member cannot read voice profiles, or the answer has not loaded yet.
-   */
-  voiceActive?: boolean | undefined;
 }
 
 export function GenerateForm({
@@ -87,7 +81,6 @@ export function GenerateForm({
   onGenerate,
   isGenerating,
   disabled = false,
-  voiceActive,
 }: GenerateFormProps) {
   const topicForm = useForm<TopicValues>({
     resolver: zodResolver(generatePostSchema.options[0]),
@@ -277,22 +270,7 @@ export function GenerateForm({
 
       {/* Makes the voice visible state instead of invisible state: the member
           sees whether this draft will sound like them, and where to change it. */}
-      {voiceActive !== undefined ? (
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <AudioLinesIcon className="size-3.5 shrink-0" />
-          <span>
-            {voiceActive
-              ? "Drafts are written in your voice."
-              : "Drafts use the default style."}
-          </span>
-          <Link
-            href={RESOURCES.voiceProfile.nav.href}
-            className="font-medium text-foreground underline-offset-4 hover:underline"
-          >
-            {voiceActive ? "Manage" : "Set up your voice"}
-          </Link>
-        </p>
-      ) : null}
+      <VoiceStatusLine />
     </div>
   );
 }

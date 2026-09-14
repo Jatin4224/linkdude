@@ -10,7 +10,8 @@ import "server-only";
  *   GenerateStructuredArgs, TONE_DIRECTIVES, LENGTH_DIRECTIVES,
  *   LINKEDIN_POST_SYSTEM_PROMPT, PROFILE_ANALYSIS_SYSTEM_PROMPT,
  *   generateCarouselSlides, CAROUSEL_SYSTEM_PROMPT, extractVoiceProfile,
- *   buildVoiceDirective, VOICE_EXTRACTION_SYSTEM_PROMPT
+ *   buildVoiceDirective, VOICE_EXTRACTION_SYSTEM_PROMPT, generateJobEmail,
+ *   JOB_EMAIL_SYSTEM_PROMPT
  *
  * WHAT:  The app's single seat of model invocation. `generateText` and
  *        `generateStructured` are the provider-facing primitives (prose out and
@@ -94,6 +95,15 @@ import {
   VOICE_EXTRACTION_MAX_TOKENS,
   VOICE_EXTRACTION_TIMEOUT_MS,
 } from "@/lib/config/voice-profile";
+import {
+  generatedJobEmailSchema,
+  type GenerateJobEmailValues,
+  type GeneratedJobEmail,
+} from "@/lib/types/job-email";
+import {
+  JOB_EMAIL_MAX_TOKENS,
+  JOB_EMAIL_TIMEOUT_MS,
+} from "@/lib/config/job-email";
 
 export interface GenerateTextArgs {
   system: string;
@@ -935,4 +945,88 @@ export async function extractVoiceProfile(
   });
 
   return voiceDescriptorSchema.parse(result);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: JOB_EMAIL_SYSTEM_PROMPT
+ *
+ * WHAT:  The persona and hard rules for a job seeker's email to whoever posted
+ *        a role.
+ * WHY:   Recruiters skim dozens of these, and the default AI email loses them in
+ *        the first line ("I hope this email finds you well", "I am writing to
+ *        express my interest"). Every rule forces what gets a reply: short,
+ *        about THIS post, one real fact matched to one real requirement, one
+ *        easy ask.
+ *
+ *        The no-invention rule matters more here than anywhere else in the app:
+ *        a made-up skill or metric that a recruiter checks costs the member the
+ *        job. So a missing fact becomes a marked placeholder the member fills in,
+ *        and the editor lists any left before they send.
+ */
+const JOB_EMAIL_SYSTEM_PROMPT = `You write short emails from a job seeker to the person hiring, replying to one specific hiring post.
+
+Hard rules:
+- The body is 80 to 150 words. A recruiter decides in seconds.
+- Open with the specific role and where the candidate saw it. Never open with "I hope this email finds you well", "I am writing to express my interest", or any variant.
+- Connect one or two of the candidate's facts to one or two concrete requirements from the post, and name the requirement.
+- Use ONLY the facts the candidate gave. Never invent employers, years, skills, projects, metrics or results. Where a specific fact would help but was not given, write a marked placeholder in square brackets, like [years of experience] or [a relevant project], for the candidate to fill in.
+- End with one clear, low-effort ask, such as a short call or a look at their application.
+- Sign off with the candidate's name on its own line.
+- Plain text only: no markdown, no bullet symbols, no emoji. Short paragraphs separated by a blank line.
+- Avoid em dashes and the words "delve", "leverage", "passionate", "synergy", "rockstar" and "ninja".
+- The subject line names the role and one specific hook, under 80 characters. Never just "Job Application".
+- linkedinMessage is a much shorter version for when there is no email address, under 300 characters, fit to send as a LinkedIn connection note. Same rules, no sign-off line.
+- company and role: copy them from the post. Use an empty string when the post does not say.
+- recipientEmail: copy an email address only if one appears in the post exactly. Otherwise use an empty string. Never guess an address.`;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildJobEmailPrompt
+ *
+ * WHAT:  The hiring post and the candidate's facts as the prompt the model reads.
+ * WHY:   Labelled sections so the model can never mistake a line of the post for
+ *        something the candidate claimed, which is exactly how invented
+ *        experience would creep in.
+ */
+function buildJobEmailPrompt(
+  input: GenerateJobEmailValues,
+  candidateName: string,
+): string {
+  return [
+    `Write the email and the LinkedIn message from ${candidateName || "the candidate"}.`,
+    "",
+    "HIRING POST:",
+    input.jobPost,
+    "",
+    "FACTS THE CANDIDATE GAVE ABOUT THEMSELVES:",
+    input.highlights ||
+      "(None given. Use marked placeholders for anything specific about the candidate.)",
+  ].join("\n");
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateJobEmail
+ *
+ * WHAT:  Turns a hiring post and a candidate's facts into a subject, an email,
+ *        and a LinkedIn message, plus the company, role and any address the post
+ *        contains.
+ * WHY:   The member's voice, when active, is appended like every other
+ *        generator's, below the hard rules, so an email still sounds like the
+ *        member while never breaking the rules above.
+ * WHERE: Called by jobEmails.create.
+ */
+export async function generateJobEmail(
+  input: GenerateJobEmailValues,
+  candidateName: string,
+  voice: ResolvedVoice | null = null,
+): Promise<GeneratedJobEmail> {
+  const result = await generateStructured({
+    system: JOB_EMAIL_SYSTEM_PROMPT,
+    prompt: `${buildJobEmailPrompt(input, candidateName)}${buildVoiceDirective(voice)}`,
+    schema: generatedJobEmailSchema,
+    maxOutputTokens: JOB_EMAIL_MAX_TOKENS,
+    /* Must stay under the router's txTimeout. */
+    timeoutMs: JOB_EMAIL_TIMEOUT_MS,
+  });
+
+  return generatedJobEmailSchema.parse(result);
 }

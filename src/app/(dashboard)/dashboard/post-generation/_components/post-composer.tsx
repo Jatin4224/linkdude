@@ -31,7 +31,7 @@
  * WHERE: Rendered by the post-generation page, which supplies the config flags
  *        and the `?draftId=` to reopen. Calls aiGeneration.create,
  *        linkedinPosts.create, linkedinPosts.draft, linkedinPosts.get,
- *        linkedinPosts.uploadAuth, integrations.linkedin, and voiceProfile.get.
+ *        linkedinPosts.uploadAuth, and integrations.linkedin.
  */
 
 import * as React from "react";
@@ -49,13 +49,9 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 
 import { playSound } from "@/lib/sound";
-import { permissions } from "@/lib/better-auth/permissions";
 
 import { trpc } from "@/trpc/react-provider";
-import {
-  useActiveOrganization,
-  useActiveOrganizationId,
-} from "@/hooks/use-active-organization";
+import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   DEFAULT_POST_LENGTH,
   DEFAULT_POST_TONE,
@@ -205,14 +201,6 @@ export function PostComposer({
   const recentPosts = trpc.linkedinPosts.list.useQuery(
     { organizationId: orgId, limit: 5 },
     { enabled },
-  );
-  /* Asked only when the member may read voice profiles, so a role without that
-   * grant sees no voice line rather than a failed request. */
-  const { hasPermission } = useActiveOrganization();
-  const canReadVoice = hasPermission(permissions.VOICE_PROFILE_READ);
-  const voiceProfile = trpc.voiceProfile.get.useQuery(
-    { organizationId: orgId },
-    { enabled: enabled && canReadVoice, retry: false },
   );
 
   /* The callback route redirects here with a result — surface it once, then
@@ -384,13 +372,6 @@ export function PostComposer({
   /* No connection and no schedule requirement — a draft is ours, not LinkedIn's,
    * and it has no date to validate. */
   const canSaveDraft = enabled && withinLimit;
-  /* `undefined` hides the voice line until there is a real answer to show. A
-   * voice that no longer parses counts as off, matching what the server sends
-   * the model. */
-  const voiceActive =
-    canReadVoice && voiceProfile.data !== undefined
-      ? Boolean(voiceProfile.data?.isActive && voiceProfile.data.current)
-      : undefined;
 
   return (
     <ContentLayout
@@ -426,7 +407,6 @@ export function PostComposer({
               onGenerate={handleGenerate}
               isGenerating={generate.isPending}
               disabled={!enabled}
-              voiceActive={voiceActive}
             />
           </CardContent>
         </Card>

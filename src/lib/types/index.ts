@@ -33,7 +33,9 @@
  *   VoiceDescriptor, voiceExtractionSchema, VoiceExtraction,
  *   voiceOverridesSchema, VoiceOverrides, DEFAULT_VOICE_OVERRIDES,
  *   extractVoiceProfileSchema, updateVoiceProfileSchema, ResolvedVoice,
- *   StoredVoiceProfile
+ *   StoredVoiceProfile, generateJobEmailSchema, GenerateJobEmailValues,
+ *   generatedJobEmailSchema, GeneratedJobEmail, jobEmailDraftSchema,
+ *   JobEmailDraftValues, jobEmailRecipientSchema
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -386,6 +388,28 @@ export type {
   ResolvedVoice,
   StoredVoiceProfile,
 } from "./voice-profile";
+/* Job Assist — the hiring-post email writer's request, model output and
+ * editable draft. */
+export {
+  JOB_POST_MIN,
+  JOB_POST_MAX,
+  JOB_HIGHLIGHTS_MAX,
+  JOB_EMAIL_SUBJECT_MAX,
+  JOB_EMAIL_BODY_MAX,
+  JOB_LINKEDIN_MESSAGE_MAX,
+  JOB_COMPANY_MAX,
+  JOB_ROLE_MAX,
+  jobEmailRecipientSchema,
+  generateJobEmailSchema,
+  DEFAULT_JOB_EMAIL_REQUEST,
+  generatedJobEmailSchema,
+  jobEmailDraftSchema,
+} from "./job-email";
+export type {
+  GenerateJobEmailValues,
+  GeneratedJobEmail,
+  JobEmailDraftValues,
+} from "./job-email";
 export { ANALYTICS_RANGE_DAYS, analyticsRangeSchema } from "./portal-analytics";
 export type {
   AnalyticsRangeDays,

@@ -22,6 +22,7 @@ These docs explain how this boilerplate is shaped and why. The README tells you 
 16. `16-carousel-generation.md` — a seventh: rendering PDFs without a browser, and publishing them as LinkedIn document posts
 17. `17-drafts-and-post-library.md` — an eighth: the smallest feature in the app, and the three ways it could have given away quota
 18. `18-voice-profile.md` — a ninth: a persisted writing voice every generator reads, the first per-tenant text in a prompt, and the AI guard that was copied five times
+19. `19-job-email.md` — a tenth: a hiring post becomes an email in the member's voice, with no stored data, no new service and no Google approval
 
 ## If you only have five minutes
 

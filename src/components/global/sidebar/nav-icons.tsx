@@ -18,6 +18,7 @@
 import {
   AudioLines,
   BarChart3,
+  Briefcase,
   CalendarDays,
   Circle,
   CompassIcon,
@@ -52,6 +53,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   FileStack,
   FileText,
   AudioLines,
+  Briefcase,
 };
 
 export type NavIconName = keyof typeof NAV_ICONS;
