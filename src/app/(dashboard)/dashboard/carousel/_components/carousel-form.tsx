@@ -7,8 +7,8 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: CarouselForm, CarouselFormProps, CAROUSEL_TONE_LABELS,
- *   CAROUSEL_TEMPLATE_LABELS
+ * SOURCE OF TRUTH KEYWORDS: CarouselForm, CarouselFormProps,
+ *   CAROUSEL_TEMPLATE_LABELS, POST_TONE_LABELS
  *
  * WHAT:  The generate form — topic, deck length, tone, template and page shape.
  * WHY:   Resolves against generateCarouselSchema, the same schema the router
@@ -36,8 +36,8 @@ import {
   type GenerateCarouselInput,
   type CarouselTemplate,
   type CarouselPagePreset,
-  type PostTone,
 } from "@/lib/types";
+import { POST_TONE_LABELS } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -57,16 +57,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-/* Derived from the schema's const tuples, so adding a tone or template in
- * lib/types surfaces here as a type error rather than a silently missing option. */
-const CAROUSEL_TONE_LABELS: Record<PostTone, string> = {
-  professional: "Professional",
-  conversational: "Conversational",
-  storytelling: "Storytelling",
-  contrarian: "Contrarian",
-  educational: "Educational",
-};
-
+/* Derived from the schema's const tuple, so adding a template in lib/types
+ * surfaces here as a type error rather than a silently missing option. Tone
+ * labels are shared with the post composer, so they live in POST_TONE_LABELS. */
 const CAROUSEL_TEMPLATE_LABELS: Record<CarouselTemplate, string> = {
   minimal: "Minimal — dark, quiet",
   bold: "Bold — brand blue field",
@@ -188,14 +181,14 @@ export function CarouselForm({
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue>
-                        {field.value ? CAROUSEL_TONE_LABELS[field.value] : null}
+                        {field.value ? POST_TONE_LABELS[field.value] : null}
                       </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {POST_TONES.map((tone) => (
                       <SelectItem key={tone} value={tone}>
-                        {CAROUSEL_TONE_LABELS[tone]}
+                        {POST_TONE_LABELS[tone]}
                       </SelectItem>
                     ))}
                   </SelectContent>

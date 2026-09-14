@@ -7,8 +7,8 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: GenerateForm, GenerateFormProps, TONE_LABELS,
- *   LENGTH_LABELS, voiceActive
+ * SOURCE OF TRUTH KEYWORDS: GenerateForm, GenerateFormProps, POST_TONE_LABELS,
+ *   POST_LENGTH_LABELS, voiceActive
  *
  * WHAT:  The composer's left pane — Topic / Blog tabs plus tone and length
  *        selects, submitting a validated generation request, and a line saying
@@ -37,6 +37,7 @@ import {
   type PostTone,
   type PostLength,
 } from "@/lib/types";
+import { POST_LENGTH_LABELS, POST_TONE_LABELS } from "@/lib/config";
 import { RESOURCES } from "@/lib/resources";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,23 +63,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 type TopicValues = Extract<GeneratePostValues, { source: "topic" }>;
 type BlogValues = Extract<GeneratePostValues, { source: "blog" }>;
-
-/* Human labels for the enum values. Derived from the schema's const tuples, so
- * adding a tone in lib/types surfaces here as a type error rather than a
- * silently missing option. */
-const TONE_LABELS: Record<PostTone, string> = {
-  professional: "Professional",
-  conversational: "Conversational",
-  storytelling: "Storytelling",
-  contrarian: "Contrarian",
-  educational: "Educational",
-};
-
-const LENGTH_LABELS: Record<PostLength, string> = {
-  short: "Short",
-  medium: "Medium",
-  long: "Long",
-};
 
 export interface GenerateFormProps {
   tone: PostTone;
@@ -255,12 +239,12 @@ export function GenerateForm({
             <SelectTrigger id="tone-select" disabled={busy} className="w-full">
               {/* Base UI's Select.Value renders the raw VALUE unless given
                   children — see the note in image-editor.tsx. */}
-              <SelectValue>{TONE_LABELS[tone]}</SelectValue>
+              <SelectValue>{POST_TONE_LABELS[tone]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {POST_TONES.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {TONE_LABELS[value]}
+                  {POST_TONE_LABELS[value]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -278,12 +262,12 @@ export function GenerateForm({
               disabled={busy}
               className="w-full"
             >
-              <SelectValue>{LENGTH_LABELS[length]}</SelectValue>
+              <SelectValue>{POST_LENGTH_LABELS[length]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {POST_LENGTHS.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {LENGTH_LABELS[value]}
+                  {POST_LENGTH_LABELS[value]}
                 </SelectItem>
               ))}
             </SelectContent>
