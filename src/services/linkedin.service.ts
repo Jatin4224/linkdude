@@ -992,19 +992,28 @@ export async function createScheduledPost(
 /**
  * SOURCE OF TRUTH KEYWORDS: listPublishedPosts
  *
- * WHAT:  Recent PUBLISHED posts for an organization, newest first.
+ * WHAT:  Recent PUBLISHED posts for an organization, newest first, optionally
+ *        narrowed to one member's.
  * WHY:   Filters on status so the composer's recent-posts strip never shows a
  *        post that hasn't gone out yet — a scheduled row would otherwise sort
  *        into the feed with a null publishedAt and read as already published.
- * WHERE: Backs the recent-posts strip under the composer.
+ *        `authorId` exists for the voice profile: a voice is one person's
+ *        writing, and a teammate's posts would teach the model someone else's.
+ * WHERE: Backs the recent-posts strip under the composer, and
+ *        voiceProfile.suggestSamples.
  */
 export async function listPublishedPosts(
   db: DbClient,
   organizationId: string,
   limit: number,
+  authorId?: string,
 ) {
   return db.linkedInPost.findMany({
-    where: { organizationId, status: STATUS.published },
+    where: {
+      organizationId,
+      status: STATUS.published,
+      ...(authorId ? { authorId } : {}),
+    },
     orderBy: { publishedAt: "desc" },
     take: limit,
     select: POST_SAFE_SELECT,

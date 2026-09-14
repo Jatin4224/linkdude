@@ -21,6 +21,7 @@ These docs explain how this boilerplate is shaped and why. The README tells you 
 15. `15-ai-edit-image.md` — a sixth: the first destructive edit in the app, and what it takes to keep it reversible
 16. `16-carousel-generation.md` — a seventh: rendering PDFs without a browser, and publishing them as LinkedIn document posts
 17. `17-drafts-and-post-library.md` — an eighth: the smallest feature in the app, and the three ways it could have given away quota
+18. `18-voice-profile.md` — a ninth: a persisted writing voice every generator reads, the first per-tenant text in a prompt, and the AI guard that was copied five times
 
 ## If you only have five minutes
 

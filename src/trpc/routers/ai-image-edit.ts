@@ -23,18 +23,17 @@
  *        imagekit.service. Consumed by the global ai-image-edit dialog.
  */
 
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter, toProcedureError } from "../init";
+import {
+  assertAiImageConfigured,
+  createTRPCRouter,
+  toProcedureError,
+} from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
 import { aiImageEditSchema } from "@/lib/types";
-import {
-  isAiImageConfigured,
-  getAiProvider,
-  LINKEDIN_IMAGE_TRANSFORM,
-} from "@/lib/config";
+import { LINKEDIN_IMAGE_TRANSFORM } from "@/lib/config";
 import * as aiService from "@/services/ai.service";
 import * as imagekitService from "@/services/imagekit.service";
 
@@ -54,15 +53,7 @@ export const aiImageEditRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       /* Fail before the quota is spent. Two distinct causes — no image model on
        * this vendor, or no key — so the message names which. */
-      if (!isAiImageConfigured()) {
-        const provider = getAiProvider();
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: provider.createImageModel
-            ? `AI image editing is not configured. Add ${provider.apiKeyEnvVar} to enable it.`
-            : `${provider.label} cannot generate images. Set AI_PROVIDER to a vendor that supports them.`,
-        });
-      }
+      assertAiImageConfigured();
 
       try {
         /* The CURRENT pixels, not the raw upload: the user is editing what they

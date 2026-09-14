@@ -7,7 +7,8 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: aiGenerationRouter
  *
- * WHAT:  Turns a topic or blog URL into LinkedIn post copy.
+ * WHAT:  Turns a topic or blog URL into LinkedIn post copy, written in the
+ *        member's own voice when they have one active.
  * WHY:   Mounted as `aiGeneration` so the path `aiGeneration.create` matches the
  *        RESOURCES key — that is what auto-wires the per-plan generation quota,
  *        the usage counter, the rate limit, and the permission gate. Kept
@@ -16,18 +17,22 @@
  *        ever publishing. txTimeout is raised on create because the model call
  *        happens inside the factory's tx and outlives the 10s default.
  * WHERE: Mounted in src/trpc/routers/_app; delegates to
- *        src/services/ai.service.ts. Consumed by the composer's Generate button.
+ *        src/services/ai.service.ts and reads the voice through
+ *        voice-profile.service.ts. Consumed by the composer's Generate button.
  */
 
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter, toProcedureError } from "../init";
+import {
+  assertAiConfigured,
+  createTRPCRouter,
+  toProcedureError,
+} from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
 import { generatePostSchema } from "@/lib/types";
-import { isAiConfigured, getAiProvider } from "@/lib/config";
 import * as aiService from "@/services/ai.service";
+import * as voiceProfileService from "@/services/voice-profile.service";
 
 export const aiGenerationRouter = createTRPCRouter({
   /**
@@ -39,7 +44,7 @@ export const aiGenerationRouter = createTRPCRouter({
    *        written to the database — the draft lives in the composer until the
    *        user publishes, so the counter measures model spend, which is the
    *        thing that actually costs money.
-   * WHERE: Called by the composer form.
+   * WHERE: Called by the composer form, and by the content plan's "Draft this".
    */
   create: protectedProcedure({
     requirePermission: permissions.AI_GENERATION_CREATE,
@@ -52,21 +57,22 @@ export const aiGenerationRouter = createTRPCRouter({
     .input(
       generatePostSchema.and(z.object({ organizationId: z.string().min(1) })),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       /* Fail before the quota is spent: an unconfigured key is an operator
        * problem, and the user shouldn't lose a generation to it. */
-      if (!isAiConfigured()) {
-        /* Names the key for whichever vendor AI_PROVIDER selects, so the message
-         * stays correct after a provider switch. */
-        const provider = getAiProvider();
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `AI generation is not configured. Add ${provider.apiKeyEnvVar} to enable it.`,
-        });
-      }
+      assertAiConfigured();
+
+      /* Read server-side, never accepted as input, so a caller cannot hand the
+       * model a voice this member never extracted. Null when none is active,
+       * which keeps the default house style. */
+      const voice = await voiceProfileService.readResolvedVoice(
+        ctx.db,
+        input.organizationId,
+        ctx.user.id,
+      );
 
       try {
-        return await aiService.generateLinkedInPost(input);
+        return await aiService.generateLinkedInPost(input, voice);
       } catch (error) {
         /* Provider and validation failures both surface here. The classifier
          * decides which of the two it was and gives the composer a reason it can

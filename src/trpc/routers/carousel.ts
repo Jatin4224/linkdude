@@ -31,6 +31,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import {
+  assertAiConfigured,
   createStructuredError,
   createTRPCRouter,
   toProcedureError,
@@ -47,9 +48,7 @@ import {
   listCarouselsSchema,
 } from "@/lib/types";
 import {
-  isAiConfigured,
   isImageKitConfigured,
-  getAiProvider,
   IMAGEKIT_DOCUMENT_FOLDER,
   CAROUSEL_PDF_MIME_TYPE,
   CAROUSEL_RENDER_TIMEOUT_MS,
@@ -59,6 +58,7 @@ import {
 import * as aiService from "@/services/ai.service";
 import * as carouselService from "@/services/carousel.service";
 import * as imagekitService from "@/services/imagekit.service";
+import * as voiceProfileService from "@/services/voice-profile.service";
 
 const withOrganization = z.object({ organizationId: z.string().min(1) });
 
@@ -75,17 +75,19 @@ export const carouselRouter = createTRPCRouter({
     .input(generateCarouselSchema.extend(withOrganization.shape))
     .mutation(async ({ ctx, input }) => {
       /* Fail before the quota is spent — the same ordering aiGeneration uses. */
-      if (!isAiConfigured()) {
-        const provider = getAiProvider();
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `AI generation is not configured. Add ${provider.apiKeyEnvVar} to enable it.`,
-        });
-      }
+      assertAiConfigured();
+
+      /* The member's own voice, read server-side so a caller can never supply
+       * one they did not extract. Null when none is active. */
+      const voice = await voiceProfileService.readResolvedVoice(
+        ctx.db,
+        input.organizationId,
+        ctx.user.id,
+      );
 
       let slides: Awaited<ReturnType<typeof aiService.generateCarouselSlides>>;
       try {
-        slides = await aiService.generateCarouselSlides(input);
+        slides = await aiService.generateCarouselSlides(input, voice);
       } catch (error) {
         /* Classification, status and the trace id all come from the one
          * classifier — the local regexes this replaced diverged from the copies

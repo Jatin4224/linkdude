@@ -29,7 +29,11 @@
  *   ProfileAnalysis, SectionFeedback, ProfileImprovement, PaperWordVariant,
  *   PaperDisplayWord, PaperDisplayLine, PaperIconName,
  *   PaperOrbitMark,
- *   PaperScatterMark
+ *   PaperScatterMark, voiceSamplesSchema, VoiceSample, voiceDescriptorSchema,
+ *   VoiceDescriptor, voiceExtractionSchema, VoiceExtraction,
+ *   voiceOverridesSchema, VoiceOverrides, DEFAULT_VOICE_OVERRIDES,
+ *   extractVoiceProfileSchema, updateVoiceProfileSchema, ResolvedVoice,
+ *   StoredVoiceProfile
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -323,6 +327,65 @@ export type {
   ListDocumentsValues,
   DeleteDocumentValues,
 } from "./carousel";
+/* Voice profile — a member's writing voice, learned from their own posts and
+ * read by every generator. */
+export {
+  VOICE_SAMPLE_MIN_CHARS,
+  VOICE_SAMPLE_MAX_CHARS,
+  VOICE_SAMPLES_MIN,
+  VOICE_SAMPLES_MAX,
+  VOICE_TOTAL_CHARS_MIN,
+  VOICE_SUMMARY_MAX,
+  VOICE_PHRASE_MAX,
+  VOICE_SIGNATURE_PHRASES_MAX,
+  VOICE_AVOIDED_WORDS_MAX,
+  VOICE_PATTERNS_MAX,
+  VOICE_BANNED_PHRASES_MAX,
+  VOICE_GUIDANCE_MAX,
+  VOICE_SAMPLE_SOURCES,
+  voiceSampleSourceSchema,
+  voiceSampleSchema,
+  voiceSamplesSchema,
+  VOICE_REGISTERS,
+  voiceRegisterSchema,
+  VOICE_RHYTHM_VARIANCE,
+  voiceRhythmVarianceSchema,
+  VOICE_JARGON_TOLERANCE,
+  voiceJargonToleranceSchema,
+  VOICE_EMOJI_USE,
+  voiceEmojiUseSchema,
+  VOICE_LIST_STYLES,
+  voiceListStyleSchema,
+  voicePatternSchema,
+  voiceDescriptorSchema,
+  voiceExtractionSchema,
+  VOICE_OVERRIDE_INHERIT,
+  VOICE_REGISTER_OVERRIDES,
+  VOICE_EMOJI_USE_OVERRIDES,
+  voicePhraseEntrySchema,
+  voiceOverridesSchema,
+  DEFAULT_VOICE_OVERRIDES,
+  extractVoiceProfileSchema,
+  updateVoiceProfileSchema,
+} from "./voice-profile";
+export type {
+  VoiceSampleSource,
+  VoiceSample,
+  VoiceRegister,
+  VoiceRhythmVariance,
+  VoiceJargonTolerance,
+  VoiceEmojiUse,
+  VoiceListStyle,
+  VoicePattern,
+  VoiceDescriptor,
+  VoiceExtraction,
+  VoicePhraseEntry,
+  VoiceOverrides,
+  ExtractVoiceProfileValues,
+  UpdateVoiceProfileValues,
+  ResolvedVoice,
+  StoredVoiceProfile,
+} from "./voice-profile";
 export { ANALYTICS_RANGE_DAYS, analyticsRangeSchema } from "./portal-analytics";
 export type {
   AnalyticsRangeDays,

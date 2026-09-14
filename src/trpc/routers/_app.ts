@@ -36,6 +36,7 @@ import { linkedinPostsRouter } from "./linkedin-posts";
 import { integrationsRouter } from "./integrations";
 import { carouselRouter } from "./carousel";
 import { documentsRouter } from "./documents";
+import { voiceProfileRouter } from "./voice-profile";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: appRouter, AppRouter
@@ -73,6 +74,7 @@ export const appRouter = createTRPCRouter({
   /* `documents`, plural, matching its RESOURCES key. The Prisma model is
    * `Document` singular — the key names the RESOURCE, not the row. */
   documents: documentsRouter,
+  voiceProfile: voiceProfileRouter,
 });
 
 export type AppRouter = typeof appRouter;

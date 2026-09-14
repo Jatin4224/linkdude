@@ -6,11 +6,12 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: createTRPCContext, Context, createStructuredError,
- *   toProcedureError, createTRPCRouter, baseProcedure, authProcedure,
- *   protectedProcedure
+ *   toProcedureError, assertAiConfigured, assertAiImageConfigured,
+ *   createTRPCRouter, baseProcedure, authProcedure, protectedProcedure
  *
- * WHAT:  tRPC request-context factory plus the sole sanctioned error-throw helper
- *        for procedures, and the re-export surface for the procedure factories.
+ * WHAT:  tRPC request-context factory plus the sanctioned error-throw helpers
+ *        for procedures (including the shared "AI is not configured" guards),
+ *        and the re-export surface for the procedure factories.
  * WHY:   Wrapping context in React `cache()` gives every Server Component and
  *        procedure in a single request one shared auth lookup and Prisma pool
  *        slot; lazy auth resolution keeps static rendering legal.
@@ -23,7 +24,12 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { TRPCError } from "@trpc/server";
-import { prisma } from "@/lib/config";
+import {
+  getAiProvider,
+  isAiConfigured,
+  isAiImageConfigured,
+  prisma,
+} from "@/lib/config";
 import { getCachedSession } from "@/lib/better-auth/auth";
 import type { Session, User } from "@/lib/better-auth/auth";
 import { classifyError } from "@/lib/errors";
@@ -220,6 +226,56 @@ export function toProcedureError(
 
   const { trpcCode, ...cause } = classifyError(error, options);
   return createStructuredError(trpcCode, cause.message, cause);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: assertAiConfigured, isAiConfigured, AI not
+ *   configured, PRECONDITION_FAILED, quota, apiKeyEnvVar
+ *
+ * WHAT:  Throws before a metered AI procedure does any work when the active
+ *        vendor has no API key.
+ * WHY:   By the time the SDK throws for a missing key, the usage counter has
+ *        already been bumped inside the transaction, and the member sees a
+ *        generic failure for what is an operator problem. Checking first names
+ *        the exact key to add. It used to be five near-identical copies across
+ *        the AI routers; the two parameters keep each feature's wording exactly
+ *        as it was.
+ * WHERE: First line of aiGeneration.create, carousel.create, contentPlan.brief
+ *        and .create, profileAnalysis.create, and voiceProfile.create.
+ */
+export function assertAiConfigured(
+  capability = "AI generation",
+  enables = "it",
+): void {
+  if (isAiConfigured()) return;
+  /* Names the key for whichever vendor AI_PROVIDER selects, so the message
+   * stays correct after a provider switch. */
+  const provider = getAiProvider();
+  throw new TRPCError({
+    code: "PRECONDITION_FAILED",
+    message: `${capability} is not configured. Add ${provider.apiKeyEnvVar} to enable ${enables}.`,
+  });
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: assertAiImageConfigured, isAiImageConfigured,
+ *   createImageModel
+ *
+ * WHAT:  The image-edit counterpart of assertAiConfigured.
+ * WHY:   Two distinct causes, so the message names which: this vendor has no
+ *        image model at all (switching AI_PROVIDER is the fix), or it has one and
+ *        the key is missing.
+ * WHERE: First line of aiImageEdit.create.
+ */
+export function assertAiImageConfigured(): void {
+  if (isAiImageConfigured()) return;
+  const provider = getAiProvider();
+  throw new TRPCError({
+    code: "PRECONDITION_FAILED",
+    message: provider.createImageModel
+      ? `AI image editing is not configured. Add ${provider.apiKeyEnvVar} to enable it.`
+      : `${provider.label} cannot generate images. Set AI_PROVIDER to a vendor that supports them.`,
+  });
 }
 
 /**

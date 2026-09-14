@@ -9,7 +9,8 @@ import "server-only";
  *   generateLinkedInPost, analyzeLinkedInProfile, GenerateTextArgs,
  *   GenerateStructuredArgs, TONE_DIRECTIVES, LENGTH_DIRECTIVES,
  *   LINKEDIN_POST_SYSTEM_PROMPT, PROFILE_ANALYSIS_SYSTEM_PROMPT,
- *   generateCarouselSlides, CAROUSEL_SYSTEM_PROMPT
+ *   generateCarouselSlides, CAROUSEL_SYSTEM_PROMPT, extractVoiceProfile,
+ *   buildVoiceDirective, VOICE_EXTRACTION_SYSTEM_PROMPT
  *
  * WHAT:  The app's single seat of model invocation. `generateText` and
  *        `generateStructured` are the provider-facing primitives (prose out and
@@ -83,6 +84,16 @@ import {
   serializeProfileSection,
 } from "@/lib/config/profile-sections";
 import { serializeContentPlanAnswers } from "@/lib/config/content-plan-sections";
+import {
+  voiceDescriptorSchema,
+  type ResolvedVoice,
+  type VoiceDescriptor,
+  type VoiceSample,
+} from "@/lib/types/voice-profile";
+import {
+  VOICE_EXTRACTION_MAX_TOKENS,
+  VOICE_EXTRACTION_TIMEOUT_MS,
+} from "@/lib/config/voice-profile";
 
 export interface GenerateTextArgs {
   system: string;
@@ -289,6 +300,88 @@ const LENGTH_DIRECTIVES: Record<PostLength, string> = {
 };
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: buildVoiceDirective, ResolvedVoice, voice
+ *   precedence, writing voice prompt
+ *
+ * WHAT:  The prompt block asking a generator to write in the member's voice, or
+ *        an empty string when they have none active.
+ * WHY:   The first per-organization text in any prompt here, so the precedence
+ *        between instruction sources is written down once, inside the block: the
+ *        task's hard rules win (they stop known failures such as markdown rendered
+ *        literally), a tone chosen for this piece wins over the standing voice,
+ *        and banned phrases are absolute. It is appended to the PROMPT and never
+ *        spliced into a system prompt, so those shared constants stay identical
+ *        for every organization and keep their authority.
+ *
+ *        The member's sample posts are deliberately not replayed: the descriptor
+ *        is the voice, and resending twenty posts on every draft is spend with no
+ *        added signal.
+ * WHERE: generateLinkedInPost, generateCarouselSlides, generateContentPlan.
+ */
+function buildVoiceDirective(voice: ResolvedVoice | null): string {
+  if (!voice) return "";
+
+  const { descriptor, bannedPhrases, guidance } = voice;
+  const { sentenceRhythm, vocabulary, formatting } = descriptor;
+
+  const lines: string[] = [
+    "WRITE IN THIS PERSON'S VOICE.",
+    "It was learned from their own posts. Follow it closely, except that every hard rule you were given still wins, and a tone requested for this piece wins over it.",
+    "",
+    `How they sound: ${descriptor.summary}`,
+    `Register: ${vocabulary.register}. Vocabulary: ${vocabulary.jargonTolerance}.`,
+    `Sentences: about ${sentenceRhythm.averageSentenceWords} words on average, rhythm ${sentenceRhythm.variance}${sentenceRhythm.usesFragments ? ", with deliberate fragments" : ""}.`,
+    `Paragraphs: at most ${formatting.paragraphMaxLines} lines${sentenceRhythm.usesOneLineParagraphs ? ", often a single line" : ""}${formatting.usesLineBreaksForEmphasis ? ", with line breaks used for emphasis" : ""}.`,
+    `Lists: ${formatting.listStyle}. Emoji: ${formatting.emojiUse}. Hashtags: at most ${formatting.hashtagCount}. ${formatting.usesQuestions ? "Asks the reader questions." : "Rarely asks the reader questions."}`,
+  ];
+
+  if (descriptor.openingPatterns.length > 0) {
+    lines.push(
+      "",
+      "How they tend to open:",
+      ...descriptor.openingPatterns.map(
+        (entry) => `- ${entry.pattern} (e.g. "${entry.example}")`,
+      ),
+    );
+  }
+  if (descriptor.closingPatterns.length > 0) {
+    lines.push(
+      "",
+      "How they tend to close:",
+      ...descriptor.closingPatterns.map(
+        (entry) => `- ${entry.pattern} (e.g. "${entry.example}")`,
+      ),
+    );
+  }
+  /* Examples are the member's real lines. Without this the model reuses them
+   * verbatim, and every draft opens with the same sentence. */
+  if (
+    descriptor.openingPatterns.length > 0 ||
+    descriptor.closingPatterns.length > 0
+  ) {
+    lines.push("Learn the pattern from each example. Never copy an example.");
+  }
+
+  if (vocabulary.signaturePhrases.length > 0) {
+    lines.push(
+      "",
+      `Phrases that sound like them. Use one at most, and only where it fits: ${vocabulary.signaturePhrases.join("; ")}`,
+    );
+  }
+  if (vocabulary.avoidedWords.length > 0) {
+    lines.push(`Words they avoid: ${vocabulary.avoidedWords.join("; ")}`);
+  }
+  if (bannedPhrases.length > 0) {
+    lines.push("", `Never use these phrases: ${bannedPhrases.join("; ")}`);
+  }
+  if (guidance) {
+    lines.push("", `Their own notes on how they write: ${guidance}`);
+  }
+
+  return `\n\n${lines.join("\n")}`;
+}
+
+/**
  * SOURCE OF TRUTH KEYWORDS: LINKEDIN_POST_SYSTEM_PROMPT
  *
  * WHAT:  The persona and hard rules for post generation.
@@ -319,11 +412,13 @@ Hard rules:
  * WHY:   Both composer modes converge here so tone/length handling and the
  *        validation of model output live in one place. The blog path enables
  *        web_fetch so the model reads the article itself — no scraping
- *        dependency, and no HTML stripping to maintain.
+ *        dependency, and no HTML stripping to maintain. The member's voice, when
+ *        active, is appended after tone and length so the tone still wins.
  * WHERE: Called by aiGeneration.create.
  */
 export async function generateLinkedInPost(
   input: GeneratePostValues,
+  voice: ResolvedVoice | null = null,
 ): Promise<GeneratedPost> {
   const toneDirective = TONE_DIRECTIVES[input.tone];
   const lengthDirective = LENGTH_DIRECTIVES[input.length];
@@ -335,7 +430,7 @@ export async function generateLinkedInPost(
 
   const commentary = await generateText({
     system: LINKEDIN_POST_SYSTEM_PROMPT,
-    prompt: `${task}\n\nTone: ${toneDirective}\nLength: ${lengthDirective}`,
+    prompt: `${task}\n\nTone: ${toneDirective}\nLength: ${lengthDirective}${buildVoiceDirective(voice)}`,
     allowWebFetch: input.source === "blog",
   });
 
@@ -626,10 +721,15 @@ ${serializeFetchedProfile(profile)}`;
 export async function generateContentPlan(
   answers: ContentPlanAnswers,
   profile: FetchedProfile,
+  voice: ResolvedVoice | null = null,
 ): Promise<ContentPlanResult> {
   const result = await generateStructured({
     system: CONTENT_PLAN_SYSTEM_PROMPT,
-    prompt: buildContentPlanPrompt(answers, profile),
+    /* The voice shapes how hooks, ideas and CTAs are WORDED, never what the
+     * strategy recommends, so its scope is stated right after the block. */
+    prompt: voice
+      ? `${buildContentPlanPrompt(answers, profile)}${buildVoiceDirective(voice)}\nApply this voice only to the wording of hooks, post ideas and CTAs. It does not change what the strategy recommends.`
+      : buildContentPlanPrompt(answers, profile),
     /* Ten sections at once. The 4096 global is sized for a single LinkedIn post
      * and truncates this mid-object, which the SDK reports as a schema mismatch
      * rather than as the budget overrun it is. Sized to clear the schema's own
@@ -711,6 +811,7 @@ Hard rules:
  */
 export async function generateCarouselSlides(
   input: GenerateCarouselValues,
+  voice: ResolvedVoice | null = null,
 ): Promise<CarouselSlides> {
   const toneDirective = TONE_DIRECTIVES[input.tone];
   const preset = CAROUSEL_PAGE_PRESETS[input.page];
@@ -729,7 +830,7 @@ export async function generateCarouselSlides(
        * so the same heading that breathes on portrait crowds on square. */
       `Slide shape: ${preset.label}. Keep headings short enough to sit comfortably in that shape.`,
       `Return exactly ${input.slideCount} slides: one "cover", ${input.slideCount - 2} "content", one "cta", in that order.`,
-    ].join("\n"),
+    ].join("\n") + buildVoiceDirective(voice),
     /* A whole deck in one object. The 4096 global is sized for a single post and
      * truncates this mid-array, which the SDK reports as a schema mismatch rather
      * than as the budget overrun it actually is. */
@@ -753,4 +854,85 @@ export async function generateCarouselSlides(
   });
 
   return carouselSlidesSchema.parse(result.slides);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: VOICE_EXTRACTION_SYSTEM_PROMPT
+ *
+ * WHAT:  The persona and hard rules for reading a voice out of someone's posts.
+ * WHY:   The default failure here is flattery dressed as analysis: "authentic,
+ *        engaging, professional" describes everyone and gives a generator nothing
+ *        to imitate. Every rule forces an observation that is visible in the text
+ *        and specific enough to copy, plus an honest confidence when the text is
+ *        thin.
+ */
+const VOICE_EXTRACTION_SYSTEM_PROMPT = `You are a writing analyst. You read a person's real LinkedIn posts and describe HOW they write, precisely enough that another writer could imitate them.
+
+Hard rules:
+- Describe style, never subject matter. What they write about is irrelevant; how they write it is the whole job.
+- Every observation must be visible in the posts. If you cannot point to it, leave it out.
+- Ban empty labels such as "authentic", "engaging", "relatable", "thought-provoking" and "inspiring". If a sentence would describe anyone, delete it.
+- Every opening and closing pattern needs an example copied exactly from the posts.
+- Signature phrases are expressions this person actually repeats or clearly favours, copied word for word. Never invent one. An empty list is a correct answer.
+- Avoided words are common LinkedIn buzzwords this person never uses. Only list words you are confident are deliberately absent.
+- averageSentenceWords is your honest estimate across all the posts.
+- hashtagCount is the number they typically use per post, 0 if they usually use none.
+- confidence runs from 0 to 1 and reflects how much writing you had and how consistent it was. A few short or inconsistent posts must score low.
+- The summary is two or three plain sentences the person would recognise as themselves. No markdown, no emoji.`;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildVoiceSamplesPrompt
+ *
+ * WHAT:  The member's posts rendered as the prose the extractor reads.
+ * WHY:   Numbered and separated so a pattern can be attributed to the posts it
+ *        recurs across, rather than blurred into one block the model reads as a
+ *        single long post.
+ * WHERE: extractVoiceProfile.
+ */
+function buildVoiceSamplesPrompt(samples: readonly VoiceSample[]): string {
+  const posts = samples
+    .map((sample, index) => `POST ${index + 1}:\n${sample.text}`)
+    .join("\n\n---\n\n");
+  return `Describe how this person writes, using these ${samples.length} posts.\n\n${posts}`;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: extractVoiceProfile
+ *
+ * WHAT:  Turns a member's posts into a structured voice descriptor.
+ * WHY:   The strict-for-model, lenient-for-storage split generateContentPlan
+ *        documents. The stored arrays are `.default([])`, which the model reads
+ *        as optional and skips, so they are re-required on the copy sent here:
+ *        opening patterns need at least one (every post opens somehow), while the
+ *        other lists may legitimately be empty and are only made required. The
+ *        result is then parsed back through the lenient schema, so both paths
+ *        return the same type.
+ * WHERE: Called by voiceProfile.create.
+ */
+export async function extractVoiceProfile(
+  samples: readonly VoiceSample[],
+): Promise<VoiceDescriptor> {
+  const { vocabulary, openingPatterns, closingPatterns } =
+    voiceDescriptorSchema.shape;
+
+  const result = await generateStructured({
+    system: VOICE_EXTRACTION_SYSTEM_PROMPT,
+    prompt: buildVoiceSamplesPrompt(samples),
+    /* A nested object after up to twenty posts of input. The 4096 global
+     * truncates it mid-object on providers that think, which the SDK reports as
+     * a schema mismatch rather than as the budget overrun it is. */
+    maxOutputTokens: VOICE_EXTRACTION_MAX_TOKENS,
+    /* Must stay under voiceProfile.create's txTimeout. */
+    timeoutMs: VOICE_EXTRACTION_TIMEOUT_MS,
+    schema: voiceDescriptorSchema.extend({
+      vocabulary: vocabulary.extend({
+        signaturePhrases: vocabulary.shape.signaturePhrases.unwrap(),
+        avoidedWords: vocabulary.shape.avoidedWords.unwrap(),
+      }),
+      openingPatterns: openingPatterns.unwrap().min(1),
+      closingPatterns: closingPatterns.unwrap(),
+    }),
+  });
+
+  return voiceDescriptorSchema.parse(result);
 }
