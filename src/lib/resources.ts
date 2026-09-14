@@ -764,6 +764,58 @@ export const RESOURCES = {
       requirePermission: "read",
     },
   },
+  /* A member's persisted writing voice, read by every generator so drafts stop
+   * sounding like the model's house style. Scoped per member, like contentPlan. */
+  voiceProfile: {
+    name: "Voice Profile",
+    description: "A writing voice extracted from your own posts",
+    /* `discard`, NOT `delete`: this counter measures MODEL SPEND, and the factory
+     * refunds a slot on `<resource>.delete`. Under that name, extract → remove →
+     * extract would be an unlimited free tier. Same rule as contentPlan.
+     *
+     * `create` IS the extraction, so a re-extraction spends another unit.
+     * `update` saves overrides and toggles the voice on or off, which buy nothing.
+     * `revert` is its own verb because it changes what the generators read
+     * without a model call, and that deserves its own audit line. */
+    permissions: ["create", "read", "update", "revert", "discard"],
+    limit: {
+      perPlan: {
+        /* One. A complete voice is enough to hear the difference in a draft;
+         * every re-extraction after it is paid. */
+        free: 1,
+        starter: 10,
+        pro: 50,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to re-extract your voice",
+      availableOnFreeTrial: true,
+      unit: "voice extractions",
+    },
+    rateLimit: {
+      /* Up to twenty posts in one prompt: a heavy input, so a tight burst cap. */
+      create: { count: 3, window: "1 m" },
+    },
+    audit: {
+      entity: "voiceProfile",
+      describe: {
+        create: "Extracted a writing voice from {output.sampleCount} posts",
+        update: "Updated the voice profile ({input.field})",
+        revert: "Reverted to the previous writing voice",
+        discard: "Discarded the voice profile",
+      },
+    },
+    nav: {
+      label: "Voice",
+      href: "/dashboard/voice",
+      icon: "AudioLines",
+      section: "create",
+      order: 7,
+      /* Brand-new key, same caveat as carousel: owners see it at once, and a
+       * custom role needs an explicit grant in the role editor. */
+      requirePermission: "create",
+    },
+  },
 } as const satisfies Record<string, ResourceDefinition>;
 
 export type ResourceKey = keyof typeof RESOURCES;

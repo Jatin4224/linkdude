@@ -154,7 +154,11 @@ export function CarouselForm({
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue />
+                      {/* Base UI's Select.Value renders the raw VALUE unless
+                          given children — see the note in image-editor.tsx. */}
+                      <SelectValue>
+                        {field.value ?? CAROUSEL_DEFAULT_SLIDES} slides
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -183,7 +187,9 @@ export function CarouselForm({
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue>
+                        {field.value ? CAROUSEL_TONE_LABELS[field.value] : null}
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -212,7 +218,11 @@ export function CarouselForm({
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue>
+                        {field.value
+                          ? CAROUSEL_TEMPLATE_LABELS[field.value]
+                          : null}
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -241,7 +251,11 @@ export function CarouselForm({
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue>
+                        {field.value
+                          ? CAROUSEL_PAGE_PRESETS[field.value].label
+                          : null}
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>

@@ -30,7 +30,11 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter, toProcedureError } from "../init";
+import {
+  assertAiConfigured,
+  createTRPCRouter,
+  toProcedureError,
+} from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
 import {
@@ -38,30 +42,12 @@ import {
   saveContentPlanProgressSchema,
   startContentPlanSchema,
 } from "@/lib/types";
-import { isAiConfigured, getAiProvider } from "@/lib/config";
 import * as aiService from "@/services/ai.service";
 import * as contentPlanService from "@/services/content-plan.service";
 import * as profileLookupService from "@/services/profile-lookup.service";
+import * as voiceProfileService from "@/services/voice-profile.service";
 
 const withOrganization = z.object({ organizationId: z.string().min(1) });
-
-/**
- * SOURCE OF TRUTH KEYWORDS: assertAiConfigured
- *
- * WHAT:  Fails a generation before any quota is spent when no model key is set.
- * WHY:   An unconfigured provider is an operator problem, and the user should
- *        not lose a plan to it. Checked at the top of both generating procedures
- *        rather than left to the model call, because by the time the SDK throws,
- *        the counter has already incremented.
- */
-function assertAiConfigured(): void {
-  if (isAiConfigured()) return;
-  const provider = getAiProvider();
-  throw new TRPCError({
-    code: "PRECONDITION_FAILED",
-    message: `AI generation is not configured. Add ${provider.apiKeyEnvVar} to enable content plans.`,
-  });
-}
 
 export const contentPlanRouter = createTRPCRouter({
   /**
@@ -122,7 +108,9 @@ export const contentPlanRouter = createTRPCRouter({
   })
     .input(startContentPlanSchema.extend(withOrganization.shape))
     .mutation(async ({ ctx, input }) => {
-      assertAiConfigured();
+      /* Fail before any quota is spent: an unconfigured key is an operator
+       * problem, and the user should not lose a plan to it. */
+      assertAiConfigured("AI generation", "content plans");
 
       const cached = await profileLookupService.readCachedLookup(
         ctx.db,
@@ -229,7 +217,9 @@ export const contentPlanRouter = createTRPCRouter({
   })
     .input(generateContentPlanSchema.extend(withOrganization.shape))
     .mutation(async ({ ctx, input }) => {
-      assertAiConfigured();
+      /* Fail before any quota is spent: an unconfigured key is an operator
+       * problem, and the user should not lose a plan to it. */
+      assertAiConfigured("AI generation", "content plans");
 
       const session = await contentPlanService.readContentPlan(
         ctx.db,
@@ -248,10 +238,20 @@ export const contentPlanRouter = createTRPCRouter({
         });
       }
 
+      /* Read server-side for the same reason the profile is: hooks and ideas are
+       * worded in a voice this member actually extracted, never one a caller
+       * supplied. Null when none is active. */
+      const voice = await voiceProfileService.readResolvedVoice(
+        ctx.db,
+        input.organizationId,
+        ctx.user.id,
+      );
+
       try {
         const result = await aiService.generateContentPlan(
           input.answers,
           session.profile,
+          voice,
         );
         return await contentPlanService.recordContentPlan(ctx.db, {
           organizationId: input.organizationId,

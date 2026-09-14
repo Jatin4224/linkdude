@@ -24,7 +24,11 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter, toProcedureError } from "../init";
+import {
+  assertAiConfigured,
+  createTRPCRouter,
+  toProcedureError,
+} from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
 import {
@@ -32,7 +36,6 @@ import {
   listAnalysesSchema,
   discardAnalysisSchema,
 } from "@/lib/types";
-import { isAiConfigured, getAiProvider } from "@/lib/config";
 import { serializeProfileSection } from "@/lib/config/profile-sections";
 import { checkBooleanFeature } from "@/lib/feature-gate";
 import { PROFILE_EXPERIENCE_MAX } from "@/lib/types";
@@ -74,13 +77,7 @@ export const profileAnalysisRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       /* Fail before the quota is spent: an unconfigured key is an operator
        * problem, and the user shouldn't lose an analysis to it. */
-      if (!isAiConfigured()) {
-        const provider = getAiProvider();
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `AI analysis is not configured. Add ${provider.apiKeyEnvVar} to enable it.`,
-        });
-      }
+      assertAiConfigured("AI analysis");
 
       /* Business logic, so it belongs here rather than in either service: the
        * plan decides WHAT IS ASKED FOR, not merely what is rendered. Resolved

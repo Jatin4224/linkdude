@@ -8,10 +8,11 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: GenerateForm, GenerateFormProps, TONE_LABELS,
- *   LENGTH_LABELS
+ *   LENGTH_LABELS, voiceActive
  *
  * WHAT:  The composer's left pane — Topic / Blog tabs plus tone and length
- *        selects, submitting a validated generation request.
+ *        selects, submitting a validated generation request, and a line saying
+ *        whether the draft will be written in the member's voice.
  * WHY:   Topic and Blog are separate branches of `generatePostSchema`, so each
  *        tab gets its own RHF instance typed to its branch via `Extract`. That
  *        keeps the union's guarantee (a blog request cannot carry a topic) at
@@ -23,9 +24,10 @@
  */
 
 import * as React from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon, SparklesIcon } from "lucide-react";
+import { AudioLinesIcon, Loader2Icon, SparklesIcon } from "lucide-react";
 
 import {
   generatePostSchema,
@@ -35,6 +37,7 @@ import {
   type PostTone,
   type PostLength,
 } from "@/lib/types";
+import { RESOURCES } from "@/lib/resources";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -85,6 +88,11 @@ export interface GenerateFormProps {
   onGenerate: (values: GeneratePostValues) => void;
   isGenerating: boolean;
   disabled?: boolean;
+  /**
+   * Whether drafts use the member's voice. `undefined` hides the line: the
+   * member cannot read voice profiles, or the answer has not loaded yet.
+   */
+  voiceActive?: boolean | undefined;
 }
 
 export function GenerateForm({
@@ -95,6 +103,7 @@ export function GenerateForm({
   onGenerate,
   isGenerating,
   disabled = false,
+  voiceActive,
 }: GenerateFormProps) {
   const topicForm = useForm<TopicValues>({
     resolver: zodResolver(generatePostSchema.options[0]),
@@ -244,7 +253,9 @@ export function GenerateForm({
             onValueChange={(value) => onToneChange(value as PostTone)}
           >
             <SelectTrigger id="tone-select" disabled={busy} className="w-full">
-              <SelectValue />
+              {/* Base UI's Select.Value renders the raw VALUE unless given
+                  children — see the note in image-editor.tsx. */}
+              <SelectValue>{TONE_LABELS[tone]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {POST_TONES.map((value) => (
@@ -267,7 +278,7 @@ export function GenerateForm({
               disabled={busy}
               className="w-full"
             >
-              <SelectValue />
+              <SelectValue>{LENGTH_LABELS[length]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {POST_LENGTHS.map((value) => (
@@ -279,6 +290,25 @@ export function GenerateForm({
           </Select>
         </div>
       </div>
+
+      {/* Makes the voice visible state instead of invisible state: the member
+          sees whether this draft will sound like them, and where to change it. */}
+      {voiceActive !== undefined ? (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <AudioLinesIcon className="size-3.5 shrink-0" />
+          <span>
+            {voiceActive
+              ? "Drafts are written in your voice."
+              : "Drafts use the default style."}
+          </span>
+          <Link
+            href={RESOURCES.voiceProfile.nav.href}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {voiceActive ? "Manage" : "Set up your voice"}
+          </Link>
+        </p>
+      ) : null}
     </div>
   );
 }

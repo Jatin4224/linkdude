@@ -88,6 +88,7 @@ model User {
   profileAnalyses  ProfileAnalysis[]
   contentPlans     ContentPlan[]
   carousels        Carousel[]
+  voiceProfiles    VoiceProfile[]
 
   // Signups-per-day rollups in the /portal analytics dashboard bucket on
   // createdAt across the whole table; without this they seq-scan every user.
@@ -218,6 +219,7 @@ model Organization {
   contentPlans      ContentPlan[]
   carousels         Carousel[]
   documents         Document[]
+  voiceProfiles     VoiceProfile[]
 
   // New-workspaces-per-day in the portal analytics dashboard.
   @@index([createdAt])
@@ -893,4 +895,51 @@ model Carousel {
   @@index([organizationId, updatedAt])
   @@index([authorId])
   @@map("carousel")
+}
+
+model VoiceProfile {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope
+  authorId       String // The member whose voice this is
+
+  /// VoiceExtraction — { samples, descriptor, extractorVersion, extractedAt },
+  /// re-validated on read through voiceExtractionSchema. Samples and descriptor
+  /// share ONE column so they can never describe different extractions: a voice
+  /// is only as good as the posts it was learned from, and a revert has to
+  /// restore both together. The row is only ever created by an extraction, so
+  /// this is never empty.
+  current Json
+
+  /// The extraction `current` displaced, kept for a one-step undo. This is a
+  /// third storage shape for a paid AI result in this schema, on purpose:
+  /// ProfileAnalysis appends every result, ContentPlan overwrites its session,
+  /// and a voice needs neither. Generators must read exactly ONE voice (so no
+  /// history), but each extraction is paid model spend (so a bad one must be
+  /// recoverable). Revert SWAPS the two columns, so undoing a revert is one more
+  /// click rather than lost work. Precedent for keeping the prior AI output:
+  /// LinkedInPost.originalFileId.
+  previous Json?
+
+  /// VoiceOverrides — the member's corrections. Its own column so re-extracting
+  /// replaces what the model concluded without wiping what the member decided.
+  overrides Json
+
+  /// Bumped whenever the voice the generators read changes: extract or revert.
+  version Int @default(1)
+
+  /// Stops generators using this voice without deleting a paid extraction.
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // One voice per member per organization, the ContentPlan precedent: a voice
+  // is one person's writing, and a shared row would have teammates drafting in
+  // each other's voice. The composite also serves every organization-first read.
+  @@unique([organizationId, authorId])
+  @@index([authorId])
+  @@map("voice_profile")
 }
