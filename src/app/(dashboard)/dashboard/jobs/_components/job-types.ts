@@ -5,11 +5,11 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: JobEmailResultData
+ * SOURCE OF TRUTH KEYWORDS: JobEmailResultData, JobEmailRewriteResultData
  *
- * WHAT:  The exact shape jobEmails.create returns.
- * WHY:   Derived with `inferRouterOutputs` rather than restated, so the router
- *        stays the single source of truth. Same pattern as carousel-types.ts,
+ * WHAT:  The exact shapes jobEmails.create and jobEmailRewrites.create return.
+ * WHY:   Derived with `inferRouterOutputs` rather than restated, so the routers
+ *        stay the single source of truth. Same pattern as carousel-types.ts,
  *        which is why it lives beside its components: it declares no new shape.
  * WHERE: job-assist-workspace.tsx and job-email-result.tsx.
  */
@@ -20,3 +20,6 @@ import type { AppRouter } from "@/trpc/routers/_app";
 
 export type JobEmailResultData =
   inferRouterOutputs<AppRouter>["jobEmails"]["create"];
+
+export type JobEmailRewriteResultData =
+  inferRouterOutputs<AppRouter>["jobEmailRewrites"]["create"];

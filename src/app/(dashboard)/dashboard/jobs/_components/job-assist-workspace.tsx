@@ -8,14 +8,19 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: JobAssistWorkspace, Job Assist, job email writer
- *   page, jobEmails.create
+ *   page, jobEmails.create, jobEmailRewrites.create
  *
- * WHAT:  The /dashboard/jobs surface: the hiring post and the member's facts on
- *        one side, the editable email and LinkedIn message on the other.
+ * WHAT:  The /dashboard/jobs surface: the About me card on top, then the hiring
+ *        post on one side and the editable email and LinkedIn message on the
+ *        other.
  * WHY:   Two columns like the post composer, because a member reads the draft
  *        against the post they pasted and regenerates without losing either.
- *        This component owns the mutation; the form and the result editor stay
- *        presentational.
+ *        This component owns both model mutations; the form and the result
+ *        editor stay presentational.
+ *
+ *        A rewrite is sent with the post and notes the CURRENT draft was written
+ *        from (the last generate's variables), not whatever the form holds now,
+ *        so a half-edited post can't change the facts under an existing draft.
  * WHERE: Rendered by the jobs page. RESOURCES.jobEmails.nav.href.
  */
 
@@ -34,6 +39,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CandidateProfileCard } from "./candidate-profile-card";
 import { JobEmailForm } from "./job-email-form";
 import { JobEmailResult } from "./job-email-result";
 
@@ -54,9 +60,19 @@ export function JobAssistWorkspace() {
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
+  const rewrite = trpc.jobEmailRewrites.create.useMutation({
+    onSuccess: async () => {
+      /* Rewrites spend their own allowance, separate from emails. */
+      await utils.usage.invalidate();
+      toast.success("Rewritten. Undo brings the last version back.");
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
   if (!organizationId) return null;
 
   const draft = generate.data;
+  const request = generate.variables;
 
   return (
     <ContentLayout
@@ -64,42 +80,62 @@ export function JobAssistWorkspace() {
       description="Turn a hiring post into an email a recruiter will actually read"
       icon={<BriefcaseIcon className="size-4" />}
     >
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <Card className="surface-raised h-fit">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <span className="flex size-7 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground">
-                <BriefcaseIcon className="size-4" />
-              </span>
-              The hiring post
-            </CardTitle>
-            <CardDescription>
-              Paste the post, add a few true facts about you, and generate.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <JobEmailForm
-              onGenerate={(values) =>
-                generate.mutate({ ...values, organizationId })
-              }
-              isGenerating={generate.isPending}
-            />
-          </CardContent>
-        </Card>
+      <div className="flex flex-col gap-6">
+        <CandidateProfileCard />
 
-        {draft ? (
-          <JobEmailResult key={draftVersion} draft={draft} />
-        ) : (
-          <Card className="surface-raised">
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+          <Card className="surface-raised h-fit">
             <CardHeader>
-              <CardTitle className="text-base">Your email</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <span className="flex size-7 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground">
+                  <BriefcaseIcon className="size-4" />
+                </span>
+                The hiring post
+              </CardTitle>
               <CardDescription>
-                It appears here, ready to edit and open in Gmail. There&rsquo;s
-                also a short LinkedIn message for posts without an email address.
+                Paste the post and generate. Your About me details are used
+                automatically.
               </CardDescription>
             </CardHeader>
+            <CardContent>
+              <JobEmailForm
+                onGenerate={(values) =>
+                  generate.mutate({ ...values, organizationId })
+                }
+                isGenerating={generate.isPending}
+              />
+            </CardContent>
           </Card>
-        )}
+
+          {draft && request ? (
+            <JobEmailResult
+              key={draftVersion}
+              draft={draft}
+              onRewrite={(values) =>
+                rewrite.mutateAsync({
+                  ...values,
+                  jobPost: request.jobPost,
+                  highlights: request.highlights,
+                  organizationId,
+                })
+              }
+              rewritingInstruction={
+                rewrite.isPending ? (rewrite.variables?.instruction ?? null) : null
+              }
+            />
+          ) : (
+            <Card className="surface-raised">
+              <CardHeader>
+                <CardTitle className="text-base">Your email</CardTitle>
+                <CardDescription>
+                  It appears here with a match check, ready to edit, rewrite and
+                  open in Gmail. There&rsquo;s also a short LinkedIn message for
+                  posts without an email address.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </div>
       </div>
     </ContentLayout>
   );

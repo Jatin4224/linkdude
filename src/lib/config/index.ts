@@ -49,7 +49,8 @@
  *   VOICE_LOW_CONFIDENCE_THRESHOLD, VOICE_REGISTER_LABELS, VOICE_RHYTHM_LABELS, VOICE_JARGON_LABELS,
  *   VOICE_EMOJI_USE_LABELS, VOICE_LIST_STYLE_LABELS, POST_TONE_LABELS,
  *   POST_LENGTH_LABELS, JOB_EMAIL_MAX_TOKENS, JOB_EMAIL_TIMEOUT_MS,
- *   JOB_PLACEHOLDER_PATTERN, buildGmailComposeUrl, buildMailtoUrl
+ *   JOB_PLACEHOLDER_PATTERN, buildGmailComposeUrl, buildMailtoUrl,
+ *   JOB_EMAIL_REWRITE_LABELS, buildJobEmailSignature, composeEmailBody
  *
  * WHAT:  Barrel re-export for the `src/lib/config/*` modules.
  * WHY:   Single import surface (`@/lib/config`) so consumers don't depend on
@@ -253,6 +254,9 @@ export {
   JOB_EMAIL_MAX_TOKENS,
   JOB_EMAIL_TIMEOUT_MS,
   JOB_PLACEHOLDER_PATTERN,
+  JOB_EMAIL_REWRITE_LABELS,
+  buildJobEmailSignature,
+  composeEmailBody,
   buildGmailComposeUrl,
   buildMailtoUrl,
 } from "./job-email";

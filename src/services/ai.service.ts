@@ -11,7 +11,8 @@ import "server-only";
  *   LINKEDIN_POST_SYSTEM_PROMPT, PROFILE_ANALYSIS_SYSTEM_PROMPT,
  *   generateCarouselSlides, CAROUSEL_SYSTEM_PROMPT, extractVoiceProfile,
  *   buildVoiceDirective, VOICE_EXTRACTION_SYSTEM_PROMPT, generateJobEmail,
- *   JOB_EMAIL_SYSTEM_PROMPT
+ *   JOB_EMAIL_SYSTEM_PROMPT, rewriteJobEmail, JOB_EMAIL_REWRITE_SYSTEM_PROMPT,
+ *   JOB_EMAIL_WRITING_RULES, serializeCandidateProfile
  *
  * WHAT:  The app's single seat of model invocation. `generateText` and
  *        `generateStructured` are the provider-facing primitives (prose out and
@@ -97,8 +98,13 @@ import {
 } from "@/lib/config/voice-profile";
 import {
   generatedJobEmailSchema,
+  rewrittenJobEmailSchema,
+  type CandidateProfileValues,
   type GenerateJobEmailValues,
   type GeneratedJobEmail,
+  type JobEmailRewriteInstruction,
+  type RewriteJobEmailValues,
+  type RewrittenJobEmail,
 } from "@/lib/types/job-email";
 import {
   JOB_EMAIL_MAX_TOKENS,
@@ -963,21 +969,91 @@ export async function extractVoiceProfile(
  *        job. So a missing fact becomes a marked placeholder the member fills in,
  *        and the editor lists any left before they send.
  */
-const JOB_EMAIL_SYSTEM_PROMPT = `You write short emails from a job seeker to the person hiring, replying to one specific hiring post.
-
-Hard rules:
+/**
+ * SOURCE OF TRUTH KEYWORDS: JOB_EMAIL_WRITING_RULES
+ *
+ * WHAT:  The writing rules every Job Assist draft follows, first draft or
+ *        rewrite.
+ * WHY:   Shared by both system prompts, so a "Shorter" rewrite can never drift
+ *        back into clichés, invented facts or a model-written sign-off that the
+ *        first draft was forbidden.
+ */
+const JOB_EMAIL_WRITING_RULES = `Hard rules:
 - The body is 80 to 150 words. A recruiter decides in seconds.
-- Open with the specific role and where the candidate saw it. Never open with "I hope this email finds you well", "I am writing to express my interest", or any variant.
+- Greet the person hiring by first name when the post names them, like "Hi Priya,". Otherwise open with "Hello,".
+- The first sentence names the specific role and where the candidate saw it. Never write "I hope this email finds you well", "I am writing to express my interest", or any variant.
 - Connect one or two of the candidate's facts to one or two concrete requirements from the post, and name the requirement.
-- Use ONLY the facts the candidate gave. Never invent employers, years, skills, projects, metrics or results. Where a specific fact would help but was not given, write a marked placeholder in square brackets, like [years of experience] or [a relevant project], for the candidate to fill in.
+- Use ONLY the facts in the candidate's profile and notes. Never invent employers, years, skills, projects, metrics or results. Where a specific fact would help but was not given, write a marked placeholder in square brackets, like [years of experience] or [a relevant project], for the candidate to fill in.
 - End with one clear, low-effort ask, such as a short call or a look at their application.
-- Sign off with the candidate's name on its own line.
+- Do NOT write a closing, the candidate's name, a signature, links or a phone number at the end. The candidate's sign-off is added separately.
 - Plain text only: no markdown, no bullet symbols, no emoji. Short paragraphs separated by a blank line.
 - Avoid em dashes and the words "delve", "leverage", "passionate", "synergy", "rockstar" and "ninja".
 - The subject line names the role and one specific hook, under 80 characters. Never just "Job Application".
-- linkedinMessage is a much shorter version for when there is no email address, under 300 characters, fit to send as a LinkedIn connection note. Same rules, no sign-off line.
-- company and role: copy them from the post. Use an empty string when the post does not say.
-- recipientEmail: copy an email address only if one appears in the post exactly. Otherwise use an empty string. Never guess an address.`;
+- linkedinMessage is a much shorter version for when there is no email address, under 300 characters, fit to send as a LinkedIn connection note.`;
+
+const JOB_EMAIL_SYSTEM_PROMPT = `You write short emails from a job seeker to the person hiring, replying to one specific hiring post.
+
+${JOB_EMAIL_WRITING_RULES}
+- company and role: use the values the candidate provided. Otherwise copy them from the post. Otherwise use an empty string.
+- contactName: the full name of the person hiring, only if the post names them. Otherwise an empty string.
+- recipientEmail: copy an email address only if one appears in the post exactly. Otherwise use an empty string. Never guess an address.
+- matchedRequirements: the post's key requirements that the candidate's facts clearly support, as short labels such as "TypeScript" or "3+ years of backend work". missingRequirements: the key requirements the facts do not support. At most 8 each. Never mark a requirement matched unless the facts actually mention it.`;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: JOB_EMAIL_REWRITE_SYSTEM_PROMPT
+ *
+ * WHAT:  The persona for revising an existing draft on one instruction.
+ * WHY:   The draft it receives is the member's CURRENT text, so it must keep
+ *        what they already fixed: a filled placeholder is now a true fact.
+ */
+const JOB_EMAIL_REWRITE_SYSTEM_PROMPT = `You revise a job seeker's email to the person hiring, following exactly one instruction.
+
+${JOB_EMAIL_WRITING_RULES}
+- Keep every [placeholder] still in the draft unless the candidate's facts now provide that detail.
+- Specific details in the current draft that are not placeholders were written or approved by the candidate. Keep them true; do not replace them with invented ones.`;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: JOB_EMAIL_REWRITE_DIRECTIVES
+ *
+ * WHAT:  The precise directive behind each rewrite button.
+ */
+const JOB_EMAIL_REWRITE_DIRECTIVES: Record<JobEmailRewriteInstruction, string> = {
+  shorter:
+    "Make the email body 50 to 90 words and the LinkedIn message under 200 characters. Keep the strongest fact and the ask; cut everything else.",
+  moreFormal:
+    "Make the tone more formal and polished, while staying plain, direct and specific. No stiff clichés.",
+  differentAngle:
+    "Lead with a different one of the candidate's facts, matched to a different requirement from the post. Keep a similar length.",
+  newSubject:
+    "Write a new subject line with a different specific hook. Return the email body and the LinkedIn message exactly as they are.",
+};
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: serializeCandidateProfile
+ *
+ * WHAT:  The member's saved details as the prose the model reads.
+ * WHY:   Only the writing fields are sent. Links and the phone number never
+ *        reach the model: the sign-off is built by the app, so the model has no
+ *        reason to see them and no way to misquote them.
+ */
+function serializeCandidateProfile(profile: CandidateProfileValues | null): string {
+  const lines = profile
+    ? [
+        ["Current role", profile.headline],
+        ["Skills", profile.skills],
+        ["Experience and projects", profile.experience],
+        ["Education", profile.education],
+        ["Location", profile.location],
+        ["Availability", profile.availability],
+      ]
+        .filter(([, value]) => value)
+        .map(([label, value]) => `${label}: ${value}`)
+    : [];
+
+  return lines.length > 0
+    ? lines.join("\n")
+    : "(No saved profile. Use marked placeholders for anything specific about the candidate.)";
+}
 
 /**
  * SOURCE OF TRUTH KEYWORDS: buildJobEmailPrompt
@@ -989,6 +1065,7 @@ Hard rules:
  */
 function buildJobEmailPrompt(
   input: GenerateJobEmailValues,
+  profile: CandidateProfileValues | null,
   candidateName: string,
 ): string {
   return [
@@ -996,10 +1073,16 @@ function buildJobEmailPrompt(
     "",
     "HIRING POST:",
     input.jobPost,
+    ...(input.role ? ["", `ROLE (given by the candidate): ${input.role}`] : []),
+    ...(input.company
+      ? ["", `COMPANY (given by the candidate): ${input.company}`]
+      : []),
     "",
-    "FACTS THE CANDIDATE GAVE ABOUT THEMSELVES:",
-    input.highlights ||
-      "(None given. Use marked placeholders for anything specific about the candidate.)",
+    "CANDIDATE PROFILE:",
+    serializeCandidateProfile(profile),
+    "",
+    "CANDIDATE NOTES FOR THIS JOB:",
+    input.highlights || "(None.)",
   ].join("\n");
 }
 
@@ -1016,12 +1099,13 @@ function buildJobEmailPrompt(
  */
 export async function generateJobEmail(
   input: GenerateJobEmailValues,
+  profile: CandidateProfileValues | null,
   candidateName: string,
   voice: ResolvedVoice | null = null,
 ): Promise<GeneratedJobEmail> {
   const result = await generateStructured({
     system: JOB_EMAIL_SYSTEM_PROMPT,
-    prompt: `${buildJobEmailPrompt(input, candidateName)}${buildVoiceDirective(voice)}`,
+    prompt: `${buildJobEmailPrompt(input, profile, candidateName)}${buildVoiceDirective(voice)}`,
     schema: generatedJobEmailSchema,
     maxOutputTokens: JOB_EMAIL_MAX_TOKENS,
     /* Must stay under the router's txTimeout. */
@@ -1029,4 +1113,52 @@ export async function generateJobEmail(
   });
 
   return generatedJobEmailSchema.parse(result);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: rewriteJobEmail
+ *
+ * WHAT:  Revises the member's current draft on one instruction: shorter, more
+ *        formal, a different angle, or a new subject.
+ * WHY:   Given the post, the saved profile and the job notes again, so a rewrite
+ *        has the same true facts to draw on and the same rules to follow as the
+ *        first draft, never a different story.
+ * WHERE: Called by jobEmailRewrites.create.
+ */
+export async function rewriteJobEmail(
+  input: RewriteJobEmailValues,
+  profile: CandidateProfileValues | null,
+  voice: ResolvedVoice | null = null,
+): Promise<RewrittenJobEmail> {
+  const prompt = [
+    `INSTRUCTION: ${JOB_EMAIL_REWRITE_DIRECTIVES[input.instruction]}`,
+    "",
+    "HIRING POST:",
+    input.jobPost,
+    "",
+    "CANDIDATE PROFILE:",
+    serializeCandidateProfile(profile),
+    "",
+    "CANDIDATE NOTES FOR THIS JOB:",
+    input.highlights || "(None.)",
+    "",
+    "CURRENT SUBJECT:",
+    input.subject,
+    "",
+    "CURRENT EMAIL BODY:",
+    input.body,
+    "",
+    "CURRENT LINKEDIN MESSAGE:",
+    input.linkedinMessage || "(Empty. Write one.)",
+  ].join("\n");
+
+  const result = await generateStructured({
+    system: JOB_EMAIL_REWRITE_SYSTEM_PROMPT,
+    prompt: `${prompt}${buildVoiceDirective(voice)}`,
+    schema: rewrittenJobEmailSchema,
+    maxOutputTokens: JOB_EMAIL_MAX_TOKENS,
+    timeoutMs: JOB_EMAIL_TIMEOUT_MS,
+  });
+
+  return rewrittenJobEmailSchema.parse(result);
 }

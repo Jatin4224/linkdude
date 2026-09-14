@@ -38,6 +38,8 @@ import { carouselRouter } from "./carousel";
 import { documentsRouter } from "./documents";
 import { voiceProfileRouter } from "./voice-profile";
 import { jobEmailsRouter } from "./job-emails";
+import { jobEmailRewritesRouter } from "./job-email-rewrites";
+import { candidateProfileRouter } from "./candidate-profile";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: appRouter, AppRouter
@@ -77,6 +79,9 @@ export const appRouter = createTRPCRouter({
   documents: documentsRouter,
   voiceProfile: voiceProfileRouter,
   jobEmails: jobEmailsRouter,
+  /* Its own key so rewrites use their own allowance, not the email one. */
+  jobEmailRewrites: jobEmailRewritesRouter,
+  candidateProfile: candidateProfileRouter,
 });
 
 export type AppRouter = typeof appRouter;

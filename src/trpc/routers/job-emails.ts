@@ -6,17 +6,18 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: jobEmailsRouter, jobEmails.create, job email
- *   writer, hiring post email
+ *   writer, hiring post email, match check, sign-off
  *
- * WHAT:  Turns a pasted hiring post into a subject, an email and a LinkedIn
- *        message the member can send, returned without being stored.
+ * WHAT:  Turns a pasted hiring post into a subject, an email, a sign-off, a
+ *        LinkedIn message and a match check, returned without being stored.
  * WHY:   Mounted as `jobEmails` so `jobEmails.create` matches the RESOURCES key,
  *        which auto-wires the quota, usage counter, rate limit, permission gate
  *        and audit row. Nothing is persisted, the aiGeneration precedent: the
  *        draft lives on screen until the member sends it from their own mail
- *        client, so the counter measures model spend, which is what costs money.
+ *        client, so the counter measures model spend.
  * WHERE: Mounted in src/trpc/routers/_app; delegates to ai.service and reads the
- *        voice through voice-profile.service. Consumed by the Job Assist page.
+ *        voice and saved profile through their services. Consumed by the Job
+ *        Assist page.
  */
 
 import { z } from "zod";
@@ -28,8 +29,10 @@ import {
 } from "../init";
 import { protectedProcedure } from "../procedures";
 import { permissions } from "@/lib/better-auth/permissions";
+import { buildJobEmailSignature } from "@/lib/config";
 import { generateJobEmailSchema, jobEmailRecipientSchema } from "@/lib/types";
 import * as aiService from "@/services/ai.service";
+import * as candidateProfileService from "@/services/candidate-profile.service";
 import * as voiceProfileService from "@/services/voice-profile.service";
 
 const withOrganization = z.object({ organizationId: z.string().min(1) });
@@ -38,13 +41,14 @@ export const jobEmailsRouter = createTRPCRouter({
   /**
    * SOURCE OF TRUTH KEYWORDS: jobEmails.create
    *
-   * WHAT:  Writes one job email and LinkedIn message.
+   * WHAT:  Writes one job email, its LinkedIn message and match check, and seeds
+   *        the sign-off from the member's saved details.
    * WHY:   Named `create` so the `<resource>.<verb>` convention fires the quota.
+   *        The voice and the saved profile are read on the server, never taken
+   *        from the input, so the facts in an email are always the member's own.
    *        A recipient the member typed always wins over one the model read off
-   *        the post, and an address from the model is kept only if it is a real
-   *        address, because a model can return something that merely looks like
-   *        one.
-   * WHERE: The Generate button on the Job Assist form.
+   *        the post, and a model-read address is kept only if it is a real one.
+   * WHERE: The Write my email button on the Job Assist form.
    */
   create: protectedProcedure({
     requirePermission: permissions.JOB_EMAILS_CREATE,
@@ -58,8 +62,14 @@ export const jobEmailsRouter = createTRPCRouter({
        * problem, and the member should not lose an email to it. */
       assertAiConfigured("AI generation", "job emails");
 
-      /* Read server-side, never accepted as input. Null when none is active. */
+      /* Sequential, not Promise.all: both read through the same transaction
+       * client, which runs one query at a time. */
       const voice = await voiceProfileService.readResolvedVoice(
+        ctx.db,
+        input.organizationId,
+        ctx.user.id,
+      );
+      const profile = await candidateProfileService.readCandidateProfile(
         ctx.db,
         input.organizationId,
         ctx.user.id,
@@ -68,7 +78,8 @@ export const jobEmailsRouter = createTRPCRouter({
       try {
         const email = await aiService.generateJobEmail(
           input,
-          ctx.user.name,
+          profile,
+          profile?.fullName || ctx.user.name,
           voice,
         );
         const extracted = jobEmailRecipientSchema.safeParse(email.recipientEmail);
@@ -76,10 +87,14 @@ export const jobEmailsRouter = createTRPCRouter({
         return {
           company: email.company,
           role: email.role,
+          contactName: email.contactName,
           recipientEmail:
             input.recipientEmail || (extracted.success ? extracted.data : ""),
+          matchedRequirements: email.matchedRequirements,
+          missingRequirements: email.missingRequirements,
           subject: email.subject,
           body: email.body,
+          signature: buildJobEmailSignature(profile, ctx.user.name),
           linkedinMessage: email.linkedinMessage,
         };
       } catch (error) {

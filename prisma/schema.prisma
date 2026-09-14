@@ -89,6 +89,7 @@ model User {
   contentPlans     ContentPlan[]
   carousels        Carousel[]
   voiceProfiles    VoiceProfile[]
+  candidateProfiles CandidateProfile[]
 
   // Signups-per-day rollups in the /portal analytics dashboard bucket on
   // createdAt across the whole table; without this they seq-scan every user.
@@ -220,6 +221,7 @@ model Organization {
   carousels         Carousel[]
   documents         Document[]
   voiceProfiles     VoiceProfile[]
+  candidateProfiles CandidateProfile[]
 
   // New-workspaces-per-day in the portal analytics dashboard.
   @@index([createdAt])
@@ -942,4 +944,30 @@ model VoiceProfile {
   @@unique([organizationId, authorId])
   @@index([authorId])
   @@map("voice_profile")
+}
+
+model CandidateProfile {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope
+  authorId       String // The member these details describe
+
+  /// CandidateProfileValues — name, headline, skills, experience, education,
+  /// location, availability, links, phone and whether to show it. Re-validated
+  /// on read through candidateProfileSchema. Json rather than columns because the
+  /// field set will grow with Job Assist (resume tailoring, cover letters) and
+  /// every field is plain text the model reads as one block.
+  details Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // One set of details per member per organization, the VoiceProfile precedent:
+  // these are one person's facts, and a shared row would put a teammate's
+  // experience into someone else's job email.
+  @@unique([organizationId, authorId])
+  @@index([authorId])
+  @@map("candidate_profile")
 }

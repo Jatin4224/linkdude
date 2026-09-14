@@ -859,6 +859,53 @@ export const RESOURCES = {
       requirePermission: "create",
     },
   },
+  /* Rewrites of a Job Assist draft: Shorter, More formal, Different angle, New
+   * subject. Its own key and a larger allowance (decided 2026-09-15), so
+   * polishing a draft never uses up the member's email allowance. No nav: the
+   * buttons live on the Job Assist page. */
+  jobEmailRewrites: {
+    name: "Job Email Rewrites",
+    description: "One-click rewrites of a job application email",
+    permissions: ["create"],
+    limit: {
+      perPlan: {
+        free: 20,
+        starter: 500,
+        pro: 2_000,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} for more email rewrites",
+      availableOnFreeTrial: true,
+      unit: "rewrites",
+    },
+    rateLimit: {
+      create: { count: 20, window: "1 m" },
+    },
+    audit: {
+      entity: "jobEmailRewrites",
+      describe: {
+        create: "Rewrote a job application email ({input.instruction})",
+      },
+    },
+  },
+
+  /* A member's saved "About me" details, reused in every Job Assist email.
+   * Permissions only: saving details buys nothing, so there is no quota. */
+  candidateProfile: {
+    name: "Job Assist Profile",
+    description: "Your saved details for job application emails",
+    permissions: ["read", "update"],
+    rateLimit: {
+      update: { count: 20, window: "1 m" },
+    },
+    audit: {
+      entity: "candidateProfile",
+      describe: {
+        update: "Updated their Job Assist details",
+      },
+    },
+  },
 } as const satisfies Record<string, ResourceDefinition>;
 
 export type ResourceKey = keyof typeof RESOURCES;

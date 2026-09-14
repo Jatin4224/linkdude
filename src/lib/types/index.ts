@@ -35,7 +35,8 @@
  *   extractVoiceProfileSchema, updateVoiceProfileSchema, ResolvedVoice,
  *   StoredVoiceProfile, generateJobEmailSchema, GenerateJobEmailValues,
  *   generatedJobEmailSchema, GeneratedJobEmail, jobEmailDraftSchema,
- *   JobEmailDraftValues, jobEmailRecipientSchema
+ *   JobEmailDraftValues, jobEmailRecipientSchema, candidateProfileSchema,
+ *   CandidateProfileValues, rewriteJobEmailSchema, JobEmailRewriteInstruction
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -399,16 +400,40 @@ export {
   JOB_LINKEDIN_MESSAGE_MAX,
   JOB_COMPANY_MAX,
   JOB_ROLE_MAX,
+  JOB_EMAIL_SIGNATURE_MAX,
+  JOB_CONTACT_NAME_MAX,
+  JOB_REQUIREMENT_MAX,
+  JOB_REQUIREMENTS_MAX,
+  CANDIDATE_NAME_MAX,
+  CANDIDATE_TEXT_MAX,
+  CANDIDATE_SKILLS_MAX,
+  CANDIDATE_EXPERIENCE_MAX,
+  CANDIDATE_EDUCATION_MAX,
+  CANDIDATE_URL_MAX,
+  CANDIDATE_PHONE_MAX,
   jobEmailRecipientSchema,
+  optionalWebLinkSchema,
+  candidateProfileSchema,
+  DEFAULT_CANDIDATE_PROFILE,
   generateJobEmailSchema,
   DEFAULT_JOB_EMAIL_REQUEST,
   generatedJobEmailSchema,
   jobEmailDraftSchema,
+  JOB_EMAIL_REWRITE_INSTRUCTIONS,
+  jobEmailRewriteInstructionSchema,
+  rewriteJobEmailDraftSchema,
+  rewriteJobEmailSchema,
+  rewrittenJobEmailSchema,
 } from "./job-email";
 export type {
+  CandidateProfileValues,
   GenerateJobEmailValues,
   GeneratedJobEmail,
   JobEmailDraftValues,
+  JobEmailRewriteInstruction,
+  RewriteJobEmailDraftValues,
+  RewriteJobEmailValues,
+  RewrittenJobEmail,
 } from "./job-email";
 export { ANALYTICS_RANGE_DAYS, analyticsRangeSchema } from "./portal-analytics";
 export type {

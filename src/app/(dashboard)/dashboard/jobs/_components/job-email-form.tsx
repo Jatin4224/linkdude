@@ -8,14 +8,15 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: JobEmailForm, JobEmailFormProps, hiring post form,
- *   candidate facts
+ *   job notes, company and role
  *
- * WHAT:  The request: the pasted hiring post, a few true facts about the
- *        member, and optionally the recruiter's email address.
+ * WHAT:  The request for one job: the pasted hiring post, the role and company
+ *        when the post doesn't name them, notes that only matter for this job,
+ *        and optionally the recruiter's email address.
  * WHY:   Resolved against generateJobEmailSchema, the schema jobEmails.create
  *        validates, so a too-short post is caught before a quota unit is spent.
- *        The facts field is explained in place because it is what separates a
- *        specific email from a generic one.
+ *        The member's standing facts live in the About me card, so this form
+ *        only asks about the job in front of them.
  * WHERE: Rendered by job-assist-workspace.tsx.
  */
 
@@ -59,7 +60,11 @@ export function JobEmailForm({ onGenerate, isGenerating }: JobEmailFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onGenerate)} className="flex flex-col gap-4">
+      <form
+        onSubmit={form.handleSubmit(onGenerate)}
+        noValidate
+        className="flex flex-col gap-4"
+      >
         <FormField
           control={form.control}
           name="jobPost"
@@ -85,24 +90,62 @@ export function JobEmailForm({ onGenerate, isGenerating }: JobEmailFormProps) {
           )}
         />
 
+        <div className="flex flex-col gap-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Role (optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Frontend Engineer"
+                      disabled={isGenerating}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="company"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company (optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Acme" disabled={isGenerating} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Only needed when the post doesn&rsquo;t say.
+          </p>
+        </div>
+
         <FormField
           control={form.control}
           name="highlights"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>A few facts about you</FormLabel>
+              <FormLabel>Notes for this job (optional)</FormLabel>
               <FormControl>
                 <Textarea
                   {...field}
-                  rows={4}
-                  placeholder="4 years of React. Rebuilt the checkout at Acme and cut drop-off by 22%. Available from next month."
+                  rows={3}
+                  placeholder="I've used their app for two years. A friend on their team referred me."
                   disabled={isGenerating}
                   className="resize-none"
                 />
               </FormControl>
               <FormDescription>
-                Only what&rsquo;s true. Anything missing becomes a [placeholder]
-                you fill in. {field.value.length} / {JOB_HIGHLIGHTS_MAX}
+                Your About me details are used automatically. Add only what matters
+                for this job. {field.value.length} / {JOB_HIGHLIGHTS_MAX}
               </FormDescription>
               <FormMessage />
             </FormItem>
