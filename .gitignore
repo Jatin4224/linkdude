@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Agent skills installed on this computer, not part of the app
+.agents/
+skills-lock.json
