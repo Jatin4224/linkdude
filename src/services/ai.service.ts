@@ -10,7 +10,8 @@ import "server-only";
  *   GenerateStructuredArgs, TONE_DIRECTIVES, LENGTH_DIRECTIVES,
  *   LINKEDIN_POST_SYSTEM_PROMPT, PROFILE_ANALYSIS_SYSTEM_PROMPT,
  *   generateCarouselSlides, CAROUSEL_SYSTEM_PROMPT, extractVoiceProfile,
- *   buildVoiceDirective, VOICE_EXTRACTION_SYSTEM_PROMPT
+ *   buildVoiceDirective, VOICE_EXTRACTION_SYSTEM_PROMPT,
+ *   LINKEDIN_LANGUAGE_RULES, LINKEDIN_HOOK_RULES, quotePhrases
  *
  * WHAT:  The app's single seat of model invocation. `generateText` and
  *        `generateStructured` are the provider-facing primitives (prose out and
@@ -94,6 +95,17 @@ import {
   VOICE_EXTRACTION_MAX_TOKENS,
   VOICE_EXTRACTION_TIMEOUT_MS,
 } from "@/lib/config/voice-profile";
+import {
+  AI_TELL_PHRASES,
+  AI_TELL_WORDS,
+  ANNOUNCEMENT_OPENERS,
+  GENERIC_CLOSERS,
+  HOOK_OPENER_TELLS,
+  POST_HASHTAG_MAX,
+  POST_HOOK_MOBILE_CHARS,
+  REVEAL_BRIDGES,
+  SINCERITY_OPENERS,
+} from "@/lib/config/post-writing";
 
 export interface GenerateTextArgs {
   system: string;
@@ -292,12 +304,56 @@ const TONE_DIRECTIVES: Record<PostTone, string> = {
     "Teach one idea clearly. Concrete, ordered, and useful enough to act on immediately.",
 };
 
+/* Word targets with their character equivalents. Medium matches the 900-1,300
+ * character range LinkedIn posts perform best at; long allows up to 1,900. */
 const LENGTH_DIRECTIVES: Record<PostLength, string> = {
-  short: "Roughly 50-80 words. One tight idea, nothing more.",
+  short:
+    "Roughly 50-80 words (about 300-500 characters). One tight idea, nothing more.",
   medium:
-    "Roughly 120-180 words. A hook, two or three beats of substance, and a close.",
-  long: "Roughly 250-350 words. Room to develop the argument, still scannable.",
+    "Roughly 150-220 words (about 900-1,300 characters). A hook, two or three beats of substance, and a close.",
+  long: "Roughly 250-320 words (about 1,500-1,900 characters). Room to develop the argument, with a blank line every one or two sentences.",
 };
+
+/* Renders a phrase list the way the prompts quote it: "a", "b", "c". */
+function quotePhrases(phrases: readonly string[]): string {
+  return phrases.map((phrase) => `"${phrase}"`).join(", ");
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: LINKEDIN_LANGUAGE_RULES, LINKEDIN_HOOK_RULES,
+ *   shared writing rules, AI tells, hook rules, quotePhrases
+ *
+ * WHAT:  The writing rules shared by every generator that writes LinkedIn copy:
+ *        language (words, phrases, dashes, rhythm) and, for anything that opens
+ *        a post, the hook.
+ * WHY:   Posts, carousels and content-plan hooks each carried their own short
+ *        copy of "avoid delve, leverage, em dashes", and the copies drifted. One
+ *        block per concern, built from the lists in post-writing.ts, keeps every
+ *        generator on the rules the post checker enforces. Rules only, never a
+ *        persona: each system prompt still owns its own task.
+ *
+ *        Em dashes stay banned in generated copy (the source allows about one
+ *        per 100 words). A generated draft never needs one, and it is the tell
+ *        users recognise first.
+ * WHERE: LINKEDIN_POST_SYSTEM_PROMPT, CAROUSEL_SYSTEM_PROMPT,
+ *        CONTENT_PLAN_SYSTEM_PROMPT.
+ */
+const LINKEDIN_LANGUAGE_RULES = [
+  "- No em dashes, en dashes or double hyphens. Use a comma, a colon or parentheses instead.",
+  `- Avoid these words and their other forms: ${AI_TELL_WORDS.join(", ")}.`,
+  `- Never use these phrases: ${quotePhrases(AI_TELL_PHRASES)}.`,
+  `- Never announce sincerity (${quotePhrases(SINCERITY_OPENERS)}) or excitement (${quotePhrases(ANNOUNCEMENT_OPENERS)}). State the fact itself.`,
+  `- No reveal bridges such as ${quotePhrases(REVEAL_BRIDGES)}. Write the reveal as a plain sentence.`,
+  `- Never use the "It's not X, it's Y" frame or any variant of it, such as "not X, but Y" or "This isn't X. This is Y."`,
+  `- No staccato runs ("Short. Punchy. Done.", "No X. No Y. Just Z.") and no one-word paragraphs.`,
+  `- No hedging stacks ("perhaps", "it seems", "might", "could potentially").`,
+].join("\n");
+
+const LINKEDIN_HOOK_RULES = [
+  "- The opening line is a statement or a specific number, never a question, and it makes sense on its own.",
+  `- Never open with ${quotePhrases(HOOK_OPENER_TELLS)} or a "Stop X, start Y" line.`,
+  "- Never write a line in all capitals.",
+].join("\n");
 
 /**
  * SOURCE OF TRUTH KEYWORDS: buildVoiceDirective, ResolvedVoice, voice
@@ -386,24 +442,46 @@ function buildVoiceDirective(voice: ResolvedVoice | null): string {
  *
  * WHAT:  The persona and hard rules for post generation.
  * WHY:   Rules that exist to stop specific known failure modes: markdown that
- *        LinkedIn renders literally as asterisks, the em-dash-and-emoji house
- *        style that reads as machine-written, and meta-commentary wrapping the
- *        post ("Here's your post:") which the user would have to delete by hand.
- *        Output is bare post text so the composer can drop it straight into the
- *        editor.
+ *        LinkedIn renders literally as asterisks, the machine-written tells in
+ *        LINKEDIN_LANGUAGE_RULES, a hook that is cut off before "see more", and
+ *        meta-commentary wrapping the post ("Here's your post:") which the user
+ *        would have to delete by hand. Output is bare post text so the composer
+ *        can drop it straight into the editor.
+ *
+ *        Structure, hook and close rules are adapted from the post writer in
+ *        sergebulaev/linkedin-skills (see THIRD_PARTY_NOTICES.md). "Never invent
+ *        numbers" replaces the old "a concrete number beats an abstract claim",
+ *        which pushed the model to make figures up when the topic had none.
  */
 const LINKEDIN_POST_SYSTEM_PROMPT = `You write LinkedIn posts that sound like a real practitioner, not a brand account.
 
-Hard rules:
+Output:
 - Return ONLY the post text. No preamble, no sign-off, no "Here's your post", no surrounding quotes.
 - Never use markdown. LinkedIn renders **bold** and # headings as literal characters.
-- Open with a hook that earns the second line. Never open with "In today's fast-paced world" or any variant.
-- Short paragraphs, one to three lines each, separated by a blank line. This is how LinkedIn is read.
+
+Hook:
+${LINKEDIN_HOOK_RULES}
+- The opening line must land within the first ${POST_HOOK_MOBILE_CHARS} characters, where LinkedIn's mobile feed cuts to "see more". Leave a blank line after it.
+
+Structure:
+- Paragraphs of one or two sentences, separated by a blank line. This is how LinkedIn is read.
+- At most one contrast and at most one list of three in the whole post. A list of three names concrete things, never three adjectives.
+- At most two sentence fragments in the whole post.
+
+Language:
+${LINKEDIN_LANGUAGE_RULES}
 - No emoji unless the requested tone genuinely calls for one. Never use them as bullet points.
-- Avoid em dashes, "delve", "leverage", "unlock", "game-changer", "supercharge", and rhetorical-question openers.
-- Be specific. A concrete number, example, or detail beats an abstract claim every time.
-- At most three hashtags, on their own final line. Omit them entirely if none genuinely fit.
-- Write in first person. The reader should believe a person typed this.`;
+
+Substance:
+- Be specific. A concrete example or detail beats an abstract claim every time.
+- Use only facts that are in the topic or the source. Never invent numbers, names, dates, clients or results.
+- Write in first person. The reader should believe a person typed this.
+
+Close:
+- End with a specific question about this post's subject, or a clean final line. Never end with ${quotePhrases(GENERIC_CLOSERS)}, and never ask readers to comment a word to get something.
+- Add a one-line P.S. only when there is a real follow-up to point to.
+- Never put a link in the post. If one is needed, say it is in the first comment.
+- At most ${POST_HASHTAG_MAX} hashtags, on their own final line. Omit them entirely if none genuinely fit.`;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: generateLinkedInPost
@@ -670,16 +748,17 @@ Hard rules:
 - Everything must be traceable to THIS profile. Name their real projects, employers, stack and skills. A plan that would work for any person in their field is a failed plan.
 - Never invent facts, metrics, employers or results. Where a number would strengthen a post, leave a marked placeholder like [X%] or [company] for them to fill in.
 - The positioning section must contain text they can paste: a rewritten headline inside LinkedIn's 220-character limit, and the shape of a rewritten About opening with a standalone hook. Write it for them; never describe what they should write.
-- Audience entries describe people who can actually give them what they asked for — the hiring manager, the buyer, the peer — including where those people already are and what they care about. Not demographics.
+- Audience entries describe people who can actually give them what they asked for (the hiring manager, the buyer, the peer), including where those people already are and what they care about. Not demographics.
 - Content pillars are recurring themes they could post against every week for a month without running dry. Three to five. Each needs a title and a sentence on what belongs under it.
-- The calendar covers four weeks. Each week gets one focus and the specific formats to ship. Weekly, not daily — a day-by-day plan is one they abandon by Thursday.
+- The calendar covers four weeks. Each week gets one focus and the specific formats to ship. Weekly, not daily: a day-by-day plan is one they abandon by Thursday.
 - Post ideas and hooks must be specific enough to draft from immediately. "Share a project" is not an idea; naming their project and the angle is.
-- Hooks are opening lines only. They must earn the second line without clickbait or rhetorical-question openers.
+- Hooks are opening lines only, and each must earn the second line without clickbait. Every hook follows these rules:
+${LINKEDIN_HOOK_RULES}
 - Return every section. Aim for: 2-4 audience entries, 3-5 formats, 3-5 pillars, exactly 4 calendar weeks, 5-6 post ideas, 5-6 hooks, 2-3 CTAs, 2-4 gaps.
-- Posting strategy covers cadence, timing, and what they do around a post — engaging before and after, replying, what to pin. Concrete numbers, not "be consistent".
+- Posting strategy covers cadence, timing, and what they do around a post: engaging before and after, replying, what to pin. Concrete numbers, not "be consistent".
 - Gap analysis names what is holding the CURRENT profile back, quoting their own words. Observations about this profile, never generic advice.
 - No markdown anywhere. LinkedIn renders it literally, and these strings are shown and copied as plain text.
-- Avoid "delve", "leverage", "unlock", "game-changer", "supercharge", and em dashes.`;
+${LINKEDIN_LANGUAGE_RULES}`;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: buildContentPlanPrompt
@@ -777,19 +856,23 @@ export async function generateContentPlan(
  *        at which the renderer overflows the page, so they are stated in the
  *        prompt AND enforced by the schema.
  */
-const CAROUSEL_SYSTEM_PROMPT = `You write LinkedIn carousels — swipeable decks where each slide must land in about two seconds.
+const CAROUSEL_SYSTEM_PROMPT = `You write LinkedIn carousels: swipeable decks where each slide must land in about two seconds.
 
 Structure:
-- The FIRST slide is kind "cover": one promise that makes someone stop scrolling. No counter, no preamble.
-- The LAST slide is kind "cta": one specific ask. "Follow for more" is a wasted slide — ask for something concrete.
+- The FIRST slide is kind "cover": one promise that makes someone stop scrolling. No counter, no preamble. Its heading follows the hook rules below.
+- The LAST slide is kind "cta": one specific ask. "Follow for more" is a wasted slide, so ask for something concrete. Never ask readers to comment a word to get something.
 - Every slide between them is kind "content": exactly one idea each. If a slide needs "and", it is two slides.
+
+Hook rules for the cover heading:
+${LINKEDIN_HOOK_RULES}
 
 Hard rules:
 - headings are HEADLINES, not sentences. No trailing period. Under 90 characters, and shorter is better.
 - body is at most 260 characters and may be empty. A cover usually needs no body.
-- Never use markdown. No **bold**, no #, no bullet characters — the renderer draws text literally.
-- No emoji. No em dashes. Avoid "delve", "leverage", "unlock", "game-changer", "supercharge".
-- Be concrete. A number, a name, or a specific example beats an abstract claim on every single slide.
+- Never use markdown. No **bold**, no #, no bullet characters: the renderer draws text literally.
+- No emoji.
+${LINKEDIN_LANGUAGE_RULES}
+- Be concrete. A name or a specific example beats an abstract claim on every single slide. Never invent numbers, names or results that are not in the topic.
 - The deck must make one argument from start to finish. Slide 4 should depend on slide 3.
 - Write in first person as a practitioner sharing what they actually know.`;
 
