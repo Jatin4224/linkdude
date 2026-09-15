@@ -5,8 +5,9 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: POST_TONE_LABELS, POST_LENGTH_LABELS, tone label,
- *   length label, PostTone, PostLength, post generation config
+ * SOURCE OF TRUTH KEYWORDS: POST_TONE_LABELS, POST_LENGTH_LABELS,
+ *   POST_GOAL_LABELS, tone label, length label, goal label, PostTone,
+ *   PostLength, PostGoal, post generation config
  *
  * WHAT:  Human labels for the post tone and length vocabularies.
  * WHY:   Two screens pick a tone, the post composer and the carousel form, and
@@ -18,6 +19,7 @@
  */
 
 import type { PostLength, PostTone } from "@/lib/types/ai";
+import type { PostGoal } from "@/lib/types/post-hooks";
 
 export const POST_TONE_LABELS: Record<PostTone, string> = {
   professional: "Professional",
@@ -31,4 +33,13 @@ export const POST_LENGTH_LABELS: Record<PostLength, string> = {
   short: "Short",
   medium: "Medium",
   long: "Long",
+};
+
+/* Phrased as the answer to "What do you want from this post?". */
+export const POST_GOAL_LABELS: Record<PostGoal, string> = {
+  any: "No preference",
+  comments: "Comments",
+  reposts: "Reposts",
+  likes: "Likes",
+  saves: "Saves",
 };

@@ -12,7 +12,8 @@ import "server-only";
  *   generateCarouselSlides, CAROUSEL_SYSTEM_PROMPT, extractVoiceProfile,
  *   buildVoiceDirective, VOICE_EXTRACTION_SYSTEM_PROMPT,
  *   LINKEDIN_LANGUAGE_RULES, LINKEDIN_HOOK_RULES, quotePhrases,
- *   fixLinkedInPost, LINKEDIN_POST_EDITOR_SYSTEM_PROMPT, describeLength
+ *   fixLinkedInPost, LINKEDIN_POST_EDITOR_SYSTEM_PROMPT, describeLength,
+ *   buildHookDirective, POST_GOAL_DIRECTIVES, alternative openings
  *
  * WHAT:  The app's single seat of model invocation. `generateText` and
  *        `generateStructured` are the provider-facing primitives (prose out and
@@ -50,12 +51,19 @@ import { SANITIZED_ERROR_CODES, UserFacingError } from "@/lib/errors";
 import type { LinkedInImageBinary } from "@/lib/types/linkedin";
 import {
   generatedPostSchema,
+  postWithOpeningsSchema,
   type FixPostValues,
   type GeneratedPost,
   type PostTone,
   type PostLength,
   type WritePostValues,
 } from "@/lib/types/ai";
+import {
+  HOOK_FORMULA_KEYS,
+  POST_ALTERNATIVE_OPENINGS,
+  type PostGoal,
+} from "@/lib/types/post-hooks";
+import { HOOK_FORMULAS } from "@/lib/config/post-hooks";
 import {
   profileAnalysisSchema,
   sectionInsightSchema,
@@ -471,7 +479,7 @@ function buildVoiceDirective(voice: ResolvedVoice | null): string {
 const LINKEDIN_POST_SYSTEM_PROMPT = `You write LinkedIn posts that sound like a real practitioner, not a brand account.
 
 Output:
-- Return ONLY the post text. No preamble, no sign-off, no "Here's your post", no surrounding quotes.
+- The post is ONLY the post text. No preamble, no sign-off, no "Here's your post", no surrounding quotes.
 - Never use markdown. LinkedIn renders **bold** and # headings as literal characters.
 
 Hook:
@@ -498,39 +506,110 @@ Close:
 - Never put a link in the post. If one is needed, say it is in the first comment.
 - At most ${POST_HASHTAG_MAX} hashtags, on their own final line. Omit them entirely if none genuinely fit.`;
 
+/* What each goal asks of the post. Paired with the formulas that serve it. */
+const POST_GOAL_DIRECTIVES: Record<PostGoal, string> = {
+  any: "No preference. Aim for a post people would genuinely respond to.",
+  comments:
+    "Comments. Give readers something real to answer: an experience to compare, a comparison to test, or a position to disagree with, and close with a specific question.",
+  reposts:
+    "Reposts. Make one idea worth passing on: a quotable line, a sharp distinction, or credit to real people.",
+  likes: "Likes. Tell a true, human story with real stakes and a clear turn.",
+  saves:
+    "Saves. Make it worth coming back to: a clear explanation, concrete steps, or real numbers.",
+};
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildHookDirective, POST_GOAL_DIRECTIVES, hook
+ *   formula prompt
+ *
+ * WHAT:  The goal plus the hook formulas the model may shape the post with.
+ * WHY:   Only the formulas that serve the goal are offered, so the prompt stays
+ *        short and a "saves" post is never written as an emotional cold open.
+ *        Formulas built on numbers, names or dates carry an explicit condition, so
+ *        a formula is never a reason to invent a fact.
+ * WHERE: generateLinkedInPost.
+ */
+function buildHookDirective(goal: PostGoal): string {
+  const candidates = HOOK_FORMULA_KEYS.filter(
+    (key) => goal === "any" || HOOK_FORMULAS[key].goals.includes(goal),
+  );
+  return [
+    `Goal: ${POST_GOAL_DIRECTIVES[goal]}`,
+    "Shape the post with exactly one of these hook formulas, whichever the topic's real facts fit best:",
+    ...candidates.map((key) => {
+      const formula = HOOK_FORMULAS[key];
+      const condition = formula.needsSpecifics
+        ? " Use it only if the topic gives the real specifics it needs."
+        : "";
+      return `- ${key} (${formula.label}): ${formula.shape}${condition}`;
+    }),
+  ].join("\n");
+}
+
 /**
  * SOURCE OF TRUTH KEYWORDS: generateLinkedInPost
  *
- * WHAT:  Turns a topic (or a blog URL to repurpose) into publish-ready copy.
- * WHY:   Both composer modes converge here so tone/length handling and the
- *        validation of model output live in one place. The blog path enables
- *        web_fetch so the model reads the article itself — no scraping
- *        dependency, and no HTML stripping to maintain. The member's voice, when
- *        active, is appended after tone and length so the tone still wins.
+ * WHAT:  Turns a topic (or a blog URL to repurpose) into publish-ready copy,
+ *        shaped by the member's goal, with alternative opening lines for topics.
+ * WHY:   Both composer modes converge here so tone, length, goal and the
+ *        validation of model output live in one place.
+ *
+ *        A topic post is one structured call that returns the formula used, the
+ *        post and two alternative first lines, so hook options cost nothing
+ *        extra. The blog path needs the vendor's web-fetch tool to read the
+ *        article, and a tool call cannot share a request with structured output
+ *        on every vendor, so a blog post is written as plain text and comes back
+ *        without alternatives. The member's voice, when active, is appended last
+ *        so tone still wins.
  * WHERE: Called by aiGeneration.create.
  */
 export async function generateLinkedInPost(
   input: WritePostValues,
   voice: ResolvedVoice | null = null,
 ): Promise<GeneratedPost> {
-  const toneDirective = TONE_DIRECTIVES[input.tone];
-  const lengthDirective = LENGTH_DIRECTIVES[input.length];
+  const brief = [
+    `Tone: ${TONE_DIRECTIVES[input.tone]}`,
+    `Length: ${LENGTH_DIRECTIVES[input.length]}`,
+    "",
+    buildHookDirective(input.goal),
+  ].join("\n");
 
-  const task =
-    input.source === "topic"
-      ? `Write a LinkedIn post about the following.\n\nTopic:\n${input.topic}`
-      : `Read the article at ${input.blogUrl} and rewrite its central insight as an original LinkedIn post. Do not summarize section by section — pick the single most useful idea and make the post about that. Do not include the URL in the post.`;
+  if (input.source === "blog") {
+    const commentary = await generateText({
+      system: LINKEDIN_POST_SYSTEM_PROMPT,
+      prompt: `Read the article at ${input.blogUrl} and rewrite its central insight as an original LinkedIn post. Do not summarize section by section: pick the single most useful idea and make the post about that. Do not include the URL in the post.\n\n${brief}${buildVoiceDirective(voice)}`,
+      allowWebFetch: true,
+    });
 
-  const commentary = await generateText({
+    /* Model output is untrusted input. Parsing here means an over-long post
+     * surfaces as a local validation error rather than a remote
+     * FIELD_LENGTH_TOO_LONG from LinkedIn after the user hits Publish. */
+    return generatedPostSchema.parse({
+      commentary,
+      formula: null,
+      alternativeOpenings: [],
+    });
+  }
+
+  const result = await generateStructured({
     system: LINKEDIN_POST_SYSTEM_PROMPT,
-    prompt: `${task}\n\nTone: ${toneDirective}\nLength: ${lengthDirective}${buildVoiceDirective(voice)}`,
-    allowWebFetch: input.source === "blog",
+    prompt: [
+      "Write a LinkedIn post about the following.",
+      "",
+      "Topic:",
+      input.topic,
+      "",
+      brief,
+      "",
+      "Return:",
+      "- formula: the key of the formula the post uses.",
+      "- commentary: the post.",
+      `- alternativeOpenings: exactly ${POST_ALTERNATIVE_OPENINGS} other first lines for this same post, each written with a different formula from the list than the post uses. Each is a single line that follows the hook rules, could replace the post's first line, and uses only facts from the topic.`,
+    ].join("\n") + buildVoiceDirective(voice),
+    schema: postWithOpeningsSchema,
   });
 
-  /* Model output is untrusted input. Parsing here means an over-long post
-   * surfaces as a local validation error rather than a remote
-   * FIELD_LENGTH_TOO_LONG from LinkedIn after the user hits Publish. */
-  return generatedPostSchema.parse({ commentary });
+  return generatedPostSchema.parse(result);
 }
 
 /**
@@ -594,7 +673,13 @@ export async function fixLinkedInPost(
     prompt: `${prompt}${buildVoiceDirective(voice)}`,
   });
 
-  return generatedPostSchema.parse({ commentary });
+  /* A fix keeps the post's shape but may rewrite its opening, so it reports no
+   * formula and offers no alternatives. */
+  return generatedPostSchema.parse({
+    commentary,
+    formula: null,
+    alternativeOpenings: [],
+  });
 }
 
 /**

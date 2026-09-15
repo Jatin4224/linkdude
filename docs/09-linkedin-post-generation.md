@@ -627,6 +627,23 @@ A panel under the editor checks the post as the member types.
 - The panel is the global `PostCheckPanel` in `src/components/global/post-check/`.
 - It takes an optional `onFix` and `fixResource`, so the carousel caption or the draft library can reuse it later.
 
+### Goal picker and opening lines (added September 2026)
+
+**The goal.** The form asks "What do you want from this post?": No preference, Comments, Reposts, Likes or Saves.
+- `goal` is part of the topic and blog branches of `generatePostSchema`. The content plan's "Draft this" sends `DEFAULT_POST_GOAL`.
+- The goal picks which hook formulas the model may use. They live in `HOOK_FORMULAS` (`src/lib/config/post-hooks.ts`): 16 shapes condensed from linkedin-skills, each tagged with the goals it serves.
+- **Comments:** controlled A/B, contrarian with receipts, time-anchor story, curiosity gap, false binary, story meets evidence.
+- **Reposts:** named gratitude, R.I.P. obituary, paid vs free, false binary, diverging curves.
+- **Likes:** emotional cold open, bait and switch, status strip.
+- **Saves:** explain it simply, exact number, paid vs free, story meets evidence.
+- **No preference** offers all 16.
+- **No invented facts.** Formulas built on numbers, names or dates are marked `needsSpecifics`, and the prompt allows them only when the topic supplies those facts.
+
+**Opening lines.**
+- **One call.** A topic post is a single `generateStructured` call returning the formula used, the post, and two alternative first lines written with other formulas. The model-facing schema is `postWithOpeningsSchema`, parsed back through `generatedPostSchema`.
+- **The card.** The composer lists the generated opening first, then the alternatives, each labelled with its formula. **Use** swaps only the first line (`replaceOpeningLine`), spends nothing, and can be reversed by choosing the generated opening again.
+- **Blog posts get no alternatives.** The blog path reads the article with the vendor's web-fetch tool, and tools can't share a request with structured output on every vendor. Its `formula` is `null` and `alternativeOpenings` is empty, so the card doesn't appear. Fix it returns the same.
+
 For the blog mode we pass `allowWebFetch: true`, which enables Claude's built-in `web_fetch` tool. **This is why there's no scraping library in `package.json`** — the model reads the URL itself. One less dependency to maintain, and no HTML-stripping code to debug.
 
 The last line matters:

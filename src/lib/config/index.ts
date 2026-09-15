@@ -51,7 +51,8 @@
  *   POST_LENGTH_LABELS, AI_TELL_WORDS, AI_TELL_PHRASES, REVEAL_BRIDGES,
  *   SINCERITY_OPENERS, ANNOUNCEMENT_OPENERS, HOOK_OPENER_TELLS,
  *   GENERIC_CLOSERS, POST_HASHTAG_MAX, POST_HOOK_MOBILE_CHARS, AI_TELL_EMOJI,
- *   POST_LENGTH_WORD_RANGES, POST_LENGTH_TOLERANCE, POST_CHECK_RULES
+ *   POST_LENGTH_WORD_RANGES, POST_LENGTH_TOLERANCE, POST_CHECK_RULES,
+ *   POST_GOAL_LABELS, HOOK_FORMULAS, readOpeningLine, replaceOpeningLine
  *
  * WHAT:  Barrel re-export for the `src/lib/config/*` modules.
  * WHY:   Single import surface (`@/lib/config`) so consumers don't depend on
@@ -250,7 +251,16 @@ export {
   VOICE_EMOJI_USE_LABELS,
   VOICE_LIST_STYLE_LABELS,
 } from "./voice-profile";
-export { POST_TONE_LABELS, POST_LENGTH_LABELS } from "./post-generation";
+export {
+  POST_TONE_LABELS,
+  POST_LENGTH_LABELS,
+  POST_GOAL_LABELS,
+} from "./post-generation";
+export {
+  HOOK_FORMULAS,
+  readOpeningLine,
+  replaceOpeningLine,
+} from "./post-hooks";
 export {
   AI_TELL_WORDS,
   AI_TELL_PHRASES,

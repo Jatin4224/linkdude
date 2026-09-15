@@ -35,7 +35,9 @@
  *   extractVoiceProfileSchema, updateVoiceProfileSchema, ResolvedVoice,
  *   StoredVoiceProfile, FixPostValues, WritePostValues, POST_CHECK_CODES,
  *   PostCheckCode, PostCheckIssue, PostCheckResult, PostCheckRule,
- *   PostWordRange, PostCheckOptions
+ *   PostWordRange, PostCheckOptions, POST_GOALS, PostGoal, DEFAULT_POST_GOAL,
+ *   HOOK_FORMULA_KEYS, HookFormulaKey, HookOpening, PostOpeningChoice,
+ *   postWithOpeningsSchema
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -108,6 +110,7 @@ export {
   postLengthSchema,
   generatePostSchema,
   generatedPostSchema,
+  postWithOpeningsSchema,
   aiImageEditSchema,
   AI_IMAGE_PROMPT_MAX,
   AI_POST_TOPIC_MIN,
@@ -143,6 +146,25 @@ export type {
   PostWordRange,
   PostCheckOptions,
 } from "./post-check";
+export {
+  POST_GOALS,
+  postGoalSchema,
+  DEFAULT_POST_GOAL,
+  HOOK_FORMULA_KEYS,
+  hookFormulaKeySchema,
+  POST_ALTERNATIVE_OPENINGS,
+  POST_OPENING_MAX,
+  hookOpeningSchema,
+  hookFormulaSchema,
+  postOpeningChoiceSchema,
+} from "./post-hooks";
+export type {
+  PostGoal,
+  HookFormulaKey,
+  HookOpening,
+  HookFormula,
+  PostOpeningChoice,
+} from "./post-hooks";
 export {
   LINKEDIN_IMAGE_MIME_TYPES,
   LINKEDIN_OAUTH_ERROR_CODES,
