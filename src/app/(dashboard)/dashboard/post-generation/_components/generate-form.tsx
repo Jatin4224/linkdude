@@ -8,7 +8,8 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: GenerateForm, GenerateFormProps, POST_TONE_LABELS,
- *   POST_LENGTH_LABELS, POST_GOAL_LABELS, goal picker, voiceActive
+ *   POST_LENGTH_LABELS, POST_GOAL_LABELS, goal picker, voiceActive,
+ *   initialTopic, onSaveIdea, Save as idea
  *
  * WHAT:  The composer's left pane — Topic / Blog tabs plus tone and length
  *        selects, submitting a validated generation request, and a line saying
@@ -27,7 +28,12 @@ import * as React from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AudioLinesIcon, Loader2Icon, SparklesIcon } from "lucide-react";
+import {
+  AudioLinesIcon,
+  LightbulbIcon,
+  Loader2Icon,
+  SparklesIcon,
+} from "lucide-react";
 
 import {
   generatePostSchema,
@@ -45,6 +51,7 @@ import {
   POST_TONE_LABELS,
 } from "@/lib/config";
 import { RESOURCES } from "@/lib/resources";
+import { FeatureGate } from "@/components/feature-gate";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -79,6 +86,11 @@ export interface GenerateFormProps {
   onGoalChange: (goal: PostGoal) => void;
   onGenerate: (values: GeneratePostValues) => void;
   isGenerating: boolean;
+  /** Seeds the topic box, e.g. from a saved idea. */
+  initialTopic?: string | undefined;
+  /** Saves the typed topic as an idea. Omit to hide the button. */
+  onSaveIdea?: ((topic: string) => void) | undefined;
+  isSavingIdea?: boolean | undefined;
   disabled?: boolean;
   /**
    * Whether drafts use the member's voice. `undefined` hides the line: the
@@ -96,12 +108,21 @@ export function GenerateForm({
   onGoalChange,
   onGenerate,
   isGenerating,
+  initialTopic,
+  onSaveIdea,
+  isSavingIdea = false,
   disabled = false,
   voiceActive,
 }: GenerateFormProps) {
   const topicForm = useForm<TopicValues>({
     resolver: zodResolver(generatePostSchema.options[0]),
-    defaultValues: { source: "topic", topic: "", tone, length, goal },
+    defaultValues: {
+      source: "topic",
+      topic: initialTopic ?? "",
+      tone,
+      length,
+      goal,
+    },
   });
 
   const blogForm = useForm<BlogValues>({
@@ -171,9 +192,31 @@ export function GenerateForm({
                         className="resize-none"
                       />
                     </FormControl>
-                    <FormDescription>
-                      A sentence is plenty. Specifics beat topics.
-                    </FormDescription>
+                    <div className="flex items-start justify-between gap-2">
+                      <FormDescription>
+                        A sentence is plenty. Specifics beat topics.
+                      </FormDescription>
+                      {/* For a topic worth keeping but not writing today. */}
+                      {onSaveIdea ? (
+                        <FeatureGate resource="postIdeas">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            disabled={busy || isSavingIdea}
+                            onClick={() => onSaveIdea(topicForm.getValues("topic"))}
+                            className="shrink-0"
+                          >
+                            {isSavingIdea ? (
+                              <Loader2Icon className="size-3 animate-spin" />
+                            ) : (
+                              <LightbulbIcon className="size-3" />
+                            )}
+                            Save as idea
+                          </Button>
+                        </FeatureGate>
+                      ) : null}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}

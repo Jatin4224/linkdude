@@ -816,6 +816,50 @@ export const RESOURCES = {
       requirePermission: "create",
     },
   },
+  /* A member's saved post ideas: capture a thought in seconds, turn it into a
+   * post later. Nothing here calls a model.
+   *
+   * The limit counts ideas HELD, not model spend, so `delete` is the right verb
+   * and the factory's refund on delete is wanted: deleting an idea frees a slot.
+   * Same reasoning as linkedinPosts, the opposite of voiceProfile. */
+  postIdeas: {
+    name: "Post Ideas",
+    description: "Saved ideas to turn into posts later",
+    permissions: ["create", "read", "update", "delete"],
+    limit: {
+      perPlan: {
+        free: 100,
+        starter: 1_000,
+        pro: 10_000,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to save more ideas",
+      availableOnFreeTrial: true,
+      unit: "ideas",
+    },
+    rateLimit: {
+      create: { count: 30, window: "1 m" },
+    },
+    audit: {
+      entity: "postIdea",
+      describe: {
+        create: "Saved a post idea",
+        update: "Updated a post idea ({input.field})",
+        delete: "Deleted a post idea",
+      },
+    },
+    nav: {
+      label: "Ideas",
+      href: "/dashboard/ideas",
+      icon: "Lightbulb",
+      section: "create",
+      order: 8,
+      /* Brand-new key, same caveat as carousel: owners see it at once, and a
+       * custom role needs an explicit grant in the role editor. */
+      requirePermission: "read",
+    },
+  },
 } as const satisfies Record<string, ResourceDefinition>;
 
 export type ResourceKey = keyof typeof RESOURCES;

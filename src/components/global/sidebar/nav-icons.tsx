@@ -27,6 +27,7 @@ import {
   Folder,
   Layers,
   LayoutDashboard,
+  Lightbulb,
   ScrollText,
   Settings,
   Sparkles,
@@ -52,6 +53,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   FileStack,
   FileText,
   AudioLines,
+  Lightbulb,
 };
 
 export type NavIconName = keyof typeof NAV_ICONS;

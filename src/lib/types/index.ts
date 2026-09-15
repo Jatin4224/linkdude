@@ -37,7 +37,9 @@
  *   PostCheckCode, PostCheckIssue, PostCheckResult, PostCheckRule,
  *   PostWordRange, PostCheckOptions, POST_GOALS, PostGoal, DEFAULT_POST_GOAL,
  *   HOOK_FORMULA_KEYS, HookFormulaKey, HookOpening, PostOpeningChoice,
- *   postWithOpeningsSchema
+ *   postWithOpeningsSchema, POST_IDEA_STATUSES, PostIdeaStatus,
+ *   createPostIdeaSchema, listPostIdeasSchema, updatePostIdeaSchema,
+ *   postIdeaIdSchema
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -165,6 +167,23 @@ export type {
   HookFormula,
   PostOpeningChoice,
 } from "./post-hooks";
+export {
+  POST_IDEA_STATUSES,
+  postIdeaStatusSchema,
+  POST_IDEA_TEXT_MIN,
+  POST_IDEA_TEXT_MAX,
+  createPostIdeaSchema,
+  DEFAULT_POST_IDEA,
+  listPostIdeasSchema,
+  postIdeaIdSchema,
+  updatePostIdeaSchema,
+} from "./post-ideas";
+export type {
+  PostIdeaStatus,
+  CreatePostIdeaValues,
+  ListPostIdeasValues,
+  UpdatePostIdeaValues,
+} from "./post-ideas";
 export {
   LINKEDIN_IMAGE_MIME_TYPES,
   LINKEDIN_OAUTH_ERROR_CODES,

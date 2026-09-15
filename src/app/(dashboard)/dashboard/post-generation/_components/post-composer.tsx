@@ -10,7 +10,8 @@
  * SOURCE OF TRUTH KEYWORDS: PostComposer, PostComposerProps,
  *   CALLBACK_ERROR_MESSAGES, toLocalDateTimeInput, handleSaveDraft, draftId,
  *   handleFix, handleUndoFix, PostCheckPanel, preFixCommentary, goal,
- *   openingChoices, handleChooseOpening, HookOpenings
+ *   openingChoices, handleChooseOpening, HookOpenings, PostIdeaSeed,
+ *   initialIdea, handleSaveIdea, ideaToMarkUsed
  *
  * WHAT:  The Create Post screen — generation controls on the left, a live
  *        LinkedIn preview with an inline editor on the right, and Save draft,
@@ -59,6 +60,7 @@ import {
   useActiveOrganizationId,
 } from "@/hooks/use-active-organization";
 import {
+  createPostIdeaSchema,
   DEFAULT_POST_GOAL,
   DEFAULT_POST_LENGTH,
   DEFAULT_POST_TONE,
@@ -114,6 +116,8 @@ export interface PostComposerProps {
   initialScheduledFor?: Date | undefined;
   /** A draft to reopen, resolved server-side from `?draftId=`. */
   initialDraft?: PostDraftSeed | undefined;
+  /** A saved idea to start from, resolved server-side from `?ideaId=`. */
+  initialIdea?: PostIdeaSeed | undefined;
 }
 
 /**
@@ -133,6 +137,20 @@ export interface PostDraftSeed {
   id: string;
   commentary: string;
   image: PostImageValues | null;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: PostIdeaSeed
+ *
+ * WHAT:  The saved idea the composer opens with.
+ * WHY:   A prop for the PostDraftSeed reason: the idea becomes the topic box's
+ *        INITIAL value, never an effect that overwrites typing. The id is kept so
+ *        the idea can be marked used once a post is generated from it.
+ * WHERE: Produced by loadIdeaSeed in the post-generation page.
+ */
+export interface PostIdeaSeed {
+  id: string;
+  text: string;
 }
 
 /* The OAuth callback can only talk back through the URL, so each failure mode
@@ -166,6 +184,7 @@ export function PostComposer({
   schedulingEnabled,
   initialScheduledFor,
   initialDraft,
+  initialIdea,
 }: PostComposerProps) {
   const organizationId = useActiveOrganizationId();
   const router = useRouter();
@@ -223,6 +242,11 @@ export function PostComposer({
   const [openingChoices, setOpeningChoices] = React.useState<
     PostOpeningChoice[]
   >([]);
+  /* The idea this composer was opened from, until a post is generated from it
+   * and it has been marked used. */
+  const [ideaToMarkUsed, setIdeaToMarkUsed] = React.useState<string | null>(
+    initialIdea?.id ?? null,
+  );
 
   const enabled = organizationId !== undefined;
   const orgId = organizationId ?? "";
@@ -239,6 +263,8 @@ export function PostComposer({
    * grant sees no voice line rather than a failed request. */
   const { hasPermission } = useActiveOrganization();
   const canReadVoice = hasPermission(permissions.VOICE_PROFILE_READ);
+  const canSaveIdeas = hasPermission(permissions.POST_IDEAS_CREATE);
+  const canUpdateIdeas = hasPermission(permissions.POST_IDEAS_UPDATE);
   const voiceProfile = trpc.voiceProfile.get.useQuery(
     { organizationId: orgId },
     { enabled: enabled && canReadVoice, retry: false },
@@ -273,11 +299,40 @@ export function PostComposer({
     );
   }, [searchParams, router, utils]);
 
+  /* Silent on purpose: marking the idea used is bookkeeping, and a failure should
+   * not interrupt a post that generated fine. */
+  const markIdeaUsed = trpc.postIdeas.update.useMutation({
+    onSuccess: async () => {
+      setIdeaToMarkUsed(null);
+      await utils.postIdeas.list.invalidate();
+    },
+  });
+
+  const saveIdea = trpc.postIdeas.create.useMutation({
+    onSuccess: async () => {
+      toast.success("Saved to your ideas.");
+      await Promise.all([
+        utils.postIdeas.list.invalidate(),
+        utils.usage.invalidate(),
+      ]);
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
   const generate = trpc.aiGeneration.create.useMutation({
     onSuccess: (result, variables) => {
       setCommentary(result.commentary);
       setPreFixCommentary(null);
       setTargetLength(variables.length);
+      /* The idea only counts as used once a post was actually written from it. */
+      if (ideaToMarkUsed && canUpdateIdeas && variables.source === "topic") {
+        markIdeaUsed.mutate({
+          organizationId: variables.organizationId,
+          field: "status",
+          id: ideaToMarkUsed,
+          status: "used",
+        });
+      }
       /* The generated opening goes first, so it can always be chosen again. */
       setOpeningChoices(
         result.alternativeOpenings.length > 0
@@ -415,6 +470,18 @@ export function PostComposer({
 
   /* Swaps only the first line, so edits below it survive. An earlier fix can no
    * longer be undone cleanly once the opening changes, so its undo is dropped. */
+  /* Validated against the same schema the server uses, so an empty or oversize
+   * topic is explained here instead of by a failed request. */
+  function handleSaveIdea(topic: string) {
+    if (!enabled) return;
+    const parsed = createPostIdeaSchema.safeParse({ text: topic });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Write your idea first.");
+      return;
+    }
+    saveIdea.mutate({ ...parsed.data, organizationId: orgId });
+  }
+
   function handleChooseOpening(line: string) {
     setCommentary((current) => replaceOpeningLine(current, line));
     setPreFixCommentary(null);
@@ -516,6 +583,9 @@ export function PostComposer({
               onLengthChange={setLength}
               goal={goal}
               onGoalChange={setGoal}
+              initialTopic={initialIdea?.text}
+              onSaveIdea={canSaveIdeas ? handleSaveIdea : undefined}
+              isSavingIdea={saveIdea.isPending}
               onGenerate={handleGenerate}
               isGenerating={generate.isPending}
               disabled={!enabled}

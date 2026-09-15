@@ -6,8 +6,9 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: POST_TONE_LABELS, POST_LENGTH_LABELS,
- *   POST_GOAL_LABELS, tone label, length label, goal label, PostTone,
- *   PostLength, PostGoal, post generation config
+ *   POST_GOAL_LABELS, POST_IDEA_STATUS_LABELS, tone label, length label, goal
+ *   label, idea status label, PostTone, PostLength, PostGoal, post generation
+ *   config
  *
  * WHAT:  Human labels for the post tone and length vocabularies.
  * WHY:   Two screens pick a tone, the post composer and the carousel form, and
@@ -20,6 +21,7 @@
 
 import type { PostLength, PostTone } from "@/lib/types/ai";
 import type { PostGoal } from "@/lib/types/post-hooks";
+import type { PostIdeaStatus } from "@/lib/types/post-ideas";
 
 export const POST_TONE_LABELS: Record<PostTone, string> = {
   professional: "Professional",
@@ -42,4 +44,10 @@ export const POST_GOAL_LABELS: Record<PostGoal, string> = {
   reposts: "Reposts",
   likes: "Likes",
   saves: "Saves",
+};
+
+/* The idea inbox's status chip and filter. */
+export const POST_IDEA_STATUS_LABELS: Record<PostIdeaStatus, string> = {
+  new: "New",
+  used: "Used",
 };

@@ -37,6 +37,7 @@ import { integrationsRouter } from "./integrations";
 import { carouselRouter } from "./carousel";
 import { documentsRouter } from "./documents";
 import { voiceProfileRouter } from "./voice-profile";
+import { postIdeasRouter } from "./post-ideas";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: appRouter, AppRouter
@@ -75,6 +76,7 @@ export const appRouter = createTRPCRouter({
    * `Document` singular — the key names the RESOURCE, not the row. */
   documents: documentsRouter,
   voiceProfile: voiceProfileRouter,
+  postIdeas: postIdeasRouter,
 });
 
 export type AppRouter = typeof appRouter;
