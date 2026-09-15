@@ -98,3 +98,16 @@ export function earliestSchedule(): string {
 export function buildDraftComposerHref(postId: string): string {
   return `${RESOURCES.linkedinPosts.nav.href}?draftId=${encodeURIComponent(postId)}`;
 }
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildIdeaComposerHref, ideaId, turn into post
+ *
+ * WHAT:  The link that opens the composer with a saved idea as its topic.
+ * WHY:   Same door as a draft, one more param: the composer page resolves the
+ *        idea server-side, so the topic is the form's initial value and a refresh
+ *        keeps it.
+ * WHERE: The Ideas page's "Turn into post" action.
+ */
+export function buildIdeaComposerHref(ideaId: string): string {
+  return `${RESOURCES.linkedinPosts.nav.href}?ideaId=${encodeURIComponent(ideaId)}`;
+}

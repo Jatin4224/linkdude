@@ -5,7 +5,8 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: PostGenerationPage, parseInitialDate, loadDraftSeed
+ * SOURCE OF TRUTH KEYWORDS: PostGenerationPage, parseInitialDate, loadDraftSeed,
+ *   loadIdeaSeed, ideaId
  *
  * WHAT:  /dashboard/post-generation route — thin shell; PostComposer does the
  *        work.
@@ -34,7 +35,11 @@ import {
 import { createTRPCContext } from "@/trpc/init";
 import { getQueryClient, trpc } from "@/trpc/server";
 import type { LinkedInPostStatus } from "@/lib/types";
-import { PostComposer, type PostDraftSeed } from "./_components/post-composer";
+import {
+  PostComposer,
+  type PostDraftSeed,
+  type PostIdeaSeed,
+} from "./_components/post-composer";
 
 export const metadata: Metadata = {
   title: "Create Post",
@@ -91,19 +96,57 @@ async function loadDraftSeed(
   }
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: loadIdeaSeed
+ *
+ * WHAT:  Resolves `?ideaId=` to the saved idea the composer should open with as
+ *        its topic, or null.
+ * WHY:   Through `postIdeas.get`, so the id is scoped to the caller's organization
+ *        and to their own ideas, the same way loadDraftSeed scopes a draft. Every
+ *        failure opens a blank composer: a stale link to a deleted idea should
+ *        cost the user a link, not the screen.
+ */
+async function loadIdeaSeed(
+  ideaId: string | undefined,
+): Promise<PostIdeaSeed | null> {
+  if (!ideaId) return null;
+
+  const ctx = await createTRPCContext();
+  await ctx.resolveAuth();
+  const organization = await ctx.getActiveOrganization();
+  if (!organization) return null;
+
+  try {
+    const idea = await getQueryClient().fetchQuery(
+      trpc.postIdeas.get.queryOptions({
+        organizationId: organization.id,
+        id: ideaId,
+      }),
+    );
+    return { id: idea.id, text: idea.text };
+  } catch {
+    return null;
+  }
+}
+
 export default async function PostGenerationPage({
   searchParams,
 }: {
   searchParams: Promise<{
     date?: string | string[];
     draftId?: string | string[];
+    ideaId?: string | string[];
   }>;
 }) {
-  const { date, draftId } = await searchParams;
+  const { date, draftId, ideaId } = await searchParams;
   const initial = parseInitialDate(Array.isArray(date) ? date[0] : date);
   const draft = await loadDraftSeed(
     Array.isArray(draftId) ? draftId[0] : draftId,
   );
+  /* A draft already has its text, so an idea is only read when there is none. */
+  const idea = draft
+    ? null
+    : await loadIdeaSeed(Array.isArray(ideaId) ? ideaId[0] : ideaId);
 
   return (
     <PostComposer
@@ -112,6 +155,7 @@ export default async function PostGenerationPage({
       schedulingEnabled={isSchedulerConfigured()}
       {...(initial ? { initialScheduledFor: initial } : {})}
       {...(draft ? { initialDraft: draft } : {})}
+      {...(idea ? { initialIdea: idea } : {})}
     />
   );
 }

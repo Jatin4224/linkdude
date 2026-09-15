@@ -89,6 +89,7 @@ model User {
   contentPlans     ContentPlan[]
   carousels        Carousel[]
   voiceProfiles    VoiceProfile[]
+  postIdeas        PostIdea[]
 
   // Signups-per-day rollups in the /portal analytics dashboard bucket on
   // createdAt across the whole table; without this they seq-scan every user.
@@ -220,6 +221,7 @@ model Organization {
   carousels         Carousel[]
   documents         Document[]
   voiceProfiles     VoiceProfile[]
+  postIdeas         PostIdea[]
 
   // New-workspaces-per-day in the portal analytics dashboard.
   @@index([createdAt])
@@ -942,4 +944,36 @@ model VoiceProfile {
   @@unique([organizationId, authorId])
   @@index([authorId])
   @@map("voice_profile")
+}
+
+model PostIdea {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope
+  authorId       String // The member who saved it
+
+  /// The idea as typed. Bounded by POST_IDEA_TEXT_MAX in lib/types, which equals
+  /// the composer's topic limit, so any idea fits the topic box when it is turned
+  /// into a post.
+  text String @db.Text
+
+  /// POST_IDEA_STATUSES: new | used. A bare String, like LinkedInPost.status, so
+  /// a new state is a code change rather than a migration.
+  status String @default("new")
+
+  /// When the idea was marked used: turned into a generated post, or by hand.
+  usedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Ideas are one member's notes, the VoiceProfile precedent: a teammate's
+  // half-formed thoughts should not appear in someone else's inbox. The list
+  // always filters by organization and author and sorts newest first, so the
+  // index leads with that scope.
+  @@index([organizationId, authorId, status, createdAt])
+  @@index([authorId])
+  @@map("post_idea")
 }

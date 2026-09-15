@@ -6,7 +6,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: UsageSummary, QuickActions, ActivityPanel,
- *   dashboard home, dashboard widgets
+ *   IdeaInboxCard, dashboard home, dashboard widgets
  *
  * WHAT:  Barrel for the dashboard home page's panels.
  * WHY:   Route-local because these compose one page; page.tsx then reads as the
@@ -17,3 +17,4 @@
 export { UsageSummary } from "./usage-summary";
 export { QuickActions } from "./quick-actions";
 export { ActivityPanel } from "./activity-panel";
+export { IdeaInboxCard } from "./idea-inbox-card";

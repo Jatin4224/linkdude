@@ -816,6 +816,82 @@ export const RESOURCES = {
       requirePermission: "create",
     },
   },
+  /* A member's saved post ideas: capture a thought in seconds, turn it into a
+   * post later. Nothing here calls a model.
+   *
+   * The limit counts ideas HELD, not model spend, so `delete` is the right verb
+   * and the factory's refund on delete is wanted: deleting an idea frees a slot.
+   * Same reasoning as linkedinPosts, the opposite of voiceProfile. */
+  postIdeas: {
+    name: "Post Ideas",
+    description: "Saved ideas to turn into posts later",
+    permissions: ["create", "read", "update", "delete"],
+    limit: {
+      perPlan: {
+        free: 100,
+        starter: 1_000,
+        pro: 10_000,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to save more ideas",
+      availableOnFreeTrial: true,
+      unit: "ideas",
+    },
+    rateLimit: {
+      create: { count: 30, window: "1 m" },
+    },
+    audit: {
+      entity: "postIdea",
+      describe: {
+        create: "Saved a post idea",
+        update: "Updated a post idea ({input.field})",
+        delete: "Deleted a post idea",
+      },
+    },
+    nav: {
+      label: "Ideas",
+      href: "/dashboard/ideas",
+      icon: "Lightbulb",
+      section: "create",
+      order: 8,
+      /* Brand-new key, same caveat as carousel: owners see it at once, and a
+       * custom role needs an explicit grant in the role editor. */
+      requirePermission: "read",
+    },
+  },
+  /* Expanding a saved idea into specific post angles: one model call.
+   *
+   * Its own key because only `<resource>.create` spends, and a verb on
+   * `postIdeas` could not meter model spend without also charging it against
+   * saved ideas. No `delete`: an expansion is spend and is never refunded. No
+   * nav: the Expand button lives on the Ideas page. */
+  ideaAngles: {
+    name: "Idea Angles",
+    description: "Turn a rough idea into specific post angles with AI",
+    permissions: ["create"],
+    limit: {
+      perPlan: {
+        free: 10,
+        starter: 200,
+        pro: 1_000,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to expand more ideas",
+      availableOnFreeTrial: true,
+      unit: "idea expansions",
+    },
+    rateLimit: {
+      create: { count: 10, window: "1 m" },
+    },
+    audit: {
+      entity: "ideaAngles",
+      describe: {
+        create: "Expanded a post idea into angles",
+      },
+    },
+  },
 } as const satisfies Record<string, ResourceDefinition>;
 
 export type ResourceKey = keyof typeof RESOURCES;

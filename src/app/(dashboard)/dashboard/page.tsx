@@ -6,7 +6,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: DashboardHomePage, ContentLayout, UsageSummary,
- *   QuickActions, ActivityPanel, dashboard home
+ *   QuickActions, IdeaInboxCard, ActivityPanel, dashboard home
  *
  * WHAT:  The post-onboarding home — what's left of the plan, what to start, and
  *        what the queue looks like.
@@ -28,6 +28,7 @@ import { LayoutDashboardIcon } from "lucide-react";
 import { ContentLayout } from "@/components/global/page-header";
 import {
   ActivityPanel,
+  IdeaInboxCard,
   QuickActions,
   UsageSummary,
 } from "./_components";
@@ -45,6 +46,8 @@ export default function DashboardHomePage() {
     >
       <UsageSummary />
       <QuickActions />
+      {/* Right after the things to start: an idea is the smallest start. */}
+      <IdeaInboxCard />
       <ActivityPanel />
     </ContentLayout>
   );
