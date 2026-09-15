@@ -33,7 +33,9 @@
  *   VoiceDescriptor, voiceExtractionSchema, VoiceExtraction,
  *   voiceOverridesSchema, VoiceOverrides, DEFAULT_VOICE_OVERRIDES,
  *   extractVoiceProfileSchema, updateVoiceProfileSchema, ResolvedVoice,
- *   StoredVoiceProfile
+ *   StoredVoiceProfile, FixPostValues, WritePostValues, POST_CHECK_CODES,
+ *   PostCheckCode, PostCheckIssue, PostCheckResult, PostCheckRule,
+ *   PostWordRange, PostCheckOptions
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -117,9 +119,30 @@ export type {
   PostTone,
   PostLength,
   GeneratePostValues,
+  FixPostValues,
+  WritePostValues,
   GeneratedPost,
   AiImageEditValues,
 } from "./ai";
+export {
+  POST_CHECK_SEVERITIES,
+  postCheckSeveritySchema,
+  POST_CHECK_CODES,
+  postCheckCodeSchema,
+  postCheckIssueSchema,
+  postCheckResultSchema,
+  postCheckRuleSchema,
+  postWordRangeSchema,
+} from "./post-check";
+export type {
+  PostCheckSeverity,
+  PostCheckCode,
+  PostCheckIssue,
+  PostCheckResult,
+  PostCheckRule,
+  PostWordRange,
+  PostCheckOptions,
+} from "./post-check";
 export {
   LINKEDIN_IMAGE_MIME_TYPES,
   LINKEDIN_OAUTH_ERROR_CODES,

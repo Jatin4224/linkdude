@@ -581,6 +581,52 @@ The system prompt is worth reading in full in the file, but here's the thinking 
 - **Length targets** are 50–80, 150–220 and 250–320 words.
 - **Source.** The rules are adapted from [sergebulaev/linkedin-skills](https://github.com/sergebulaev/linkedin-skills) (MIT). See `THIRD_PARTY_NOTICES.md`.
 
+### Check my post and Fix it (added September 2026)
+
+A panel under the editor checks the post as the member types.
+
+**How the check works**
+- `checkPost` in `src/lib/post-check.ts` runs in the browser, so it's instant and costs nothing.
+- It matches against the same lists in `post-writing.ts` the generators avoid, so a freshly generated post and the check agree.
+- Problem codes, severities and copy live in `POST_CHECK_RULES`. The types are in `src/lib/types/post-check.ts`.
+
+**Must fix (blockers)**
+- over 3,000 characters
+- a link in the post
+- too many dashes
+- a question, weak or press-release opener
+- announced honesty ("Let me be honest")
+- an all-caps line
+- a reveal line
+- "It's not X, it's Y"
+- a generic ending
+- a paragraph with three or more AI-sounding words
+
+**Worth reviewing (warnings)**
+- a first line past 140 characters
+- a length well off target (±20%), checked only for a post generated at a chosen length, since the select defaults to Medium
+- more than 2 hashtags
+- stock phrases
+- staccato fragments
+- hedging
+- emoji clusters
+- comment bait
+- nothing specific
+
+**Two deliberate choices**
+- **AI-sounding words count only at density.** One "robust" is just English.
+- **Em dashes are only flagged in excess** (about one per 100 words). People who write with dashes aren't nagged.
+
+**Fix it**
+- **Same procedure as Generate.** It sends `aiGeneration.create` with `source: "fix"`, so it spends one generation from the same allowance.
+- **Only issue codes are sent**, never free text. The server adds each problem's wording from `POST_CHECK_RULES`.
+- **It edits rather than writes.** `LINKEDIN_POST_EDITOR_SYSTEM_PROMPT` changes only what's listed, never adds facts, hedges or confessions, and keeps the member's voice.
+- **Undo fix** restores the previous text. It clears as soon as the member types, so it can't discard later edits.
+
+**Where it lives**
+- The panel is the global `PostCheckPanel` in `src/components/global/post-check/`.
+- It takes an optional `onFix` and `fixResource`, so the carousel caption or the draft library can reuse it later.
+
 For the blog mode we pass `allowWebFetch: true`, which enables Claude's built-in `web_fetch` tool. **This is why there's no scraping library in `package.json`** — the model reads the URL itself. One less dependency to maintain, and no HTML-stripping code to debug.
 
 The last line matters:

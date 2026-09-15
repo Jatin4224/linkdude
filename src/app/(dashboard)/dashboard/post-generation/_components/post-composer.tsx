@@ -8,7 +8,8 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: PostComposer, PostComposerProps,
- *   CALLBACK_ERROR_MESSAGES, toLocalDateTimeInput, handleSaveDraft, draftId
+ *   CALLBACK_ERROR_MESSAGES, toLocalDateTimeInput, handleSaveDraft, draftId,
+ *   handleFix, handleUndoFix, PostCheckPanel, preFixCommentary
  *
  * WHAT:  The Create Post screen — generation controls on the left, a live
  *        LinkedIn preview with an inline editor on the right, and Save draft,
@@ -63,6 +64,7 @@ import {
   LINKEDIN_OAUTH_ERROR_CODES,
   type GeneratePostValues,
   type LinkedInOAuthErrorCode,
+  type PostCheckCode,
   type PostImageValues,
   type PostLength,
   type PostTone,
@@ -85,6 +87,7 @@ import { ImageUpload } from "@/components/global/image-upload";
 import { ImageEditor } from "@/components/global/image-editor";
 import { AiImageEdit } from "@/components/global/ai-image-edit";
 import { PostStatusBadge } from "@/components/global/post-status-badge";
+import { PostCheckPanel } from "@/components/global/post-check";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -195,6 +198,19 @@ export function PostComposer({
     initialDraft?.id ?? null,
   );
 
+  /* The text a Fix it replaced, so Undo fix can put the member's own wording
+   * back. Cleared as soon as they type, generate or publish, so an undo never
+   * throws away edits made after the fix. */
+  const [preFixCommentary, setPreFixCommentary] = React.useState<
+    string | null
+  >(null);
+  /* The length the current post was GENERATED at. The length select defaults to
+   * Medium, so checking a hand-written or reopened post against it would warn on
+   * every short post; the check only has a real target after a generation. */
+  const [targetLength, setTargetLength] = React.useState<PostLength | null>(
+    null,
+  );
+
   const enabled = organizationId !== undefined;
   const orgId = organizationId ?? "";
 
@@ -245,13 +261,22 @@ export function PostComposer({
   }, [searchParams, router, utils]);
 
   const generate = trpc.aiGeneration.create.useMutation({
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       setCommentary(result.commentary);
+      setPreFixCommentary(null);
+      setTargetLength(variables.length);
       toast.success("Post generated.");
       /* Silent unless the user opted in. Generation runs long enough that people
          switch tabs while they wait — the cue is what brings them back. */
       playSound("jobComplete");
     },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  /* Fix it is the same procedure as Generate with source "fix", so it spends one
+   * generation from the same allowance. Its own mutation instance, so fixing
+   * and generating show separate spinners. */
+  const fixPost = trpc.aiGeneration.create.useMutation({
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
@@ -263,6 +288,8 @@ export function PostComposer({
           : "Published to LinkedIn.",
       );
       setCommentary("");
+      setPreFixCommentary(null);
+      setTargetLength(null);
       setImage(null);
       setIsScheduling(false);
       setScheduledFor(earliestSchedule());
@@ -333,6 +360,37 @@ export function PostComposer({
   function handleGenerate(values: GeneratePostValues) {
     if (!enabled) return;
     generate.mutate({ ...values, organizationId: orgId });
+  }
+
+  /* Sends the codes the check found, never free text: the wording of each
+   * problem is added on the server from POST_CHECK_RULES. */
+  function handleFix(issues: PostCheckCode[]) {
+    if (!enabled) return;
+    const original = commentary;
+    fixPost.mutate(
+      {
+        source: "fix",
+        commentary: original,
+        issues,
+        tone,
+        length: targetLength ?? length,
+        organizationId: orgId,
+      },
+      {
+        onSuccess: async (result) => {
+          setPreFixCommentary(original);
+          setCommentary(result.commentary);
+          toast.success("Fixed. Read it once to check it still sounds like you.");
+          await utils.usage.invalidate();
+        },
+      },
+    );
+  }
+
+  function handleUndoFix() {
+    if (preFixCommentary === null) return;
+    setCommentary(preFixCommentary);
+    setPreFixCommentary(null);
   }
 
   function handleSubmit() {
@@ -475,13 +533,28 @@ export function PostComposer({
                 literally what the post will look like. */}
             <Textarea
               value={commentary}
-              onChange={(event) => setCommentary(event.target.value)}
+              onChange={(event) => {
+                setCommentary(event.target.value);
+                setPreFixCommentary(null);
+              }}
               placeholder="Your AI generated post will be shown here..."
               rows={10}
-              disabled={generate.isPending}
+              disabled={generate.isPending || fixPost.isPending}
               className="resize-none border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-0"
             />
           </LinkedInPostPreview>
+
+          {/* Right under the editor, so a flagged line is next to the text it is
+              about. Checks as the member types; Fix it spends a generation. */}
+          <PostCheckPanel
+            commentary={commentary}
+            length={targetLength ?? undefined}
+            onFix={handleFix}
+            fixResource="aiGeneration"
+            isFixing={fixPost.isPending}
+            onUndoFix={preFixCommentary !== null ? handleUndoFix : undefined}
+            disabled={!enabled || generate.isPending}
+          />
 
           {/* Moved ABOVE the action row: this is the reason the publish button
               is disabled, and it used to sit underneath it — the reader hit the
