@@ -568,8 +568,18 @@ The system prompt is worth reading in full in the file, but here's the thinking 
 |---|---|
 | "Return ONLY the post text" | Otherwise the model writes *"Here's your LinkedIn post:"* and the user has to delete it every single time. |
 | "Never use markdown" | LinkedIn has no markdown. `**bold**` renders as literal asterisks. |
-| "Avoid em dashes, 'delve', 'leverage', 'unlock'" | These are the tells that make a post read as machine-written. Naming them explicitly is more effective than "sound human". |
-| "At most three hashtags, on their own final line" | LinkedIn convention. |
+| Language rules: no em dashes, the AI-tell word and phrase lists, no reveal bridges ("The result?"), no "It's not X, it's Y" | These are the tells that make a post read as machine-written. Naming them explicitly is more effective than "sound human". |
+| Hook rules: the first line is a statement or a number, never a question, inside 140 characters | LinkedIn's mobile feed cuts to "see more" at about 140 characters, and question openers perform worst. |
+| "At most one contrast and one list of three" | Readers don't mind the devices; they notice when a post stacks them. |
+| "Never invent numbers, names, dates, clients or results" | It replaces "a concrete number beats an abstract claim", which pushed the model to make figures up when the topic had none. |
+| "End with a specific question, or a clean final line" | Generic closers ("What do you think?") get no replies and can read as engagement bait. |
+| "Never put a link in the post" and "at most two hashtags" | In-body links are shown to fewer people, and extra hashtags add nothing because LinkedIn matches posts by meaning. |
+
+**Where the rules live (updated September 2026).**
+- **The word and phrase lists** are in `src/lib/config/post-writing.ts`. The post checker reads the same lists, so what the AI avoids and what the checker flags can't drift apart.
+- **The rule text** is in `ai.service.ts` as `LINKEDIN_LANGUAGE_RULES` and `LINKEDIN_HOOK_RULES`, shared by the post, carousel and content plan prompts.
+- **Length targets** are 50–80, 150–220 and 250–320 words.
+- **Source.** The rules are adapted from [sergebulaev/linkedin-skills](https://github.com/sergebulaev/linkedin-skills) (MIT). See `THIRD_PARTY_NOTICES.md`.
 
 For the blog mode we pass `allowWebFetch: true`, which enables Claude's built-in `web_fetch` tool. **This is why there's no scraping library in `package.json`** — the model reads the URL itself. One less dependency to maintain, and no HTML-stripping code to debug.
 
