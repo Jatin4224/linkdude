@@ -12,11 +12,14 @@ This project adapts material from the following open-source work.
 
 - the AI-tell word, phrase, opener and closer lists (from `skills/linkedin-humanizer/references/audit-ai-tells.md` and `scrub-rules.md`)
 - the hook, structure, close, link and hashtag rules for posts (from `skills/linkedin-post-writer/SKILL.md` and `references/algorithm-heuristics.md`)
+- the pre-publish checks and their thresholds, reimplemented in TypeScript (from `skills/linkedin-humanizer/sub-skills/post-audit.md`, `references/audit-checklist.md`, `references/audit-ai-tells.md` and `references/emoji-patterns.md`)
+- the edit-only-what-was-flagged approach of the humanizer's over-correction guard
 
 **Where it lives in this project:**
 
 - `src/lib/config/post-writing.ts`
-- `LINKEDIN_LANGUAGE_RULES`, `LINKEDIN_HOOK_RULES` and `LINKEDIN_POST_SYSTEM_PROMPT` in `src/services/ai.service.ts`
+- `LINKEDIN_LANGUAGE_RULES`, `LINKEDIN_HOOK_RULES`, `LINKEDIN_POST_SYSTEM_PROMPT` and `LINKEDIN_POST_EDITOR_SYSTEM_PROMPT` in `src/services/ai.service.ts`
+- `src/lib/post-check.ts`
 
 **What was not used:** no code, scripts or dependencies from that repository are included.
 

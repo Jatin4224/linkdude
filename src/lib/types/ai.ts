@@ -30,6 +30,7 @@ import { z } from "zod";
 import type { generateText, ImageModel, LanguageModel, ToolSet } from "ai";
 import { LINKEDIN_MAX_COMMENTARY } from "@/lib/config/linkedin";
 import { postImageSchema } from "./imagekit";
+import { POST_CHECK_CODES, postCheckCodeSchema } from "./post-check";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AI_PROVIDER_KEYS, AiProvider, aiProviderSchema
@@ -154,13 +155,21 @@ export const AI_POST_TOPIC_MIN = 10;
 export const AI_POST_TOPIC_MAX = 1000;
 
 /**
- * SOURCE OF TRUTH KEYWORDS: generatePostSchema, GeneratePostValues
+ * SOURCE OF TRUTH KEYWORDS: generatePostSchema, GeneratePostValues,
+ *   FixPostValues, WritePostValues
  *
- * WHAT:  Input contract for a generation request — the Topic and Blog tabs.
+ * WHAT:  Input contract for a generation request: the Topic and Blog tabs, and
+ *        "fix", which edits an existing draft to clear what the post check found.
  * WHY:   Discriminated on `source` so each branch carries exactly the field it
  *        needs. The form, the router input, and the service argument all share
  *        this one schema, so a new mode is added in one place.
- * WHERE: Router input for aiGeneration.create; resolver for the composer form.
+ *
+ *        "fix" is a branch here rather than its own procedure because it spends a
+ *        generation from the same allowance, and only `aiGeneration.create`
+ *        spends it. It carries issue CODES, not instructions, so the model only
+ *        ever receives the app's own wording for each problem.
+ * WHERE: Router input for aiGeneration.create; resolver for the composer form;
+ *        the post check panel's Fix it button.
  */
 export const generatePostSchema = z.discriminatedUnion("source", [
   z.object({
@@ -185,8 +194,28 @@ export const generatePostSchema = z.discriminatedUnion("source", [
     tone: postToneSchema,
     length: postLengthSchema,
   }),
+  z.object({
+    source: z.literal("fix"),
+    commentary: z
+      .string()
+      .trim()
+      .min(1, "Write or generate a post first")
+      .max(
+        LINKEDIN_MAX_COMMENTARY,
+        `Keep the post under ${LINKEDIN_MAX_COMMENTARY} characters`,
+      ),
+    issues: z
+      .array(postCheckCodeSchema)
+      .min(1, "There is nothing to fix")
+      .max(POST_CHECK_CODES.length),
+    tone: postToneSchema,
+    length: postLengthSchema,
+  }),
 ]);
 export type GeneratePostValues = z.infer<typeof generatePostSchema>;
+/* The two jobs the generator does: write a new post, or fix an existing one. */
+export type FixPostValues = Extract<GeneratePostValues, { source: "fix" }>;
+export type WritePostValues = Exclude<GeneratePostValues, { source: "fix" }>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: generatedPostSchema, GeneratedPost

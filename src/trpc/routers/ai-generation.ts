@@ -7,7 +7,8 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: aiGenerationRouter
  *
- * WHAT:  Turns a topic or blog URL into LinkedIn post copy, written in the
+ * WHAT:  Turns a topic or blog URL into LinkedIn post copy, or fixes the
+ *        problems the post check found in an existing draft, written in the
  *        member's own voice when they have one active.
  * WHY:   Mounted as `aiGeneration` so the path `aiGeneration.create` matches the
  *        RESOURCES key — that is what auto-wires the per-plan generation quota,
@@ -72,7 +73,11 @@ export const aiGenerationRouter = createTRPCRouter({
       );
 
       try {
-        return await aiService.generateLinkedInPost(input, voice);
+        /* Fix it edits an existing draft; every other source writes a new one.
+         * Both spend one generation. */
+        return await (input.source === "fix"
+          ? aiService.fixLinkedInPost(input, voice)
+          : aiService.generateLinkedInPost(input, voice));
       } catch (error) {
         /* Provider and validation failures both surface here. The classifier
          * decides which of the two it was and gives the composer a reason it can
@@ -80,7 +85,10 @@ export const aiGenerationRouter = createTRPCRouter({
          * message, which is how model IDs and quota numbers reached the UI. */
         throw toProcedureError(error, {
           context: "aiGeneration.create",
-          fallbackMessage: "Post generation failed. Please try again.",
+          fallbackMessage:
+            input.source === "fix"
+              ? "The post couldn't be fixed. Please try again."
+              : "Post generation failed. Please try again.",
           messages: {
             AI_OUTPUT_UNUSABLE:
               "The AI returned a post we couldn't use. Try again, or rephrase your topic.",

@@ -11,7 +11,8 @@ import "server-only";
  *   LINKEDIN_POST_SYSTEM_PROMPT, PROFILE_ANALYSIS_SYSTEM_PROMPT,
  *   generateCarouselSlides, CAROUSEL_SYSTEM_PROMPT, extractVoiceProfile,
  *   buildVoiceDirective, VOICE_EXTRACTION_SYSTEM_PROMPT,
- *   LINKEDIN_LANGUAGE_RULES, LINKEDIN_HOOK_RULES, quotePhrases
+ *   LINKEDIN_LANGUAGE_RULES, LINKEDIN_HOOK_RULES, quotePhrases,
+ *   fixLinkedInPost, LINKEDIN_POST_EDITOR_SYSTEM_PROMPT, describeLength
  *
  * WHAT:  The app's single seat of model invocation. `generateText` and
  *        `generateStructured` are the provider-facing primitives (prose out and
@@ -49,10 +50,11 @@ import { SANITIZED_ERROR_CODES, UserFacingError } from "@/lib/errors";
 import type { LinkedInImageBinary } from "@/lib/types/linkedin";
 import {
   generatedPostSchema,
-  type GeneratePostValues,
+  type FixPostValues,
   type GeneratedPost,
   type PostTone,
   type PostLength,
+  type WritePostValues,
 } from "@/lib/types/ai";
 import {
   profileAnalysisSchema,
@@ -101,8 +103,10 @@ import {
   ANNOUNCEMENT_OPENERS,
   GENERIC_CLOSERS,
   HOOK_OPENER_TELLS,
+  POST_CHECK_RULES,
   POST_HASHTAG_MAX,
   POST_HOOK_MOBILE_CHARS,
+  POST_LENGTH_WORD_RANGES,
   REVEAL_BRIDGES,
   SINCERITY_OPENERS,
 } from "@/lib/config/post-writing";
@@ -304,15 +308,26 @@ const TONE_DIRECTIVES: Record<PostTone, string> = {
     "Teach one idea clearly. Concrete, ordered, and useful enough to act on immediately.",
 };
 
-/* Word targets with their character equivalents. Medium matches the 900-1,300
- * character range LinkedIn posts perform best at; long allows up to 1,900. */
+/* The word and character targets come from POST_LENGTH_WORD_RANGES, the same
+ * numbers the post check measures a draft against, so "medium" means one thing
+ * everywhere. */
 const LENGTH_DIRECTIVES: Record<PostLength, string> = {
-  short:
-    "Roughly 50-80 words (about 300-500 characters). One tight idea, nothing more.",
-  medium:
-    "Roughly 150-220 words (about 900-1,300 characters). A hook, two or three beats of substance, and a close.",
-  long: "Roughly 250-320 words (about 1,500-1,900 characters). Room to develop the argument, with a blank line every one or two sentences.",
+  short: describeLength("short", "One tight idea, nothing more."),
+  medium: describeLength(
+    "medium",
+    "A hook, two or three beats of substance, and a close.",
+  ),
+  long: describeLength(
+    "long",
+    "Room to develop the argument, with a blank line every one or two sentences.",
+  ),
 };
+
+function describeLength(length: PostLength, shape: string): string {
+  const { minWords, maxWords, minChars, maxChars } =
+    POST_LENGTH_WORD_RANGES[length];
+  return `Roughly ${minWords}-${maxWords} words (about ${minChars.toLocaleString("en-US")}-${maxChars.toLocaleString("en-US")} characters). ${shape}`;
+}
 
 /* Renders a phrase list the way the prompts quote it: "a", "b", "c". */
 function quotePhrases(phrases: readonly string[]): string {
@@ -495,7 +510,7 @@ Close:
  * WHERE: Called by aiGeneration.create.
  */
 export async function generateLinkedInPost(
-  input: GeneratePostValues,
+  input: WritePostValues,
   voice: ResolvedVoice | null = null,
 ): Promise<GeneratedPost> {
   const toneDirective = TONE_DIRECTIVES[input.tone];
@@ -515,6 +530,70 @@ export async function generateLinkedInPost(
   /* Model output is untrusted input. Parsing here means an over-long post
    * surfaces as a local validation error rather than a remote
    * FIELD_LENGTH_TOO_LONG from LinkedIn after the user hits Publish. */
+  return generatedPostSchema.parse({ commentary });
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: LINKEDIN_POST_EDITOR_SYSTEM_PROMPT, fixLinkedInPost,
+ *   Fix it, post check fix, over-correction guard
+ *
+ * WHAT:  Edits an existing post so the problems the post check found are gone.
+ * WHY:   An editor, not a writer: the post may be the member's own words, so the
+ *        rule that matters most is to change only what was flagged. The
+ *        over-correction guard comes from the humanizer in linkedin-skills: a
+ *        clean sentence is left alone, and nothing is ever added that the author
+ *        did not write (no facts, hedges or confessions).
+ *
+ *        Only issue CODES arrive from the client. The wording of each problem
+ *        comes from POST_CHECK_RULES on the server, so the instructions the model
+ *        receives are always the app's own, and exactly what the member read.
+ * WHERE: Called by aiGeneration.create when the source is "fix".
+ */
+const LINKEDIN_POST_EDITOR_SYSTEM_PROMPT = `You edit a LinkedIn post so it passes a pre-publish check, changing as little as possible.
+
+Output:
+- Return ONLY the edited post text. No preamble, no notes about what changed, no surrounding quotes.
+- Never use markdown. LinkedIn renders **bold** and # headings as literal characters.
+
+How to edit:
+- Fix the listed problems and nothing else. Leave every sentence that has none of the listed problems exactly as it is.
+- Keep the author's meaning, claims, opinions, names, numbers and voice, including quirks such as lowercase sentence starts.
+- Never add facts, numbers, names, dates, hedges, confessions or announcements of honesty that are not already in the post. If a fix would need a fact the post does not contain, improve the wording without it.
+- If you remove a link, keep one short line saying the link is in the first comment.
+- Keep the layout: short paragraphs separated by a blank line.
+
+Rules the edited post must follow:
+${LINKEDIN_HOOK_RULES}
+${LINKEDIN_LANGUAGE_RULES}
+- At most ${POST_HASHTAG_MAX} hashtags, on their own final line.`;
+
+export async function fixLinkedInPost(
+  input: FixPostValues,
+  voice: ResolvedVoice | null = null,
+): Promise<GeneratedPost> {
+  const codes = [...new Set(input.issues)];
+
+  const prompt = [
+    "PROBLEMS TO FIX:",
+    ...codes.map(
+      (code) => `- ${POST_CHECK_RULES[code].title}. ${POST_CHECK_RULES[code].fix}`,
+    ),
+    "",
+    `Tone to keep: ${TONE_DIRECTIVES[input.tone]}`,
+    /* A fix must not grow or shrink the post unless its length was the problem. */
+    codes.includes("lengthOutOfRange")
+      ? `Target length: ${LENGTH_DIRECTIVES[input.length]}`
+      : "Keep roughly the same length.",
+    "",
+    "POST:",
+    input.commentary,
+  ].join("\n");
+
+  const commentary = await generateText({
+    system: LINKEDIN_POST_EDITOR_SYSTEM_PROMPT,
+    prompt: `${prompt}${buildVoiceDirective(voice)}`,
+  });
+
   return generatedPostSchema.parse({ commentary });
 }
 
