@@ -7,28 +7,36 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: IdeasInbox, idea inbox, Ideas page, turn into post,
- *   mark used, postIdeas.list, postIdeas.update, postIdeas.delete
+ * SOURCE OF TRUTH KEYWORDS: IdeasInbox, idea inbox, Ideas page, expand idea,
+ *   draft it, handleDraftIdea, handleExpand, turn into post, mark used,
+ *   postIdeas.list, ideaAngles.create
  *
  * WHAT:  The /dashboard/ideas surface: a quick-add box, then every idea the
- *        member has saved, with Turn into post, Edit, Mark used and Delete.
- * WHY:   Uses the global DataTable, like the post library, so paging, search and
- *        empty states behave the same everywhere. Search and the status filter
- *        run on the SERVER, so a match on page two is never reported missing.
+ *        member has saved. Each idea can be Expanded into angles or Drafted in
+ *        one click; Open in Create Post, Edit, Mark used and Delete sit in a menu.
+ * WHY:   The inbox is a pipeline, not a list: capture, sharpen (Expand), write
+ *        (Draft it). The two AI actions are buttons because they are the point of
+ *        the page; the rest live in a menu so a row stays readable.
  *
- *        "Turn into post" is a link, not a client-side handoff: the composer
- *        resolves `?ideaId=` server-side and marks the idea used once a post is
- *        generated from it, so an idea only turns "Used" when it really was.
+ *        Draft it chains two calls, the content plan's "Draft this" precedent:
+ *        `aiGeneration.create` owns the metered generation and
+ *        `linkedinPosts.draft` owns the free save, so each cost stays on the
+ *        resource that declares it.
+ *
+ *        Uses the global DataTable with SERVER-side search and filter, like the
+ *        post library, so a match on page two is never reported missing.
  * WHERE: Rendered by the ideas page. RESOURCES.postIdeas.nav.href.
  */
 
 import * as React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CheckIcon,
   LightbulbIcon,
   Loader2Icon,
+  MoreHorizontalIcon,
   PencilIcon,
+  PenLineIcon,
   RotateCcwIcon,
   SparklesIcon,
   Trash2Icon,
@@ -38,19 +46,32 @@ import { toast } from "sonner";
 import { permissions } from "@/lib/better-auth/permissions";
 import { POST_IDEA_STATUS_LABELS } from "@/lib/config";
 import { getErrorMessage } from "@/lib/errors";
-import type { PostIdeaStatus } from "@/lib/types";
-import { buildIdeaComposerHref, cn } from "@/lib/utils";
+import {
+  AI_POST_TOPIC_MIN,
+  DEFAULT_POST_GOAL,
+  DEFAULT_POST_LENGTH,
+  DEFAULT_POST_TONE,
+  type PostIdeaStatus,
+} from "@/lib/types";
+import { buildDraftComposerHref, buildIdeaComposerHref } from "@/lib/utils";
 import { trpc } from "@/trpc/react-provider";
 import {
   useActiveOrganization,
   useActiveOrganizationId,
 } from "@/hooks/use-active-organization";
+import { FeatureGate } from "@/components/feature-gate";
 import { ContentLayout } from "@/components/global/page-header";
 import { DataTable, type DataTableColumn } from "@/components/global/data-table";
 import { IdeaQuickAdd } from "@/components/global/idea-quick-add";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -59,6 +80,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EditIdeaDialog } from "./edit-idea-dialog";
+import { IdeaAnglesDialog } from "./idea-angles-dialog";
 import {
   POST_IDEA_STATUS_FILTERS,
   POST_IDEA_STATUS_FILTER_ALL,
@@ -80,15 +102,20 @@ export function IdeasInbox() {
   const organizationId = useActiveOrganizationId();
   const { hasPermission } = useActiveOrganization();
   const utils = trpc.useUtils();
+  const router = useRouter();
 
   const [page, setPage] = React.useState(1);
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState<PostIdeaStatusFilter>(
     POST_IDEA_STATUS_FILTER_ALL,
   );
-  /* Which row's action is in flight, so only that row shows a spinner. */
+  /* Which row's quick action is in flight, so only that row shows a spinner. */
   const [pendingId, setPendingId] = React.useState<string | null>(null);
+  /* One draft at a time: a second click while one is writing is a no-op, never
+   * a second paid generation. */
+  const [draftingId, setDraftingId] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<PostIdeaRow | null>(null);
+  const [expanding, setExpanding] = React.useState<PostIdeaRow | null>(null);
 
   const enabled = organizationId !== undefined;
   const orgInput = { organizationId: organizationId ?? "" };
@@ -125,11 +152,95 @@ export function IdeasInbox() {
     onSettled: () => setPendingId(null),
   });
 
+  /* Errors are shown inside the angles dialog, next to Try again. */
+  const expand = trpc.ideaAngles.create.useMutation({
+    onSuccess: async () => {
+      await utils.usage.invalidate();
+    },
+  });
+
+  const generatePost = trpc.aiGeneration.create.useMutation();
+  const saveDraft = trpc.linkedinPosts.draft.useMutation();
+  /* Silent: marking the idea used is bookkeeping after a draft that succeeded. */
+  const markUsed = trpc.postIdeas.update.useMutation();
+
   if (!organizationId) return null;
 
   const canUpdate = hasPermission(permissions.POST_IDEAS_UPDATE);
   const canDelete = hasPermission(permissions.POST_IDEAS_DELETE);
+  const canExpand = hasPermission(permissions.IDEA_ANGLES_CREATE);
+  const canDraft =
+    hasPermission(permissions.AI_GENERATION_CREATE) &&
+    hasPermission(permissions.LINKEDIN_POSTS_DRAFT);
   const rows = listQuery.data?.items ?? [];
+
+  function handleExpand(row: PostIdeaRow) {
+    setExpanding(row);
+    expand.mutate({ ...orgInput, id: row.id });
+  }
+
+  function closeExpand() {
+    setExpanding(null);
+    expand.reset();
+  }
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: handleDraftIdea
+   *
+   * WHAT:  Writes a post from the idea, saves it as a draft, and marks the idea
+   *        used.
+   * WHY:   Uses the composer's default tone, length and goal, the content plan
+   *        precedent: the draft opens in the composer where every control
+   *        exists, so guessing here is cheap to correct.
+   */
+  async function handleDraftIdea(row: PostIdeaRow) {
+    if (draftingId !== null) return;
+    if (row.text.trim().length < AI_POST_TOPIC_MIN) {
+      toast.error(
+        `Add a little more to this idea first (at least ${AI_POST_TOPIC_MIN} characters).`,
+      );
+      return;
+    }
+
+    setDraftingId(row.id);
+    try {
+      const generated = await generatePost.mutateAsync({
+        ...orgInput,
+        source: "topic",
+        topic: row.text,
+        tone: DEFAULT_POST_TONE,
+        length: DEFAULT_POST_LENGTH,
+        goal: DEFAULT_POST_GOAL,
+      });
+      const draft = await saveDraft.mutateAsync({
+        ...orgInput,
+        commentary: generated.commentary,
+      });
+      if (canUpdate && row.status !== USED) {
+        await markUsed
+          .mutateAsync({ ...orgInput, field: "status", id: row.id, status: "used" })
+          .catch(() => undefined);
+      }
+
+      await Promise.all([
+        utils.usage.invalidate(),
+        utils.linkedinPosts.listLibrary.invalidate(),
+        utils.postIdeas.list.invalidate(),
+      ]);
+      toast.success("Draft saved to your posts.", {
+        action: {
+          label: "Open draft",
+          onClick: () => router.push(buildDraftComposerHref(draft.id)),
+        },
+      });
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, "Could not draft that idea. Please try again."),
+      );
+    } finally {
+      setDraftingId(null);
+    }
+  }
 
   const columns: ReadonlyArray<DataTableColumn<PostIdeaRow>> = [
     {
@@ -164,7 +275,7 @@ export function IdeasInbox() {
   return (
     <ContentLayout
       title="Ideas"
-      description="Save ideas in seconds, turn them into posts when you're ready"
+      description="Capture ideas, sharpen them into angles, and draft them in one click"
       icon={<LightbulbIcon className="size-4" />}
     >
       <div className="flex flex-col gap-4">
@@ -223,73 +334,107 @@ export function IdeasInbox() {
             onPageChange: setPage,
           }}
           rowActions={(row) => {
-            const isPending = pendingId === row.id;
             const isUsed = row.status === USED;
+            const isDrafting = draftingId === row.id;
+            const isRowBusy = pendingId === row.id || isDrafting;
             return (
-              <div className="flex justify-end gap-1">
-                <Link
-                  href={buildIdeaComposerHref(row.id)}
-                  className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                >
-                  <SparklesIcon className="size-4" />
-                  Turn into post
-                </Link>
-                {canUpdate ? (
-                  <>
+              <div className="flex items-center justify-end gap-1">
+                {canExpand ? (
+                  <FeatureGate resource="ideaAngles">
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled={isPending}
-                      onClick={() => setEditing(row)}
+                      disabled={isRowBusy || expand.isPending}
+                      onClick={() => handleExpand(row)}
                     >
-                      <PencilIcon className="size-4" />
-                      <span className="sr-only">Edit</span>
+                      <LightbulbIcon className="size-4" />
+                      Expand
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={isPending}
-                      onClick={() => {
-                        setPendingId(row.id);
-                        setIdeaStatus.mutate({
-                          ...orgInput,
-                          field: "status",
-                          id: row.id,
-                          status: isUsed ? "new" : "used",
-                        });
-                      }}
-                    >
-                      {isPending && setIdeaStatus.isPending ? (
-                        <Loader2Icon className="size-4 animate-spin" />
-                      ) : isUsed ? (
-                        <RotateCcwIcon className="size-4" />
-                      ) : (
-                        <CheckIcon className="size-4" />
-                      )}
-                      <span className="sr-only">
-                        {isUsed ? "Mark as new" : "Mark as used"}
-                      </span>
-                    </Button>
-                  </>
+                  </FeatureGate>
                 ) : null}
-                {canDelete ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={isPending}
-                    onClick={() => {
-                      setPendingId(row.id);
-                      remove.mutate({ ...orgInput, id: row.id });
-                    }}
+                {canDraft ? (
+                  <FeatureGate resource="aiGeneration">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isRowBusy || draftingId !== null}
+                      onClick={() => void handleDraftIdea(row)}
+                    >
+                      {isDrafting ? (
+                        <Loader2Icon className="size-4 animate-spin" />
+                      ) : (
+                        <PenLineIcon className="size-4" />
+                      )}
+                      Draft it
+                    </Button>
+                  </FeatureGate>
+                ) : null}
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        disabled={isRowBusy}
+                      />
+                    }
                   >
-                    {isPending && remove.isPending ? (
+                    {pendingId === row.id ? (
                       <Loader2Icon className="size-4 animate-spin" />
                     ) : (
-                      <Trash2Icon className="size-4" />
+                      <MoreHorizontalIcon className="size-4" />
                     )}
-                    <span className="sr-only">Delete</span>
-                  </Button>
-                ) : null}
+                    <span className="sr-only">More actions</span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => router.push(buildIdeaComposerHref(row.id))}
+                    >
+                      <SparklesIcon className="mr-2 size-4" />
+                      Open in Create Post
+                    </DropdownMenuItem>
+                    {canUpdate ? (
+                      <>
+                        <DropdownMenuItem onClick={() => setEditing(row)}>
+                          <PencilIcon className="mr-2 size-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setPendingId(row.id);
+                            setIdeaStatus.mutate({
+                              ...orgInput,
+                              field: "status",
+                              id: row.id,
+                              status: isUsed ? "new" : "used",
+                            });
+                          }}
+                        >
+                          {isUsed ? (
+                            <RotateCcwIcon className="mr-2 size-4" />
+                          ) : (
+                            <CheckIcon className="mr-2 size-4" />
+                          )}
+                          {isUsed ? "Mark as new" : "Mark as used"}
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                    {canDelete ? (
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => {
+                          setPendingId(row.id);
+                          remove.mutate({ ...orgInput, id: row.id });
+                        }}
+                      >
+                        <Trash2Icon className="mr-2 size-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             );
           }}
@@ -303,6 +448,26 @@ export function IdeasInbox() {
           open
           onOpenChange={(open) => {
             if (!open) setEditing(null);
+          }}
+        />
+      ) : null}
+
+      {expanding ? (
+        <IdeaAnglesDialog
+          key={expanding.id}
+          idea={expanding}
+          angles={
+            expand.variables?.id === expanding.id
+              ? expand.data?.angles
+              : undefined
+          }
+          isLoading={expand.isPending}
+          errorMessage={
+            expand.error ? getErrorMessage(expand.error) : undefined
+          }
+          onRetry={() => expand.mutate({ ...orgInput, id: expanding.id })}
+          onOpenChange={(open) => {
+            if (!open) closeExpand();
           }}
         />
       ) : null}

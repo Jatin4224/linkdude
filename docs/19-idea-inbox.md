@@ -96,6 +96,31 @@ Also edit `nav-icons.tsx` (`Lightbulb`). Custom roles need the new permissions g
 
 ---
 
+## Step 6 — Expand, pick and draft
+
+A list alone doesn't help with a vague idea, so the inbox became a pipeline: **capture → sharpen → draft**.
+
+**Expand into angles** (`ideaAngles.create`):
+- **Its own resource key**, `ideaAngles` (free 10, starter 200, pro 1,000). Only `<resource>.create` spends, and a verb on `postIdeas` couldn't meter model spend without also charging it against saved ideas.
+- **The idea is read on the server by id**, scoped to the caller. `expandPostIdea` returns 3 angles through `generateStructured` with `ideaAnglesSchema`.
+- **Each angle has:**
+  - a title
+  - a topic brief (within the composer's topic limits)
+  - a sample first line
+  - its hook formula (`HOOK_FORMULAS`)
+  - `needs`: the one real detail the member should add
+- **Never invented facts.** The prompt reuses `LINKEDIN_HOOK_RULES` and `LINKEDIN_LANGUAGE_RULES`, and asks for missing facts in `needs` rather than inventing them.
+- **The inbox starts the expansion from the click**, not from an effect in `IdeaAnglesDialog`, because an effect runs twice in development and would spend twice.
+- **From the dialog:** **Use this angle** replaces the idea's text, and **Save as new idea** keeps both.
+
+**Draft it** (row button): chains `aiGeneration.create` (topic, with the composer's default tone, length and goal) and then `linkedinPosts.draft`, the content plan's "Draft this" precedent, then marks the idea used. The toast has **Open draft**.
+
+**Use an idea** (Create Post): a menu next to the topic box lists up to 20 unused ideas (`postIdeas.list`, status `new`). Picking one fills the topic and marks that idea to be set used after generation.
+
+**Row layout:** Expand and Draft it are buttons. Open in Create Post, Edit, Mark used and Delete moved into a "⋯" menu.
+
+---
+
 ## Testing it
 
 1. `npx prisma db push`, then `npm run typecheck` and `npm run lint` are clean.

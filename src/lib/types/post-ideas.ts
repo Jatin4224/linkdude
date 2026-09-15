@@ -9,7 +9,8 @@
  *   postIdeaStatusSchema, POST_IDEA_TEXT_MIN, POST_IDEA_TEXT_MAX,
  *   createPostIdeaSchema, CreatePostIdeaValues, DEFAULT_POST_IDEA,
  *   listPostIdeasSchema, ListPostIdeasValues, postIdeaIdSchema,
- *   updatePostIdeaSchema, UpdatePostIdeaValues, idea inbox, post ideas
+ *   updatePostIdeaSchema, UpdatePostIdeaValues, PostIdeaOption,
+ *   ideaAnglesSchema, IdeaAngle, expandPostIdeaSchema, idea inbox, post ideas
  *
  * WHAT:  Contracts for the idea inbox: saving an idea, listing, editing its text
  *        or status, and addressing one idea by id.
@@ -23,7 +24,8 @@
 
 import { z } from "zod";
 
-import { AI_POST_TOPIC_MAX } from "./ai";
+import { AI_POST_TOPIC_MAX, AI_POST_TOPIC_MIN } from "./ai";
+import { POST_OPENING_MAX, hookFormulaKeySchema } from "./post-hooks";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: POST_IDEA_STATUSES, PostIdeaStatus,
@@ -102,3 +104,51 @@ export const updatePostIdeaSchema = z.discriminatedUnion("field", [
   }),
 ]);
 export type UpdatePostIdeaValues = z.infer<typeof updatePostIdeaSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: postIdeaOptionSchema, PostIdeaOption
+ *
+ * WHAT:  The part of an idea a picker needs: its id and text.
+ * WHERE: The composer's "Use an idea" menu.
+ */
+export const postIdeaOptionSchema = z.object({
+  id: z.string().min(1),
+  text: z.string(),
+});
+export type PostIdeaOption = z.infer<typeof postIdeaOptionSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: IDEA_ANGLES_COUNT, IDEA_ANGLE_TITLE_MAX,
+ *   IDEA_ANGLE_NEEDS_MAX, ideaAngleSchema, IdeaAngle, ideaAnglesSchema,
+ *   IdeaAngles, expandPostIdeaSchema, expand idea, idea angles
+ *
+ * WHAT:  What "Expand" returns for one idea: a few specific angles, each with a
+ *        topic brief, a sample first line, the hook formula it uses, and the one
+ *        real detail the member still needs to add.
+ * WHY:   A vague idea is why most ideas sit unused. `topic` is bounded by the
+ *        composer's topic limits so an angle can replace the idea text and go
+ *        straight into a generation. `needs` exists because the model may never
+ *        supply that detail itself; it asks for it instead.
+ * WHERE: Returned by ideaAngles.create; rendered by the angles dialog.
+ */
+export const IDEA_ANGLES_COUNT = 3;
+export const IDEA_ANGLE_TITLE_MAX = 80;
+export const IDEA_ANGLE_NEEDS_MAX = 200;
+
+export const ideaAngleSchema = z.object({
+  title: z.string().trim().min(1).max(IDEA_ANGLE_TITLE_MAX),
+  topic: z.string().trim().min(AI_POST_TOPIC_MIN).max(AI_POST_TOPIC_MAX),
+  formula: hookFormulaKeySchema,
+  openingLine: z.string().trim().min(1).max(POST_OPENING_MAX),
+  needs: z.string().trim().max(IDEA_ANGLE_NEEDS_MAX),
+});
+export type IdeaAngle = z.infer<typeof ideaAngleSchema>;
+
+export const ideaAnglesSchema = z.object({
+  angles: z.array(ideaAngleSchema).min(1).max(IDEA_ANGLES_COUNT),
+});
+export type IdeaAngles = z.infer<typeof ideaAnglesSchema>;
+
+/* The idea is addressed by id and read on the server, never sent as text, so
+ * an expansion can only ever be of the member's own saved idea. */
+export const expandPostIdeaSchema = postIdeaIdSchema;

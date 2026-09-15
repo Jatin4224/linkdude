@@ -13,7 +13,8 @@ import "server-only";
  *   buildVoiceDirective, VOICE_EXTRACTION_SYSTEM_PROMPT,
  *   LINKEDIN_LANGUAGE_RULES, LINKEDIN_HOOK_RULES, quotePhrases,
  *   fixLinkedInPost, LINKEDIN_POST_EDITOR_SYSTEM_PROMPT, describeLength,
- *   buildHookDirective, POST_GOAL_DIRECTIVES, alternative openings
+ *   buildHookDirective, POST_GOAL_DIRECTIVES, alternative openings,
+ *   expandPostIdea, IDEA_ANGLES_SYSTEM_PROMPT
  *
  * WHAT:  The app's single seat of model invocation. `generateText` and
  *        `generateStructured` are the provider-facing primitives (prose out and
@@ -64,6 +65,11 @@ import {
   type PostGoal,
 } from "@/lib/types/post-hooks";
 import { HOOK_FORMULAS } from "@/lib/config/post-hooks";
+import {
+  IDEA_ANGLES_COUNT,
+  ideaAnglesSchema,
+  type IdeaAngles,
+} from "@/lib/types/post-ideas";
 import {
   profileAnalysisSchema,
   sectionInsightSchema,
@@ -680,6 +686,57 @@ export async function fixLinkedInPost(
     formula: null,
     alternativeOpenings: [],
   });
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: IDEA_ANGLES_SYSTEM_PROMPT, expandPostIdea, expand
+ *   idea, idea angles
+ *
+ * WHAT:  Turns one rough saved idea into a few specific angles the member could
+ *        write today.
+ * WHY:   A vague idea ("docker cache") is the main reason ideas sit unused. Each
+ *        angle carries a topic brief the post generator can write from directly,
+ *        a sample first line, and the hook formula behind it, so an angle drops
+ *        straight into the rest of the pipeline.
+ *
+ *        The one thing it may not do is fill in the member's facts. Anything an
+ *        angle needs but the idea lacks goes in `needs` as a request ("add how
+ *        long deploys took before"), the same never-invent rule every generator
+ *        here follows. The hook and language rules are the shared blocks, so a
+ *        sample first line obeys what the post check enforces.
+ * WHERE: Called by ideaAngles.create.
+ */
+const IDEA_ANGLES_SYSTEM_PROMPT = `You help a LinkedIn creator turn a rough post idea into specific angles they could write today.
+
+Rules:
+- Return exactly ${IDEA_ANGLES_COUNT} angles. Each must be genuinely different: a different claim, story or audience, and a different hook formula.
+- title: a short label for the angle, under 10 words.
+- topic: one to three sentences describing the specific post to write, in the creator's first person. It is the brief a post will be written from.
+- openingLine: a sample first line for that post.
+- formula: the key of the hook formula the angle uses, from the list below.
+- needs: the one concrete detail the creator should add to make the angle land (a number, a date, a name, what happened), or an empty string if the idea already has it.
+- Use only facts that are in the idea. Never invent numbers, names, dates, clients or results. Ask for them in "needs" instead.
+
+Rules for the opening line:
+${LINKEDIN_HOOK_RULES}
+
+Language rules:
+${LINKEDIN_LANGUAGE_RULES}
+
+Hook formulas:
+${HOOK_FORMULA_KEYS.map((key) => `- ${key} (${HOOK_FORMULAS[key].label}): ${HOOK_FORMULAS[key].shape}`).join("\n")}`;
+
+export async function expandPostIdea(
+  text: string,
+  voice: ResolvedVoice | null = null,
+): Promise<IdeaAngles> {
+  const result = await generateStructured({
+    system: IDEA_ANGLES_SYSTEM_PROMPT,
+    prompt: `IDEA:\n${text}${buildVoiceDirective(voice)}`,
+    schema: ideaAnglesSchema,
+  });
+
+  return ideaAnglesSchema.parse(result);
 }
 
 /**

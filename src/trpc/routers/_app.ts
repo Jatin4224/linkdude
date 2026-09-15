@@ -38,6 +38,7 @@ import { carouselRouter } from "./carousel";
 import { documentsRouter } from "./documents";
 import { voiceProfileRouter } from "./voice-profile";
 import { postIdeasRouter } from "./post-ideas";
+import { ideaAnglesRouter } from "./idea-angles";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: appRouter, AppRouter
@@ -77,6 +78,8 @@ export const appRouter = createTRPCRouter({
   documents: documentsRouter,
   voiceProfile: voiceProfileRouter,
   postIdeas: postIdeasRouter,
+  /* Its own key so expansions spend their own allowance, not saved ideas. */
+  ideaAngles: ideaAnglesRouter,
 });
 
 export type AppRouter = typeof appRouter;

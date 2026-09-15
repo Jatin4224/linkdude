@@ -265,6 +265,13 @@ export function PostComposer({
   const canReadVoice = hasPermission(permissions.VOICE_PROFILE_READ);
   const canSaveIdeas = hasPermission(permissions.POST_IDEAS_CREATE);
   const canUpdateIdeas = hasPermission(permissions.POST_IDEAS_UPDATE);
+  const canReadIdeas = hasPermission(permissions.POST_IDEAS_READ);
+  /* The newest unused ideas, offered next to the topic box. Refetched whenever
+   * an idea is saved or marked used, since both invalidate postIdeas.list. */
+  const unusedIdeas = trpc.postIdeas.list.useQuery(
+    { organizationId: orgId, status: "new", page: 1, pageSize: 20 },
+    { enabled: enabled && canReadIdeas, retry: false },
+  );
   const voiceProfile = trpc.voiceProfile.get.useQuery(
     { organizationId: orgId },
     { enabled: enabled && canReadVoice, retry: false },
@@ -586,6 +593,12 @@ export function PostComposer({
               initialTopic={initialIdea?.text}
               onSaveIdea={canSaveIdeas ? handleSaveIdea : undefined}
               isSavingIdea={saveIdea.isPending}
+              ideas={unusedIdeas.data?.items}
+              onPickIdea={
+                canReadIdeas
+                  ? (idea) => setIdeaToMarkUsed(idea.id)
+                  : undefined
+              }
               onGenerate={handleGenerate}
               isGenerating={generate.isPending}
               disabled={!enabled}

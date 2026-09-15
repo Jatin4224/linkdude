@@ -39,7 +39,8 @@
  *   HOOK_FORMULA_KEYS, HookFormulaKey, HookOpening, PostOpeningChoice,
  *   postWithOpeningsSchema, POST_IDEA_STATUSES, PostIdeaStatus,
  *   createPostIdeaSchema, listPostIdeasSchema, updatePostIdeaSchema,
- *   postIdeaIdSchema
+ *   postIdeaIdSchema, PostIdeaOption, ideaAnglesSchema, IdeaAngle,
+ *   expandPostIdeaSchema
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -177,12 +178,22 @@ export {
   listPostIdeasSchema,
   postIdeaIdSchema,
   updatePostIdeaSchema,
+  postIdeaOptionSchema,
+  IDEA_ANGLES_COUNT,
+  IDEA_ANGLE_TITLE_MAX,
+  IDEA_ANGLE_NEEDS_MAX,
+  ideaAngleSchema,
+  ideaAnglesSchema,
+  expandPostIdeaSchema,
 } from "./post-ideas";
 export type {
   PostIdeaStatus,
   CreatePostIdeaValues,
   ListPostIdeasValues,
   UpdatePostIdeaValues,
+  PostIdeaOption,
+  IdeaAngle,
+  IdeaAngles,
 } from "./post-ideas";
 export {
   LINKEDIN_IMAGE_MIME_TYPES,

@@ -9,7 +9,7 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: GenerateForm, GenerateFormProps, POST_TONE_LABELS,
  *   POST_LENGTH_LABELS, POST_GOAL_LABELS, goal picker, voiceActive,
- *   initialTopic, onSaveIdea, Save as idea
+ *   initialTopic, onSaveIdea, Save as idea, onPickIdea, Use an idea
  *
  * WHAT:  The composer's left pane — Topic / Blog tabs plus tone and length
  *        selects, submitting a validated generation request, and a line saying
@@ -30,6 +30,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AudioLinesIcon,
+  InboxIcon,
   LightbulbIcon,
   Loader2Icon,
   SparklesIcon,
@@ -42,6 +43,7 @@ import {
   POST_LENGTHS,
   type GeneratePostValues,
   type PostGoal,
+  type PostIdeaOption,
   type PostTone,
   type PostLength,
 } from "@/lib/types";
@@ -53,6 +55,12 @@ import {
 import { RESOURCES } from "@/lib/resources";
 import { FeatureGate } from "@/components/feature-gate";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Form,
   FormControl,
@@ -91,6 +99,10 @@ export interface GenerateFormProps {
   /** Saves the typed topic as an idea. Omit to hide the button. */
   onSaveIdea?: ((topic: string) => void) | undefined;
   isSavingIdea?: boolean | undefined;
+  /** Unused saved ideas offered in the "Use an idea" menu. */
+  ideas?: readonly PostIdeaOption[] | undefined;
+  /** Called after an idea fills the topic box. Omit to hide the menu. */
+  onPickIdea?: ((idea: PostIdeaOption) => void) | undefined;
   disabled?: boolean;
   /**
    * Whether drafts use the member's voice. `undefined` hides the line: the
@@ -111,6 +123,8 @@ export function GenerateForm({
   initialTopic,
   onSaveIdea,
   isSavingIdea = false,
+  ideas,
+  onPickIdea,
   disabled = false,
   voiceActive,
 }: GenerateFormProps) {
@@ -192,10 +206,46 @@ export function GenerateForm({
                         className="resize-none"
                       />
                     </FormControl>
-                    <div className="flex items-start justify-between gap-2">
-                      <FormDescription>
+                    <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+                      <FormDescription className="mr-auto">
                         A sentence is plenty. Specifics beat topics.
                       </FormDescription>
+                      {/* Ideas saved earlier, one click from the topic box. */}
+                      {onPickIdea && ideas && ideas.length > 0 ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="xs"
+                                disabled={busy}
+                              />
+                            }
+                          >
+                            <InboxIcon className="size-3" />
+                            Use an idea
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-72">
+                            {ideas.map((idea) => (
+                              <DropdownMenuItem
+                                key={idea.id}
+                                onClick={() => {
+                                  topicForm.setValue("topic", idea.text, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  });
+                                  onPickIdea(idea);
+                                }}
+                              >
+                                <span className="line-clamp-2 text-sm">
+                                  {idea.text}
+                                </span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : null}
                       {/* For a topic worth keeping but not writing today. */}
                       {onSaveIdea ? (
                         <FeatureGate resource="postIdeas">

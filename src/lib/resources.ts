@@ -860,6 +860,38 @@ export const RESOURCES = {
       requirePermission: "read",
     },
   },
+  /* Expanding a saved idea into specific post angles: one model call.
+   *
+   * Its own key because only `<resource>.create` spends, and a verb on
+   * `postIdeas` could not meter model spend without also charging it against
+   * saved ideas. No `delete`: an expansion is spend and is never refunded. No
+   * nav: the Expand button lives on the Ideas page. */
+  ideaAngles: {
+    name: "Idea Angles",
+    description: "Turn a rough idea into specific post angles with AI",
+    permissions: ["create"],
+    limit: {
+      perPlan: {
+        free: 10,
+        starter: 200,
+        pro: 1_000,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to expand more ideas",
+      availableOnFreeTrial: true,
+      unit: "idea expansions",
+    },
+    rateLimit: {
+      create: { count: 10, window: "1 m" },
+    },
+    audit: {
+      entity: "ideaAngles",
+      describe: {
+        create: "Expanded a post idea into angles",
+      },
+    },
+  },
 } as const satisfies Record<string, ResourceDefinition>;
 
 export type ResourceKey = keyof typeof RESOURCES;
