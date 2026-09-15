@@ -46,6 +46,7 @@ import { permissions } from "@/lib/better-auth/permissions";
 import {
   CONTENT_PLAN_GOALS_MAX,
   contentPlanAnswersSchema,
+  DEFAULT_POST_GOAL,
   DEFAULT_POST_LENGTH,
   DEFAULT_POST_TONE,
   type ContentPlanDraftAnswers,
@@ -324,6 +325,7 @@ export function ContentPlanChat() {
         topic: idea,
         tone: DEFAULT_POST_TONE,
         length: DEFAULT_POST_LENGTH,
+        goal: DEFAULT_POST_GOAL,
         organizationId: orgId,
       });
 

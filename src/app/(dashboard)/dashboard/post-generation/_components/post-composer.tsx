@@ -9,7 +9,8 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: PostComposer, PostComposerProps,
  *   CALLBACK_ERROR_MESSAGES, toLocalDateTimeInput, handleSaveDraft, draftId,
- *   handleFix, handleUndoFix, PostCheckPanel, preFixCommentary
+ *   handleFix, handleUndoFix, PostCheckPanel, preFixCommentary, goal,
+ *   openingChoices, handleChooseOpening, HookOpenings
  *
  * WHAT:  The Create Post screen — generation controls on the left, a live
  *        LinkedIn preview with an inline editor on the right, and Save draft,
@@ -58,6 +59,7 @@ import {
   useActiveOrganizationId,
 } from "@/hooks/use-active-organization";
 import {
+  DEFAULT_POST_GOAL,
   DEFAULT_POST_LENGTH,
   DEFAULT_POST_TONE,
   LINKEDIN_IMAGE_MIME_TYPES,
@@ -65,11 +67,15 @@ import {
   type GeneratePostValues,
   type LinkedInOAuthErrorCode,
   type PostCheckCode,
+  type PostGoal,
   type PostImageValues,
   type PostLength,
+  type PostOpeningChoice,
   type PostTone,
 } from "@/lib/types";
 import {
+  readOpeningLine,
+  replaceOpeningLine,
   buildTransformedUrl,
   IMAGEKIT_MAX_IMAGE_BYTES,
   IMAGEKIT_MAX_IMAGE_LABEL,
@@ -95,6 +101,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { GenerateForm } from "./generate-form";
+import { HookOpenings } from "./hook-openings";
 
 export interface PostComposerProps {
   /** ImageKit is configured — without it, attaching an image is impossible. */
@@ -172,6 +179,7 @@ export function PostComposer({
   );
   const [tone, setTone] = React.useState<PostTone>(DEFAULT_POST_TONE);
   const [length, setLength] = React.useState<PostLength>(DEFAULT_POST_LENGTH);
+  const [goal, setGoal] = React.useState<PostGoal>(DEFAULT_POST_GOAL);
   const [image, setImage] = React.useState<PostImageValues | null>(
     initialDraft?.image ?? null,
   );
@@ -210,6 +218,11 @@ export function PostComposer({
   const [targetLength, setTargetLength] = React.useState<PostLength | null>(
     null,
   );
+  /* The generated opening plus its alternatives, offered until the next
+   * generation or publish. Empty when a generation returned none (blog posts). */
+  const [openingChoices, setOpeningChoices] = React.useState<
+    PostOpeningChoice[]
+  >([]);
 
   const enabled = organizationId !== undefined;
   const orgId = organizationId ?? "";
@@ -265,6 +278,18 @@ export function PostComposer({
       setCommentary(result.commentary);
       setPreFixCommentary(null);
       setTargetLength(variables.length);
+      /* The generated opening goes first, so it can always be chosen again. */
+      setOpeningChoices(
+        result.alternativeOpenings.length > 0
+          ? [
+              {
+                formula: result.formula,
+                line: readOpeningLine(result.commentary),
+              },
+              ...result.alternativeOpenings,
+            ]
+          : [],
+      );
       toast.success("Post generated.");
       /* Silent unless the user opted in. Generation runs long enough that people
          switch tabs while they wait — the cue is what brings them back. */
@@ -290,6 +315,7 @@ export function PostComposer({
       setCommentary("");
       setPreFixCommentary(null);
       setTargetLength(null);
+      setOpeningChoices([]);
       setImage(null);
       setIsScheduling(false);
       setScheduledFor(earliestSchedule());
@@ -387,6 +413,13 @@ export function PostComposer({
     );
   }
 
+  /* Swaps only the first line, so edits below it survive. An earlier fix can no
+   * longer be undone cleanly once the opening changes, so its undo is dropped. */
+  function handleChooseOpening(line: string) {
+    setCommentary((current) => replaceOpeningLine(current, line));
+    setPreFixCommentary(null);
+  }
+
   function handleUndoFix() {
     if (preFixCommentary === null) return;
     setCommentary(preFixCommentary);
@@ -481,6 +514,8 @@ export function PostComposer({
               length={length}
               onToneChange={setTone}
               onLengthChange={setLength}
+              goal={goal}
+              onGoalChange={setGoal}
               onGenerate={handleGenerate}
               isGenerating={generate.isPending}
               disabled={!enabled}
@@ -543,6 +578,15 @@ export function PostComposer({
               className="resize-none border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-0"
             />
           </LinkedInPostPreview>
+
+          {openingChoices.length > 0 && commentary.trim() ? (
+            <HookOpenings
+              choices={openingChoices}
+              currentOpening={readOpeningLine(commentary)}
+              onChoose={handleChooseOpening}
+              disabled={generate.isPending || fixPost.isPending}
+            />
+          ) : null}
 
           {/* Right under the editor, so a flagged line is next to the text it is
               about. Checks as the member types; Fix it spends a generation. */}

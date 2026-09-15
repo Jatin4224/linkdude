@@ -31,6 +31,12 @@ import type { generateText, ImageModel, LanguageModel, ToolSet } from "ai";
 import { LINKEDIN_MAX_COMMENTARY } from "@/lib/config/linkedin";
 import { postImageSchema } from "./imagekit";
 import { POST_CHECK_CODES, postCheckCodeSchema } from "./post-check";
+import {
+  POST_ALTERNATIVE_OPENINGS,
+  hookFormulaKeySchema,
+  hookOpeningSchema,
+  postGoalSchema,
+} from "./post-hooks";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AI_PROVIDER_KEYS, AiProvider, aiProviderSchema
@@ -187,12 +193,14 @@ export const generatePostSchema = z.discriminatedUnion("source", [
       ),
     tone: postToneSchema,
     length: postLengthSchema,
+    goal: postGoalSchema,
   }),
   z.object({
     source: z.literal("blog"),
     blogUrl: z.url("Enter a valid blog URL"),
     tone: postToneSchema,
     length: postLengthSchema,
+    goal: postGoalSchema,
   }),
   z.object({
     source: z.literal("fix"),
@@ -229,8 +237,30 @@ export type WritePostValues = Exclude<GeneratePostValues, { source: "fix" }>;
  */
 export const generatedPostSchema = z.object({
   commentary: z.string().trim().min(1).max(LINKEDIN_MAX_COMMENTARY),
+  /* The hook formula the post was shaped with, or null when unknown (a blog
+   * repurpose or a fix). */
+  formula: hookFormulaKeySchema.nullable(),
+  /* Other first lines for the same post; empty when none were generated. */
+  alternativeOpenings: z.array(hookOpeningSchema).max(POST_ALTERNATIVE_OPENINGS),
 });
 export type GeneratedPost = z.infer<typeof generatedPostSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: postWithOpeningsSchema
+ *
+ * WHAT:  The shape the MODEL returns for a topic post: the formula it used, the
+ *        post, and alternative openings.
+ * WHY:   Stricter than generatedPostSchema on purpose: the formula is required,
+ *        because a model given a nullable field reads it as permission to skip
+ *        it. The result is then parsed through generatedPostSchema, so one
+ *        declaration still governs what leaves the service.
+ * WHERE: generateLinkedInPost, topic path.
+ */
+export const postWithOpeningsSchema = z.object({
+  formula: hookFormulaKeySchema,
+  commentary: z.string().min(1).max(LINKEDIN_MAX_COMMENTARY),
+  alternativeOpenings: z.array(hookOpeningSchema).max(POST_ALTERNATIVE_OPENINGS),
+});
 
 /**
  * SOURCE OF TRUTH KEYWORDS: AI_IMAGE_PROMPT_MAX, aiImageEditSchema,

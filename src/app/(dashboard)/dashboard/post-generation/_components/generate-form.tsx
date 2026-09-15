@@ -8,7 +8,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: GenerateForm, GenerateFormProps, POST_TONE_LABELS,
- *   POST_LENGTH_LABELS, voiceActive
+ *   POST_LENGTH_LABELS, POST_GOAL_LABELS, goal picker, voiceActive
  *
  * WHAT:  The composer's left pane — Topic / Blog tabs plus tone and length
  *        selects, submitting a validated generation request, and a line saying
@@ -31,13 +31,19 @@ import { AudioLinesIcon, Loader2Icon, SparklesIcon } from "lucide-react";
 
 import {
   generatePostSchema,
+  POST_GOALS,
   POST_TONES,
   POST_LENGTHS,
   type GeneratePostValues,
+  type PostGoal,
   type PostTone,
   type PostLength,
 } from "@/lib/types";
-import { POST_LENGTH_LABELS, POST_TONE_LABELS } from "@/lib/config";
+import {
+  POST_GOAL_LABELS,
+  POST_LENGTH_LABELS,
+  POST_TONE_LABELS,
+} from "@/lib/config";
 import { RESOURCES } from "@/lib/resources";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,8 +73,10 @@ type BlogValues = Extract<GeneratePostValues, { source: "blog" }>;
 export interface GenerateFormProps {
   tone: PostTone;
   length: PostLength;
+  goal: PostGoal;
   onToneChange: (tone: PostTone) => void;
   onLengthChange: (length: PostLength) => void;
+  onGoalChange: (goal: PostGoal) => void;
   onGenerate: (values: GeneratePostValues) => void;
   isGenerating: boolean;
   disabled?: boolean;
@@ -82,8 +90,10 @@ export interface GenerateFormProps {
 export function GenerateForm({
   tone,
   length,
+  goal,
   onToneChange,
   onLengthChange,
+  onGoalChange,
   onGenerate,
   isGenerating,
   disabled = false,
@@ -91,22 +101,24 @@ export function GenerateForm({
 }: GenerateFormProps) {
   const topicForm = useForm<TopicValues>({
     resolver: zodResolver(generatePostSchema.options[0]),
-    defaultValues: { source: "topic", topic: "", tone, length },
+    defaultValues: { source: "topic", topic: "", tone, length, goal },
   });
 
   const blogForm = useForm<BlogValues>({
     resolver: zodResolver(generatePostSchema.options[1]),
-    defaultValues: { source: "blog", blogUrl: "", tone, length },
+    defaultValues: { source: "blog", blogUrl: "", tone, length, goal },
   });
 
-  /* Tone/length live in the parent so they survive a tab switch; mirror them
-   * into whichever form is about to be submitted. */
+  /* Tone, length and goal live in the parent so they survive a tab switch;
+   * mirror them into whichever form is about to be submitted. */
   React.useEffect(() => {
     topicForm.setValue("tone", tone);
     blogForm.setValue("tone", tone);
     topicForm.setValue("length", length);
     blogForm.setValue("length", length);
-  }, [tone, length, topicForm, blogForm]);
+    topicForm.setValue("goal", goal);
+    blogForm.setValue("goal", goal);
+  }, [tone, length, goal, topicForm, blogForm]);
 
   const busy = isGenerating || disabled;
 
@@ -230,6 +242,27 @@ export function GenerateForm({
           side rather than stacked: two short selects in one row keeps the whole
           control panel above the fold instead of pushing Generate off it. */}
       <div className="grid grid-cols-2 gap-3 border-t pt-5">
+        {/* Full width and first: the goal decides which hook formulas the post
+            is shaped with, so it is the choice that changes the draft most. */}
+        <div className="col-span-2 flex flex-col gap-2">
+          <Label htmlFor="goal-select">What do you want from this post?</Label>
+          <Select
+            value={goal}
+            onValueChange={(value) => onGoalChange(value as PostGoal)}
+          >
+            <SelectTrigger id="goal-select" disabled={busy} className="w-full">
+              <SelectValue>{POST_GOAL_LABELS[goal]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {POST_GOALS.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {POST_GOAL_LABELS[value]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex flex-col gap-2">
           <Label htmlFor="tone-select">Tone</Label>
           <Select
