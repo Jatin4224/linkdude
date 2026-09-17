@@ -617,8 +617,15 @@ drift — render an existing deck byte-comparably before deleting
 
 1. `npx tsc --noEmit` (or the repo's typecheck script) — zero errors. No `any`,
    no `unknown`, no type assertions added.
-2. `npx prisma validate` then `npx prisma migrate dev` — catches the missing
+2. `npx prisma validate`, then **`npx prisma db push`** — this catches the missing
    back-relation fields, which is the easy thing to forget.
+
+   > **Never `prisma migrate dev` in this project.** There is no
+   > `prisma/migrations/` directory; this codebase has always used `db push`.
+   > Given an empty migration history and a full database, `migrate dev` reads
+   > the entire schema as drift and offers to fix it by dropping everything. The
+   > full story is in `docs/10-profile-analyzer.md`, and the rule is stated in
+   > `docs/07-adding-a-feature.md`.
 3. `npm run lint`.
 
 **Phase 1 end-to-end, in the running app:**

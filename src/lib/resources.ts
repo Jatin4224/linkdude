@@ -730,6 +730,91 @@ export const RESOURCES = {
     },
   },
 
+  /* The design studio: pick a style, fill in your words, export the images a
+   * LinkedIn profile needs — banner, headshot, featured covers.
+   *
+   * Declared next to `carousel` because they share a pipeline, not a concept.
+   * Both end in "satori rasterises a React tree and ImageKit stores the result",
+   * and phase 5 of docs/20-studio.md moves carousel slides onto this feature's
+   * renderer. Keeping them adjacent is a note to whoever does that. */
+  studio: {
+    name: "Studio",
+    description:
+      "Design a LinkedIn banner, headshot and featured covers from a style",
+    /* Mirrors carousel's verb list, and for the reasons spelled out there:
+     * `render` is separate from `create` because a model call and a local
+     * rasterisation have different cost and failure modes, and `discard` rather
+     * than `delete` because the factory REFUNDS a slot on `<resource>.delete` —
+     * under that name, create → remove → create would be an unlimited free tier.
+     *
+     * `preview` is deliberately NOT a permission. It renders unsaved input and
+     * writes nothing, so gating it separately from `update` would let a role
+     * edit a design it cannot see. It rides on `update` and is capped by the
+     * rate limit below instead. */
+    permissions: ["create", "read", "update", "render", "discard"],
+    /* Metered per PROJECT — one finished profile — because that is the unit of
+     * value the product sells ("build your LinkedIn profile in 30 minutes").
+     *
+     * NOT per render, and the distinction matters more here than on carousel.
+     * A profile kit is SIX images the user iterates on until they look right;
+     * charging per export would push people to accept a worse banner to save
+     * quota, which is the opposite of what a design tool is for. Rendering is
+     * local CPU — the expensive thing is the slot, not the pixels. */
+    limit: {
+      perPlan: {
+        /* One, not two. A profile is a thing you own exactly one of, so a free
+         * tier of one lets someone finish the whole flow and paste the result
+         * into LinkedIn before paying — the moment the product proves itself.
+         * A second free project would only ever be a second attempt at the same
+         * profile, which re-editing the first already covers. */
+        free: 1,
+        starter: 5,
+        pro: 25,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to build more profiles",
+      availableOnFreeTrial: true,
+      unit: "profiles",
+    },
+    rateLimit: {
+      create: { count: 5, window: "1 m" },
+      /* Same shape as carousel.render and for the same reason — local CPU plus
+       * an upload, so looser than a model call but never uncapped. */
+      render: { count: 10, window: "1 m" },
+      /* The editor previews on a debounce as the user types, so this is the only
+       * rate limit in the app that a NORMAL session is expected to approach.
+       * Thirty a minute sits above a 600ms debounce with headroom and still
+       * stops a stuck client turning the renderer into a treadmill. Raising it
+       * is cheaper than lowering the debounce. */
+      preview: { count: 30, window: "1 m" },
+    },
+    audit: {
+      entity: "studioProject",
+      describe: {
+        create: "Created a studio project",
+        update: "Edited a design",
+        render: "Exported a design",
+        discard: "Discarded a studio project",
+      },
+      /* NOTE there is no `preview` line, and that is load-bearing rather than an
+       * omission: the preview procedure passes `audit: false`, because a debounced
+       * render would otherwise write an audit row per keystroke burst. */
+    },
+    nav: {
+      label: "Studio",
+      href: "/dashboard/studio",
+      icon: "LayoutTemplate",
+      section: "create",
+      /* 9, after Ideas — the create section is ordered by how early a member
+       * reaches for it, and a profile is set up once and then left alone. */
+      order: 9,
+      /* Brand-new key, same caveat as carousel: owners see it at once, and a
+       * custom role needs an explicit grant in the role editor. */
+      requirePermission: "create",
+    },
+  },
+
   /* Documents is its own KEY because generated files outlive the deck that made
    * them and need a page of their own — `nav` is one entry per resource and
    * carousel already spends its on the editor.

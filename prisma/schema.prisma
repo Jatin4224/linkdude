@@ -88,6 +88,7 @@ model User {
   profileAnalyses  ProfileAnalysis[]
   contentPlans     ContentPlan[]
   carousels        Carousel[]
+  studioProjects   StudioProject[]
   voiceProfiles    VoiceProfile[]
   postIdeas        PostIdea[]
 
@@ -220,6 +221,8 @@ model Organization {
   contentPlans      ContentPlan[]
   carousels         Carousel[]
   documents         Document[]
+  studioProjects    StudioProject[]
+  studioAssets      StudioAsset[]
   voiceProfiles     VoiceProfile[]
   postIdeas         PostIdea[]
 
@@ -831,6 +834,7 @@ model Document {
 
   organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   carousel      Carousel?
+  studioAsset   StudioAsset?
   linkedinPosts LinkedInPost[]
 
   @@index([organizationId, createdAt])
@@ -976,4 +980,89 @@ model PostIdea {
   @@index([organizationId, authorId, status, createdAt])
   @@index([authorId])
   @@map("post_idea")
+}
+
+/// One profile's worth of designs — the unit the studio quota meters, and the
+/// thing "New Profile" creates.
+///
+/// A PROJECT rather than a single design because the assets are only useful as a
+/// set: a banner, a headshot and three featured covers that share a style are a
+/// profile, and five unrelated images are not. The style choice therefore lives
+/// here, once, rather than being repeated on every asset.
+model StudioProject {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope
+  authorId       String // The member whose profile this is
+
+  name String
+
+  /// Which gallery entry this was cloned from. A plain String owned by the Zod
+  /// tuple in lib/config/studio-templates, never a Prisma enum — the same
+  /// contract as Carousel.templateId, so adding a style is a config entry and
+  /// never a migration.
+  templateId String
+  paletteId  String
+  tone       String @default("bold")
+  role       String @default("founder")
+
+  /// Copy the user pastes into LinkedIn itself. Stored here, not rendered into
+  /// any image, because a headline is text on their profile rather than pixels
+  /// in a file — and because profile-analysis critiques it as text.
+  headline String? @db.Text
+  about    String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  assets       StudioAsset[]
+
+  @@index([organizationId, updatedAt])
+  @@index([authorId])
+  @@map("studio_project")
+}
+
+/// One rendered image within a project.
+///
+/// A ROW PER ASSET rather than one Json blob on the project, for three reasons
+/// that all bite later otherwise: assets render independently, so `status` and
+/// `lastError` have to be per-asset; featured covers are a variable-length set;
+/// and each asset maps one-to-one onto a Document, which a blob cannot express.
+model StudioAsset {
+  id             String @id @default(cuid())
+  organizationId String // Tenant scope, duplicated from the project so every query can filter on it directly
+  projectId      String
+
+  /// STUDIO_ASSET_KINDS — banner, headshot, featuredCover, companyBanner.
+  kind String
+
+  /// Order within its kind. Only featured covers have more than one today.
+  position Int @default(0)
+
+  /// A DesignDoc: the block list, the user's text slots and any colour
+  /// overrides. Json rather than columns because a block list is never queried
+  /// on its own — the same call Carousel.slides and ContentPlan.result make.
+  /// Re-validated through designDocSchema on every read; a Json column is
+  /// untyped until something parses it.
+  doc Json
+
+  status    String  @default("draft") // draft | rendering | ready | failed
+  lastError String? @db.Text
+
+  /// SetNull, exactly as Carousel.documentId is: deleting the exported file must
+  /// never destroy the design that produced it, and discarding the design must
+  /// never orphan a file the user already pasted into LinkedIn.
+  documentId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      StudioProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document     Document?     @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId, position])
+  @@map("studio_asset")
 }
