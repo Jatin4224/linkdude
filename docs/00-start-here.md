@@ -23,6 +23,7 @@ These docs explain how this boilerplate is shaped and why. The README tells you 
 17. `17-drafts-and-post-library.md` — an eighth: the smallest feature in the app, and the three ways it could have given away quota
 18. `18-voice-profile.md` — a ninth: a persisted writing voice every generator reads, the first per-tenant text in a prompt, and the AI guard that was copied five times
 19. `19-idea-inbox.md` — a tenth: the smallest CRUD feature, a limit that counts things held rather than model spend, and three entry points sharing one quick-add
+20. `20-studio.md` — the build plan for an eleventh, not yet written: templates as data rather than code, so one renderer serves every canvas and a new design costs a config entry
 
 ## If you only have five minutes
 
