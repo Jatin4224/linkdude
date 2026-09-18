@@ -62,10 +62,17 @@ import * as studioService from "@/services/studio.service";
 
 const withOrganization = z.object({ organizationId: z.string().min(1) });
 
-/* Phase 1 renders the banner only. Declared as a list rather than inlined so
- * phase 2 adds headshot and featured covers by extending one array — the create
- * procedure below already loops. */
-const INITIAL_ASSET_KINDS: readonly StudioAssetKind[] = ["banner"];
+/* What a new profile starts with. The banner leads because it is the asset with
+ * the most surface area and the one people judge first.
+ *
+ * Company banners are NOT seeded: most members do not run a company page, and an
+ * empty asset nobody asked for is a step in a flow rather than a feature. It is
+ * added on demand instead. */
+const INITIAL_ASSET_KINDS: readonly StudioAssetKind[] = [
+  "banner",
+  "headshot",
+  "featuredCover",
+];
 
 export const studioRouter = createTRPCRouter({
   create: protectedProcedure({

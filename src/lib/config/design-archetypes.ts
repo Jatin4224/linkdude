@@ -61,6 +61,9 @@ export interface DesignArchetype {
   /* Per CANVAS, because only some have something to clear: a profile banner has
    * the avatar over its lower left, a featured cover has nothing over it at all. */
   readonly insetLeft?: Partial<Record<DesignCanvasKey, number>>;
+  /* Per canvas, because the right answer differs: a banner reads left-aligned
+   * beside an avatar, a featured cover is a standalone card and reads centred. */
+  readonly align?: Partial<Record<DesignCanvasKey, "left" | "center" | "right">>;
 }
 
 /**
@@ -163,11 +166,81 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
           ],
         },
       ],
+
+      /* 400x400, rendered by LinkedIn as a ~150px circle and cropped to it. So
+       * everything lives dead centre with generous margin: a ring that reaches
+       * the square's edge loses its corners to the crop, and anything in a corner
+       * is simply gone. The photo is the design; the blocks around it are trim. */
+      headshot: [
+        {
+          id: "photo",
+          type: "image",
+          slot: "photo",
+          fit: "cover",
+          /* Nearly full-bleed. LinkedIn's circular crop removes the corners
+           * anyway, so leaving a square margin only shrinks the face. */
+          width: 1,
+          height: 1,
+          radius: 999,
+          ringWidth: 10,
+          ringColor: { slot: "accent" },
+        },
+      ],
+
+      /* 1200x627, and the thing that makes this canvas different: LinkedIn shows
+       * it at roughly a third of its size in the Featured rail. Type therefore
+       * runs LARGE relative to the canvas — a subline that reads fine at full
+       * size disappears in the rail, which is why there isn't one. */
+      featuredCover: [
+        {
+          id: "eyebrow",
+          type: "text",
+          text: { source: "slot", slot: "eyebrow" },
+          role: "meta",
+          weight: 700,
+          color: { slot: "accent" },
+          transform: "uppercase",
+          maxLines: 1,
+          letterSpacing: 4,
+        },
+        {
+          id: "headline",
+          type: "text",
+          text: { source: "slot", slot: "headline" },
+          role: "display",
+          weight: 700,
+          color: { slot: "foreground" },
+          /* Three, not two: this canvas is nearly square, so it has the vertical
+           * room a banner does not. */
+          maxLines: 3,
+          letterSpacing: -1,
+        },
+        { id: "gap", type: "spacer", size: 12 },
+        {
+          id: "rule",
+          type: "divider",
+          thickness: 4,
+          length: 0.22,
+          color: { slot: "accent" },
+        },
+        { id: "gapB", type: "spacer", size: 12 },
+        {
+          id: "cta",
+          type: "buttonPill",
+          label: { source: "slot", slot: "ctaLabel" },
+          fill: { slot: "accent" },
+          labelColor: { slot: "background" },
+          role: "body",
+          paddingX: 32,
+          paddingY: 16,
+        },
+      ],
     },
     /* Reserve the left third of the BANNER. This is the correction that mattered
      * most: the first version of this archetype stacked everything on the left,
      * which put the wordmark exactly where the avatar lands. */
     insetLeft: { linkedinBanner: 0.34 },
+    align: { featuredCover: "center", headshot: "center" },
   },
 };
 
@@ -221,6 +294,7 @@ export function buildDesignDoc(args: {
   }
 
   const insetLeft = archetype.insetLeft?.[args.canvas];
+  const align = archetype.align?.[args.canvas];
 
   return designDocSchema.parse({
     templateId: args.templateId,
@@ -230,5 +304,6 @@ export function buildDesignDoc(args: {
     blocks,
     content: args.content ?? {},
     ...(insetLeft === undefined ? {} : { insetLeft }),
+    ...(align === undefined ? {} : { align }),
   });
 }

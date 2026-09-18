@@ -56,6 +56,7 @@ import { BackdropControl } from "./backdrop-control";
 import { BlockStylePanel } from "./block-style-panel";
 import { ThemePanel } from "./theme-panel";
 import { DesignContentForm } from "./design-content-form";
+import { PhotoControl } from "./photo-control";
 import { DesignPreview } from "./design-preview";
 
 export function StudioWorkspace() {
@@ -65,6 +66,10 @@ export function StudioWorkspace() {
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<DesignDoc | null>(null);
   const [syncedAssetId, setSyncedAssetId] = React.useState<string | null>(null);
+  /* A profile is several assets, so the editor has to know WHICH one is open.
+   * Falls back to the first rather than to null — an editor with nothing
+   * selected is a blank screen nobody asked for. */
+  const [openAssetId, setOpenAssetId] = React.useState<string | null>(null);
   /* WHICH card is creating, not just THAT one is. A shared isPending greyed out
    * all four buttons at once, which read as "every style is selected". */
   const [pendingTemplate, setPendingTemplate] = React.useState<string | null>(null);
@@ -79,8 +84,8 @@ export function StudioWorkspace() {
   );
 
   const project = openQuery.data;
-  /* Phase 1 renders the banner only; phase 2 turns this into a step selector. */
-  const asset = project?.assets[0];
+  const asset =
+    project?.assets.find((row) => row.id === openAssetId) ?? project?.assets[0];
 
   /* Seeded during render rather than in an effect — the project rule. An effect
    * would paint one frame of the previous design before correcting itself. */
@@ -123,6 +128,21 @@ export function StudioWorkspace() {
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
+  /* Reuses the existing signer rather than adding a studio-specific one: these
+   * credentials are short-lived and scoped to the ImageKit account rather than
+   * to a feature, so a second procedure would be the same code under a new
+   * name.
+   *
+   * staleTime and gcTime are BOTH zero, copied from the composer and for the
+   * reason stated there: ImageKit burns an upload token on first use, so a
+   * cached credential would replay a spent token and fail at the vendor. */
+  async function fetchUploadAuth() {
+    return utils.linkedinPosts.uploadAuth.fetch(
+      { organizationId: organizationId ?? "" },
+      { staleTime: 0, gcTime: 0 },
+    );
+  }
+
   const backdropMutation = trpc.studioBackdrop.create.useMutation({
     onError: (error) => toast.error(getErrorMessage(error)),
   });
@@ -143,6 +163,7 @@ export function StudioWorkspace() {
       setOpenId(null);
       setDraft(null);
       setSyncedAssetId(null);
+      setOpenAssetId(null);
       toast.success("Profile discarded. Anything you already exported is still in Documents.");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -205,6 +226,7 @@ export function StudioWorkspace() {
               setOpenId(null);
               setDraft(null);
               setSyncedAssetId(null);
+              setOpenAssetId(null);
             }}
           >
             Back to all
@@ -214,6 +236,36 @@ export function StudioWorkspace() {
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
           <Card className="surface-raised">
             <CardContent className="flex flex-col gap-4 pt-6">
+              {/* One row per asset in the kit. A segmented control rather than a
+                  wizard: the assets are independent, so imposing an order would
+                  stop someone fixing their banner without first walking past a
+                  headshot they already finished. */}
+              {project.assets.length > 1 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {project.assets.map((row) => {
+                    const isOpen = row.id === asset.id;
+                    return (
+                      <button
+                        key={row.id}
+                        type="button"
+                        aria-pressed={isOpen}
+                        onClick={() => {
+                          setOpenAssetId(row.id);
+                        }}
+                        className={cn(
+                          "rounded-md border px-3 py-1 text-xs transition-colors",
+                          isOpen
+                            ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
+                            : "bg-muted/40 hover:bg-muted",
+                        )}
+                      >
+                        {STUDIO_ASSET_KIND_LABELS[row.kind as StudioAssetKind] ?? row.kind}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
               {/* Three tabs rather than one long column: the reference editors
                   all split content from styling, and a member changing a colour
                   should not have to scroll past every text field to reach it. */}
@@ -239,6 +291,22 @@ export function StudioWorkspace() {
                       setDraft({ ...draft, content });
                     }}
                   />
+
+                  {/* Only where the layout actually reads a photo. Offering an
+                      upload on a design that would ignore it is a promise the
+                      renderer does not keep. */}
+                  {draft.blocks.some(
+                    (block) => block.type === "image" && block.slot === "photo",
+                  ) ? (
+                    <div className="pt-4">
+                      <PhotoControl
+                        doc={draft}
+                        onChange={setDraft}
+                        getAuthParams={fetchUploadAuth}
+                        disabled={updateMutation.isPending || renderMutation.isPending}
+                      />
+                    </div>
+                  ) : null}
                 </TabsContent>
 
                 <TabsContent value="style" className="pt-4">
