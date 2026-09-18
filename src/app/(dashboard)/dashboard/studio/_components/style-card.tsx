@@ -40,6 +40,9 @@ import { Spotlight } from "@/components/global/spotlight";
 import { cn } from "@/lib/utils";
 
 export interface StyleCardProps {
+  /* Alternates the wobble and the tilt. A grid where every card leans the same
+   * way reads as a broken transform rather than as hand-drawn. */
+  index: number;
   template: StudioTemplate;
   palette: DesignPalette;
   isPending: boolean;
@@ -65,7 +68,10 @@ function StyleMiniature({
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-lg border"
+      className={cn(
+        "relative w-full overflow-hidden border",
+        "sketch-box-alt",
+      )}
       style={{
         aspectRatio: "1584 / 396",
         backgroundColor: palette.background,
@@ -129,6 +135,7 @@ function StyleMiniature({
 export function StyleCard({
   template,
   palette,
+  index,
   isPending,
   disabled,
   onUse,
@@ -136,11 +143,16 @@ export function StyleCard({
   return (
     /* Spotlight writes its cursor position onto ITS OWN element rather than a
      * shared parent, which is what keeps a grid of these from stuttering. */
-    <Spotlight className="surface-raised flex flex-col gap-3 border p-3 transition-transform duration-200 hover:-translate-y-0.5">
+    <Spotlight
+      className={cn(
+        "surface-raised sketch-shadow flex flex-col gap-3 border p-3",
+        index % 2 === 0 ? "sketch-box sketch-tilt-a" : "sketch-box-alt sketch-tilt-b",
+      )}
+    >
       <StyleMiniature template={template} palette={palette} />
 
       <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">{template.label}</span>
+        <span className="font-sketch text-lg leading-none">{template.label}</span>
         <span className="text-xs capitalize text-muted-foreground">
           {template.tone} · {template.roles.join(", ").replace(/([A-Z])/g, " $1")}
         </span>
@@ -152,7 +164,7 @@ export function StyleCard({
             key={reason}
             className="flex gap-1.5 text-xs leading-snug text-muted-foreground"
           >
-            <span aria-hidden className="text-brand">
+            <span aria-hidden className="font-sketch text-sm leading-none text-brand">
               ✓
             </span>
             {reason}

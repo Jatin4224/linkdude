@@ -246,7 +246,7 @@ export function StudioWorkspace() {
         }
       >
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
-          <Card className="surface-raised">
+          <Card className="surface-raised sketch-box sketch-scope">
             <CardContent className="flex flex-col gap-4 pt-6">
               {/* One row per asset in the kit. A segmented control rather than a
                   wizard: the assets are independent, so imposing an order would
@@ -464,9 +464,11 @@ export function StudioWorkspace() {
       icon={<LayoutTemplateIcon className="size-5" />}
       actions={<UsageMeter resource="studio" className="w-48" />}
     >
-      <div className="flex flex-col gap-8">
+      {/* The hand-drawn treatment lives under this one class, so it cannot leak
+          into any other route. See .sketch-scope in globals.css. */}
+      <div className="sketch-scope flex flex-col gap-8">
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium">Your profiles</h2>
+          <h2 className="font-sketch text-xl leading-none">Your profiles</h2>
 
           {listQuery.isLoading ? (
             <Skeleton className="h-24 w-full" />
@@ -475,14 +477,14 @@ export function StudioWorkspace() {
               {listQuery.data.items.map((row) => (
                 <Card
                   key={row.id}
-                  className="surface-raised cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-border"
+                  className="surface-raised sketch-box sketch-shadow cursor-pointer hover:border-brand-border"
                   onClick={() => {
                     setOpenId(row.id);
                   }}
                 >
                   <CardContent className="flex flex-col gap-2 pt-6">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium">{row.name}</span>
+                      <span className="font-sketch text-lg leading-none">{row.name}</span>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -516,8 +518,8 @@ export function StudioWorkspace() {
           ) : (
             /* Dashed, matching the safe-zone language used throughout the
                editor — an empty slot rather than an error. */
-            <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-8 text-center">
-              <span className="text-sm font-medium">Nothing here yet</span>
+            <div className="sketch-box flex flex-col items-center gap-1 border border-dashed px-4 py-8 text-center">
+              <span className="font-sketch text-xl leading-none">Nothing here yet</span>
               <span className="text-xs text-muted-foreground">
                 Pick a style below — you&apos;ll have a banner in about a minute.
               </span>
@@ -527,7 +529,9 @@ export function StudioWorkspace() {
 
         <section className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">
-            <h2 className="text-sm font-medium">Pick a style</h2>
+            <h2 className="sketch-underline font-sketch text-xl leading-none">
+              Pick a style
+            </h2>
             <p className="text-xs text-muted-foreground">
               Every one is sized for LinkedIn and keeps your text clear of your
               profile photo. The dashed circle is where your face lands.
@@ -543,6 +547,7 @@ export function StudioWorkspace() {
                 <StyleCard
                   template={template}
                   palette={getDesignPalette(template.palette)}
+                  index={index}
                   isPending={pendingTemplate === key}
                   disabled={pendingTemplate !== null}
                   onUse={() => {
