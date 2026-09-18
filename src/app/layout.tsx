@@ -23,6 +23,7 @@ import type { Metadata } from "next";
 import {
   Archivo,
   Archivo_Black,
+  Caveat,
   Geist,
   Geist_Mono,
   Instrument_Serif,
@@ -96,6 +97,22 @@ const archivo = Archivo({
   weight: ["400", "500", "600"],
 });
 
+/* Caveat is the STUDIO display face — a handwriting font, declared here because
+ * next/font must run at the root, but consumed ONLY under .sketch-scope on the
+ * studio route.
+ *
+ * Scoped on purpose. A handwriting face across an app whose other pages are a
+ * calendar and an audit log would read as an accident; on the one surface that is
+ * about making something, it reads as an invitation.
+ *
+ * It never reaches the RENDERER — satori draws with Geist read off disk, and a UI
+ * font has no path into a PNG. */
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  weight: "600",
+});
+
 const archivoBlack = Archivo_Black({
   variable: "--font-archivo-black",
   subsets: ["latin"],
@@ -140,6 +157,7 @@ export default function RootLayout({
         instrumentSerif.variable,
         archivo.variable,
         archivoBlack.variable,
+        caveat.variable,
       )}
     >
       <body

@@ -41,9 +41,6 @@ import "server-only";
  *        by that router via imagekit.service.uploadFileBytes.
  */
 
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import { ImageResponse } from "next/og";
 import { PDFDocument } from "pdf-lib";
 
@@ -52,7 +49,6 @@ import type { Prisma } from "@/generated/prisma";
 import { prisma, type DbClient } from "@/lib/config/prisma";
 import {
   CAROUSEL_FONT_FAMILY,
-  CAROUSEL_FONT_FILES,
   CAROUSEL_PAGE_PRESETS,
   getCarouselPalette,
   getCarouselTypeScale,
@@ -66,47 +62,35 @@ import {
   type CarouselSlides,
 } from "@/lib/types";
 
+/* The font buffers moved to their own service once the studio renderer needed
+ * the same ones — see the note on loadCarouselFonts below. */
+import { loadRenderFonts, type LoadedFont } from "./render-fonts.service";
+
 // ---------------------------------------------------------------------------
 // Fonts
 // ---------------------------------------------------------------------------
 
-interface LoadedFont {
-  name: string;
-  data: Buffer;
-  weight: 400 | 700;
-  style: "normal";
-}
-
-/* Read once per process, not once per render. The files never change at runtime
- * and a deck rasterises up to twelve slides — re-reading 70 KB from disk for each
- * one is pure waste. Cached as the PROMISE so two concurrent renders starting at
- * the same moment share a single read instead of racing. */
-let fontsPromise: Promise<LoadedFont[]> | null = null;
-
 /**
  * SOURCE OF TRUTH KEYWORDS: loadCarouselFonts
  *
- * WHAT:  Loads the Geist faces satori draws with.
- * WHY:   Without these, satori falls back to the single Regular face bundled in
+ * WHAT:  The Geist faces satori draws with.
+ * WHY:   Was a local cached-promise loader here until the studio renderer needed
+ *        the same buffers. Now a thin alias over the shared one in
+ *        render-fonts.service, so both rasterisers hit ONE per-process cache
+ *        instead of each paying its own disk read.
+ *
+ *        The reason the fonts are passed explicitly at all has not changed:
+ *        without them satori falls back to the single Regular face bundled in
  *        next/og and SILENTLY IGNORES fontWeight — every weight from 300 to 900
- *        rasterises identically, so a heading cannot outweigh its body. That
- *        failure is invisible in code review and obvious in the output, which is
- *        why the files are explicit rather than assumed.
+ *        rasterises identically, so a heading cannot outweigh its body. Invisible
+ *        in code review, obvious in the output.
+ *
+ *        Kept as a named local rather than inlining `loadRenderFonts()` at the
+ *        call site so this explanation stays attached to the carousel path.
  * WHERE: Called by renderSlidePng on every rasterisation (cached after the first).
  */
 async function loadCarouselFonts(): Promise<LoadedFont[]> {
-  fontsPromise ??= Promise.all(
-    CAROUSEL_FONT_FILES.map(async (font) => ({
-      name: CAROUSEL_FONT_FAMILY,
-      /* cwd-relative: Next runs the server from the project root, and
-       * next.config.ts declares these paths in outputFileTracingIncludes so the
-       * tracer ships them. */
-      data: await readFile(path.join(process.cwd(), font.path)),
-      weight: font.weight,
-      style: "normal" as const,
-    })),
-  );
-  return fontsPromise;
+  return loadRenderFonts("geist");
 }
 
 // ---------------------------------------------------------------------------

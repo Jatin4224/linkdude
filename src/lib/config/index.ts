@@ -240,6 +240,41 @@ export {
   getCarouselTypeScale,
 } from "./carousel-theme";
 export type { CarouselPalette, CarouselTypeScale } from "./carousel-theme";
+/* Studio render-time theme — the satori twin for profile assets. Same reason
+ * carousel-theme exists: no CSS runtime, so no tokens and no oklch(). */
+export {
+  DESIGN_BRAND_HEX,
+  DESIGN_PALETTE_KEYS,
+  DESIGN_PALETTES,
+  getDesignPalette,
+  resolveDesignPalette,
+  resolveDesignColor,
+  DESIGN_TYPE_SCALE,
+  getDesignTypeScale,
+} from "./design-theme";
+export type {
+  DesignPalette,
+  DesignPaletteKey,
+  DesignTypeScale,
+} from "./design-theme";
+/* Studio text slots — the editorial half of the block language. */
+export {
+  DESIGN_TEXT_SLOTS,
+  DESIGN_TEXT_SLOT_ENTRIES,
+  designContentIssues,
+} from "./design-slots";
+export type {
+  DesignTextSlotDefinition,
+  DesignContentIssue,
+} from "./design-slots";
+/* Studio layouts — the block lists a design is cloned from. */
+export {
+  DESIGN_ARCHETYPE_KEYS,
+  DESIGN_ARCHETYPES,
+  getDesignArchetype,
+  buildDesignDoc,
+} from "./design-archetypes";
+export type { DesignArchetype, DesignArchetypeKey } from "./design-archetypes";
 export {
   VOICE_EXTRACTOR_VERSION,
   VOICE_EXTRACTION_MAX_TOKENS,
@@ -278,3 +313,26 @@ export {
   POST_LENGTH_TOLERANCE,
   POST_CHECK_RULES,
 } from "./post-writing";
+/* Studio gallery — the styles a profile can be started from. */
+export {
+  STUDIO_TEMPLATE_KEYS,
+  STUDIO_TEMPLATES,
+  STUDIO_TEMPLATE_ENTRIES,
+  getStudioTemplate,
+  isStudioTemplateKey,
+} from "./studio-templates";
+export type { StudioTemplate, StudioTemplateKey } from "./studio-templates";
+/* Studio pipeline constants — storage folder, mime, timeouts, file naming. */
+export {
+  IMAGEKIT_STUDIO_FOLDER,
+  STUDIO_PNG_MIME_TYPE,
+  STUDIO_RENDER_TIMEOUT_MS,
+  STUDIO_PREVIEW_DEBOUNCE_MS,
+  STUDIO_PREVIEW_PATH,
+  STUDIO_BACKDROP_TIMEOUT_MS,
+  STUDIO_BACKDROP_BRIEF_MAX,
+  studioBackdropFileName,
+  STUDIO_DEFAULT_PROJECT_NAME,
+  studioAssetTitle,
+  studioAssetFileName,
+} from "./studio";

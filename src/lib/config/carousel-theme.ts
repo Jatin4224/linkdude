@@ -30,6 +30,10 @@
 
 import type { CarouselPagePreset, CarouselTemplate } from "@/lib/types/carousel";
 
+/* The palette shape is owned by the studio's theme module — see the note on
+ * CarouselPalette below. Imported, not redeclared. */
+import type { DesignPalette } from "./design-theme";
+
 /**
  * SOURCE OF TRUTH KEYWORDS: CAROUSEL_BRAND_HEX
  *
@@ -44,23 +48,20 @@ export const CAROUSEL_BRAND_HEX = "#0A66C2";
 /**
  * SOURCE OF TRUTH KEYWORDS: CarouselPalette
  *
- * WHAT:  The five colours a slide template needs.
+ * WHAT:  The five colours a slide template needs — background, foreground,
+ *        muted, border, accent.
  * WHY:   Deliberately small. A template that needs a sixth colour is a template
  *        doing too much — the constraint is what keeps decks looking like one
  *        product rather than five unrelated designs.
+ *
+ *        An ALIAS rather than its own declaration since the studio landed: the
+ *        two renderers had byte-identical five-field interfaces, and phase 5 of
+ *        docs/20-studio.md points this renderer at the studio's generic one.
+ *        Two identical shapes would have to be reconciled then; one shape now
+ *        costs nothing and every existing importer of `CarouselPalette` keeps
+ *        resolving unchanged.
  */
-export interface CarouselPalette {
-  /** Full-bleed page fill. */
-  background: string;
-  /** Headings. */
-  foreground: string;
-  /** Body copy and the slide counter — never headings. */
-  muted: string;
-  /** Rules, underlines, progress ticks. */
-  border: string;
-  /** The one emphatic colour: cta fills, cover accents. */
-  accent: string;
-}
+export type CarouselPalette = DesignPalette;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: CAROUSEL_PALETTES

@@ -40,7 +40,14 @@
  *   postWithOpeningsSchema, POST_IDEA_STATUSES, PostIdeaStatus,
  *   createPostIdeaSchema, listPostIdeasSchema, updatePostIdeaSchema,
  *   postIdeaIdSchema, PostIdeaOption, ideaAnglesSchema, IdeaAngle,
- *   expandPostIdeaSchema
+ *   expandPostIdeaSchema, DESIGN_CANVAS_KEYS, DesignCanvasKey,
+ *   DESIGN_CANVAS_PRESETS, DesignCanvasPreset, DesignSafeZone,
+ *   DESIGN_COLOR_SLOTS, DesignColorSlot, designHexSchema, designColorRefSchema,
+ *   DESIGN_TEXT_ROLES, DESIGN_TEXT_SLOT_KEYS, DesignTextSlotKey,
+ *   DESIGN_IMAGE_SLOT_KEYS, DESIGN_COMPUTED_VALUES, designTextRefSchema,
+ *   designBlockSchema, DesignBlock, designLeafBlockSchema,
+ *   designLayoutOverrideSchema, designBackgroundSchema, designDocSchema,
+ *   DesignDoc, DesignDocInput, DESIGN_MAX_BLOCKS, slotsUsedBy
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -402,6 +409,55 @@ export type {
   ListDocumentsValues,
   DeleteDocumentValues,
 } from "./carousel";
+/* The studio block language — the declarative shape a design is authored in, so
+ * a new template is a config object rather than a renderer branch. */
+export {
+  DESIGN_CANVAS_KEYS,
+  designCanvasSchema,
+  DESIGN_CANVAS_PRESETS,
+  DESIGN_COLOR_SLOTS,
+  designColorSlotSchema,
+  designHexSchema,
+  designColorRefSchema,
+  DESIGN_TEXT_ROLES,
+  designTextRoleSchema,
+  DESIGN_TEXT_SLOT_KEYS,
+  designTextSlotSchema,
+  DESIGN_IMAGE_SLOT_KEYS,
+  designImageSlotSchema,
+  DESIGN_COMPUTED_VALUES,
+  designComputedValueSchema,
+  DESIGN_FIXED_TEXT_MAX,
+  designTextRefSchema,
+  designLayoutOverrideSchema,
+  designLeafBlockSchema,
+  designBlockSchema,
+  designBackgroundSchema,
+  DESIGN_PATTERNS,
+  designPatternSchema,
+  DESIGN_MAX_BLOCKS,
+  designDocSchema,
+  slotsUsedBy,
+} from "./design-block";
+export type {
+  DesignCanvasKey,
+  DesignCanvasPreset,
+  DesignSafeZone,
+  DesignColorSlot,
+  DesignColorRef,
+  DesignTextRole,
+  DesignTextSlotKey,
+  DesignImageSlotKey,
+  DesignComputedValue,
+  DesignTextRef,
+  DesignLayoutOverride,
+  DesignLeafBlock,
+  DesignBlock,
+  DesignBackground,
+  DesignPattern,
+  DesignDoc,
+  DesignDocInput,
+} from "./design-block";
 /* Voice profile — a member's writing voice, learned from their own posts and
  * read by every generator. */
 export {
@@ -482,3 +538,42 @@ export type {
   PaperScatterMark,
   PaperOrbitMark,
 } from "./paper";
+/* Studio feature contracts — asset kinds, gallery facets and every router input.
+ * Separate from ./design-block, which describes a DESIGN and is what phase 5
+ * shares with the carousel. */
+export {
+  STUDIO_ASSET_KINDS,
+  studioAssetKindSchema,
+  STUDIO_ASSET_KIND_CANVAS,
+  STUDIO_ASSET_KIND_LABELS,
+  STUDIO_STATUSES,
+  studioStatusSchema,
+  STUDIO_ROLES,
+  studioRoleSchema,
+  STUDIO_TONES,
+  studioToneSchema,
+  STUDIO_PROJECT_NAME_MAX,
+  studioContentSchema,
+  createStudioProjectSchema,
+  updateStudioAssetSchema,
+  updateStudioProfileSchema,
+
+  generateStudioBackdropSchema,
+  renderStudioAssetSchema,
+  getStudioProjectSchema,
+  discardStudioProjectSchema,
+  listStudioProjectsSchema,
+} from "./studio";
+export type {
+  StudioAssetKind,
+  StudioStatus,
+  StudioRole,
+  StudioTone,
+  CreateStudioProjectValues,
+  CreateStudioProjectInput,
+  UpdateStudioAssetValues,
+  UpdateStudioProfileValues,
+
+  ListStudioProjectsValues,
+  GenerateStudioBackdropValues,
+} from "./studio";
