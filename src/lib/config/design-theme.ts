@@ -248,16 +248,23 @@ export interface DesignTypeScale {
  *        carousel renderer here must not move a single glyph.
  */
 export const DESIGN_TYPE_SCALE = {
-  /* A banner is only 396px tall and its left third sits under the avatar, so the
-   * display size is far smaller than the canvas width suggests. */
+  /* MEASURED against the banners in research/figma-profile-kit, not guessed: at
+   * 1584x396 their headlines run about 45px, not the 70+ the canvas width
+   * suggests. The canvas is wide but SHORT, and a two-line headline at 72px eats
+   * the whole 396 before the subline and CTA get a row. */
   linkedinBanner: {
-    display: 72,
-    heading: 58,
-    subheading: 34,
-    body: 28,
-    meta: 22,
-    padding: 72,
-    gap: 16,
+    display: 52,
+    heading: 44,
+    subheading: 26,
+    body: 22,
+    meta: 16,
+    /* Padding and gap are TIGHT here because the budget is vertical, not
+     * horizontal. 396px minus padding twice is all a banner has, and a two-line
+     * display headline alone eats 109 of it. Sized so the reference stack
+     * (eyebrow, headline, subline, CTA row) lands near 270 of an available 308 —
+     * roughly 38px of headroom, which is slack rather than luck. */
+    padding: 44,
+    gap: 10,
   },
   /* 191px tall. Everything shrinks; this is the tightest canvas in the set. */
   companyBanner: {

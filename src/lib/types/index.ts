@@ -433,6 +433,8 @@ export {
   designLeafBlockSchema,
   designBlockSchema,
   designBackgroundSchema,
+  DESIGN_PATTERNS,
+  designPatternSchema,
   DESIGN_MAX_BLOCKS,
   designDocSchema,
   slotsUsedBy,
@@ -452,6 +454,7 @@ export type {
   DesignLeafBlock,
   DesignBlock,
   DesignBackground,
+  DesignPattern,
   DesignDoc,
   DesignDocInput,
 } from "./design-block";
@@ -535,3 +538,40 @@ export type {
   PaperScatterMark,
   PaperOrbitMark,
 } from "./paper";
+/* Studio feature contracts — asset kinds, gallery facets and every router input.
+ * Separate from ./design-block, which describes a DESIGN and is what phase 5
+ * shares with the carousel. */
+export {
+  STUDIO_ASSET_KINDS,
+  studioAssetKindSchema,
+  STUDIO_ASSET_KIND_CANVAS,
+  STUDIO_ASSET_KIND_LABELS,
+  STUDIO_STATUSES,
+  studioStatusSchema,
+  STUDIO_ROLES,
+  studioRoleSchema,
+  STUDIO_TONES,
+  studioToneSchema,
+  STUDIO_PROJECT_NAME_MAX,
+  studioContentSchema,
+  createStudioProjectSchema,
+  updateStudioAssetSchema,
+
+  generateStudioBackdropSchema,
+  renderStudioAssetSchema,
+  getStudioProjectSchema,
+  discardStudioProjectSchema,
+  listStudioProjectsSchema,
+} from "./studio";
+export type {
+  StudioAssetKind,
+  StudioStatus,
+  StudioRole,
+  StudioTone,
+  CreateStudioProjectValues,
+  CreateStudioProjectInput,
+  UpdateStudioAssetValues,
+
+  ListStudioProjectsValues,
+  GenerateStudioBackdropValues,
+} from "./studio";

@@ -782,12 +782,10 @@ export const RESOURCES = {
       /* Same shape as carousel.render and for the same reason — local CPU plus
        * an upload, so looser than a model call but never uncapped. */
       render: { count: 10, window: "1 m" },
-      /* The editor previews on a debounce as the user types, so this is the only
-       * rate limit in the app that a NORMAL session is expected to approach.
-       * Thirty a minute sits above a 600ms debounce with headroom and still
-       * stops a stuck client turning the renderer into a treadmill. Raising it
-       * is cheaper than lowering the debounce. */
-      preview: { count: 30, window: "1 m" },
+      /* NOTE no `preview` entry. Rate limits key off a PROCEDURE path segment,
+       * and live preview is a route handler rather than a procedure — see
+       * src/app/api/studio/preview/route.ts. A limit declared here could never
+       * fire, and a number that cannot fire is worse than no number. */
     },
     audit: {
       entity: "studioProject",
@@ -797,9 +795,9 @@ export const RESOURCES = {
         render: "Exported a design",
         discard: "Discarded a studio project",
       },
-      /* NOTE there is no `preview` line, and that is load-bearing rather than an
-       * omission: the preview procedure passes `audit: false`, because a debounced
-       * render would otherwise write an audit row per keystroke burst. */
+      /* NOTE there is no `preview` line, and that is correct rather than an
+       * omission: live preview is a route handler, outside the factory entirely,
+       * so a debounced render cannot write an audit row per keystroke. */
     },
     nav: {
       label: "Studio",
@@ -812,6 +810,46 @@ export const RESOURCES = {
       /* Brand-new key, same caveat as carousel: owners see it at once, and a
        * custom role needs an explicit grant in the role editor. */
       requirePermission: "create",
+    },
+  },
+
+  /* AI backdrops for studio designs: one image generation per call.
+   *
+   * Its own KEY rather than a verb on `studio`, because only `<resource>.create`
+   * spends and `studio.create` is already spent on the PROJECT. A backdrop is
+   * model money and a project is a slot; one counter cannot meter both without
+   * charging a member a whole profile for regenerating a texture.
+   *
+   * No `nav`: the Generate button lives inside the studio editor. Same shape as
+   * ideaAngles, which sits beside postIdeas for exactly this reason. */
+  studioBackdrop: {
+    name: "AI Backdrops",
+    description: "Generate a background image for a profile design",
+    /* No `delete`: a generation is spend and is never refunded. Removing the
+     * backdrop from a design does not un-spend the model call that made it. */
+    permissions: ["create"],
+    limit: {
+      perPlan: {
+        /* Three on free — enough to see that the idea works and that the first
+         * brief is rarely the right one, without funding an image farm. */
+        free: 3,
+        starter: 40,
+        pro: 200,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to generate more backdrops",
+      availableOnFreeTrial: true,
+      unit: "backdrops",
+    },
+    rateLimit: {
+      /* An image round trip runs to ninety seconds, so a tight burst cap costs
+       * nobody anything and stops a stuck client queueing paid calls. */
+      create: { count: 4, window: "1 m" },
+    },
+    audit: {
+      entity: "studioBackdrop",
+      describe: { create: "Generated a design backdrop" },
     },
   },
 

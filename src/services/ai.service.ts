@@ -306,6 +306,62 @@ export async function editImage(
   return { base64: image.base64, mediaType: image.mediaType };
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateBackdrop, GeneratedBackdrop,
+ *   BACKDROP_DIRECTIVE, studio backdrop
+ *
+ * WHAT:  Generates a background image for a studio design from a text brief.
+ * WHY:   A bare STRING prompt, where editImage passes the object form — that is
+ *        the whole difference between the two, and it is deliberate: there is no
+ *        source image here, so the object form would have nothing to edit.
+ *
+ *        The brief is WRAPPED rather than passed through, and the wrapper is the
+ *        point of this function. Image models cannot render legible text, so the
+ *        one thing that must never appear in a generated backdrop is words — the
+ *        renderer draws those itself, crisply, on top. Left unwrapped, a brief
+ *        like "banner for a B2B founder" reliably comes back with garbled
+ *        lettering baked into the pixels, which no amount of compositing removes.
+ *
+ *        The composition instructions are not decoration either: a LinkedIn
+ *        banner has the member's avatar over its lower left, so a backdrop whose
+ *        subject sits there is covered by their own face.
+ *
+ *        Returns BYTES rather than uploading them, the contract editImage keeps:
+ *        this file talks to models, the caller decides where things land.
+ * WHERE: Called by src/trpc/routers/studio-backdrop.ts, which uploads the result.
+ */
+const BACKDROP_DIRECTIVE = [
+  "Abstract background texture for a wide banner image.",
+  "ABSOLUTELY NO TEXT, NO LETTERS, NO WORDS, NO NUMBERS, NO LOGOS, NO WATERMARKS.",
+  "No people, no faces, no hands.",
+  "Wide panoramic composition. Keep the left third calm and uncluttered; let any",
+  "visual interest sit on the right.",
+  "Low contrast and subtle, so white or dark text stays readable over it.",
+].join(" ");
+
+export interface GeneratedBackdrop {
+  /** Base64 payload, ready to hand to ImageKit without re-encoding. */
+  base64: string;
+  mediaType: string;
+}
+
+export async function generateBackdrop(brief: string): Promise<GeneratedBackdrop> {
+  const { image, warnings } = await generateImage({
+    model: getAiImageModel(),
+    prompt: `${BACKDROP_DIRECTIVE} The subject matter: ${brief}`,
+    /* Zero, for the reason editImage states: the dominant failure is a quota
+     * refusal, and quota does not clear between attempts. */
+    maxRetries: 0,
+    abortSignal: AbortSignal.timeout(AI_IMAGE_TIMEOUT_MS),
+  });
+
+  if (warnings.length > 0) {
+    console.warn("[ai] backdrop generation returned warnings", { warnings });
+  }
+
+  return { base64: image.base64, mediaType: image.mediaType };
+}
+
 /* Tone is the product in a personal-branding tool, so each value gets an
  * explicit directive rather than passing the bare enum name to the model —
  * "contrarian" alone is far too open to interpretation. */

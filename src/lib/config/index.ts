@@ -313,3 +313,26 @@ export {
   POST_LENGTH_TOLERANCE,
   POST_CHECK_RULES,
 } from "./post-writing";
+/* Studio gallery — the styles a profile can be started from. */
+export {
+  STUDIO_TEMPLATE_KEYS,
+  STUDIO_TEMPLATES,
+  STUDIO_TEMPLATE_ENTRIES,
+  getStudioTemplate,
+  isStudioTemplateKey,
+} from "./studio-templates";
+export type { StudioTemplate, StudioTemplateKey } from "./studio-templates";
+/* Studio pipeline constants — storage folder, mime, timeouts, file naming. */
+export {
+  IMAGEKIT_STUDIO_FOLDER,
+  STUDIO_PNG_MIME_TYPE,
+  STUDIO_RENDER_TIMEOUT_MS,
+  STUDIO_PREVIEW_DEBOUNCE_MS,
+  STUDIO_PREVIEW_PATH,
+  STUDIO_BACKDROP_TIMEOUT_MS,
+  STUDIO_BACKDROP_BRIEF_MAX,
+  studioBackdropFileName,
+  STUDIO_DEFAULT_PROJECT_NAME,
+  studioAssetTitle,
+  studioAssetFileName,
+} from "./studio";

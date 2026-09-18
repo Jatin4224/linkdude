@@ -29,6 +29,7 @@
 import { z } from "zod";
 
 import { designContentIssues } from "@/lib/config/design-slots";
+import { STUDIO_BACKDROP_BRIEF_MAX } from "@/lib/config/studio";
 
 import { designDocSchema, designTextSlotSchema, type DesignCanvasKey } from "./design-block";
 
@@ -181,6 +182,29 @@ export const previewStudioDesignSchema = z.object({
   doc: designDocSchema,
 });
 export type PreviewStudioDesignValues = z.infer<typeof previewStudioDesignSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateStudioBackdropSchema
+ *
+ * WHAT:  A text brief for an AI-generated background image.
+ * WHY:   Short on purpose. This describes a TEXTURE, not a banner — the words on
+ *        the banner are drawn by the renderer, and a brief long enough to contain
+ *        a headline is a brief the member expects to see rendered into the image.
+ *        The cap is the cheapest way to keep that expectation from forming.
+ */
+export const generateStudioBackdropSchema = z.object({
+  brief: z
+    .string()
+    .trim()
+    .min(3, "Describe the background you want")
+    .max(
+      STUDIO_BACKDROP_BRIEF_MAX,
+      `Keep the brief under ${String(STUDIO_BACKDROP_BRIEF_MAX)} characters`,
+    ),
+});
+export type GenerateStudioBackdropValues = z.infer<
+  typeof generateStudioBackdropSchema
+>;
 
 export const renderStudioAssetSchema = z.object({
   id: z.string().min(1),

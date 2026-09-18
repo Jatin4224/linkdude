@@ -7,6 +7,53 @@
 import "server-only";
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: resolveDesignImages, backdrop data URI
+ *
+ * WHAT:  Turns the image references on a document into inline data URIs.
+ * WHY:   satori CAN fetch a remote URL itself, and letting it is the wrong call
+ *        twice over. It would fetch mid-render with no timeout this code
+ *        controls, so a slow CDN surfaces as a render that silently produced a
+ *        blank box rather than an error anyone can act on — and it would refetch
+ *        the same bytes on every keystroke of a debounced preview.
+ *
+ *        Resolving up front means a broken image fails HERE, with a message, on
+ *        a line that names the slot.
+ *
+ *        Each image is requested through `buildTransformedUrl` at the size it
+ *        will actually occupy, never at source resolution. A 4000px upload
+ *        composited into a 1584px canvas is several megabytes of decode for
+ *        pixels nobody sees, and on a per-keystroke preview that is the whole
+ *        latency budget.
+ * WHERE: Called by renderDesignPng when the caller has not already supplied
+ *        resolved images.
+ */
+async function resolveDesignImages(
+  doc: DesignDoc,
+  canvasWidth: number,
+): Promise<Partial<Record<DesignImageSlotKey, string>>> {
+  const entries = Object.entries(doc.images) as [
+    DesignImageSlotKey,
+    { url: string } | undefined,
+  ][];
+
+  const resolved: Partial<Record<DesignImageSlotKey, string>> = {};
+
+  /* Sequential, matching the rest of this pipeline: satori is CPU-bound on one
+   * thread anyway, and a design carries at most three images. */
+  for (const [slot, image] of entries) {
+    if (!image) continue;
+
+    const sized = buildTransformedUrl(image.url, `w-${String(canvasWidth)}`);
+    const binary = await imagekitService.fetchFileBinary(sized, "image/png");
+    resolved[slot] = `data:${binary.mimeType};base64,${Buffer.from(
+      binary.bytes,
+    ).toString("base64")}`;
+  }
+
+  return resolved;
+}
+
+/**
  * SOURCE OF TRUTH KEYWORDS: renderDesignPng, RenderedDesign, DesignCanvasView,
  *   renderDesignBlock, DesignRenderContext, resolveTextRef, designFlex,
  *   studio renderer, satori element tree, block language renderer
@@ -42,6 +89,7 @@ import "server-only";
 import { ImageResponse } from "next/og";
 
 import {
+  buildTransformedUrl,
   CAROUSEL_FONT_FAMILY,
   getDesignTypeScale,
   resolveDesignColor,
@@ -55,10 +103,12 @@ import {
   type DesignColorRef,
   type DesignDoc,
   type DesignImageSlotKey,
+  type DesignPattern,
   type DesignLeafBlock,
   type DesignTextRef,
 } from "@/lib/types";
 
+import * as imagekitService from "./imagekit.service";
 import { loadRenderFonts } from "./render-fonts.service";
 
 /**
@@ -190,11 +240,15 @@ function renderDesignBlock(
       if (value === null) return null;
 
       const base = {
-        fontSize: fontSizeFor(block.role, scale),
+        /* The member's override wins; otherwise the geometry decides. That is
+         * what keeps one archetype legible on a 396px banner and a 1350px slide
+         * without the override having to be restated per canvas. */
+        fontSize: block.fontSize ?? fontSizeFor(block.role, scale),
         fontWeight: block.weight,
         color: color(block.color, context),
         letterSpacing: block.letterSpacing,
-        lineHeight: block.role === "display" ? 1.05 : 1.35,
+        lineHeight:
+          block.lineHeight ?? (block.role === "display" ? 1.05 : 1.35),
         textAlign: block.align,
         textTransform: block.transform,
       } as const;
@@ -436,6 +490,69 @@ function renderDesignBlock(
   }
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: patternStyle, DESIGN_PATTERNS
+ *
+ * WHAT:  A drawn background pattern, as CSS satori understands.
+ * WHY:   Every pattern is a GRADIENT, never a stack of positioned divs. satori
+ *        supports gradients on backgroundImage, so each of these costs one node;
+ *        a grid drawn as fifty absolutely-positioned lines would render the same
+ *        picture and triple the cost of a preview that runs on every keystroke.
+ *
+ *        Gradient stops are layered back-to-front in ONE backgroundImage value,
+ *        which is how a grid becomes two repeating gradients rather than two
+ *        elements.
+ *
+ *        Sizes are in px against the real canvas, not percentages: a percentage
+ *        grid would stretch to a different cell shape on each of the four asset
+ *        geometries, which is exactly the inconsistency a pattern is supposed to
+ *        avoid.
+ */
+function patternStyle(
+  pattern: DesignPattern,
+  field: string,
+  ink: string,
+): Record<string, string> {
+  switch (pattern) {
+    case "grid":
+      return {
+        backgroundColor: field,
+        backgroundImage: [
+          `repeating-linear-gradient(0deg, ${ink} 0px, ${ink} 1px, transparent 1px, transparent 48px)`,
+          `repeating-linear-gradient(90deg, ${ink} 0px, ${ink} 1px, transparent 1px, transparent 48px)`,
+        ].join(", "),
+      };
+
+    case "diagonal":
+      return {
+        backgroundColor: field,
+        backgroundImage: `repeating-linear-gradient(45deg, ${ink} 0px, ${ink} 2px, transparent 2px, transparent 16px)`,
+      };
+
+    case "dots":
+      return {
+        backgroundColor: field,
+        /* A radial stop that closes well before the tile edge is what makes a
+         * dot rather than a blur. */
+        backgroundImage: `radial-gradient(${ink} 1.5px, transparent 1.6px)`,
+        backgroundSize: "28px 28px",
+      };
+
+    case "glow":
+      return {
+        backgroundColor: field,
+        /* Off-centre to the RIGHT, matching where every reference banner puts
+         * its visual weight — and away from the avatar. */
+        backgroundImage: `radial-gradient(circle at 72% 40%, ${ink}, transparent 62%)`,
+      };
+
+    default: {
+      const unreachable: never = pattern;
+      return { backgroundColor: field, ...(unreachable as object) };
+    }
+  }
+}
+
 /* The full-bleed field. Gradients go through `linear-gradient`, which satori
  * supports on backgroundImage but NOT on backgroundColor. */
 function backgroundStyle(context: BlockContext): Record<string, string> {
@@ -449,6 +566,13 @@ function backgroundStyle(context: BlockContext): Record<string, string> {
       return {
         backgroundImage: `linear-gradient(${String(background.angle)}deg, ${color(background.from, context)}, ${color(background.to, context)})`,
       };
+
+    case "pattern":
+      return patternStyle(
+        background.pattern,
+        color(background.color, context),
+        color(background.ink, context),
+      );
 
     case "image": {
       const source = context.ctx.images?.[background.slot];
@@ -488,11 +612,24 @@ function DesignCanvasView({ context }: { context: BlockContext }): React.ReactEl
         ...designFlex,
         width: "100%",
         height: "100%",
+        /* A stack taller than its canvas is CLIPPED, not bled. With justify:center
+         * an over-tall column overflows symmetrically, which slices the top off
+         * the headline and pushes the footer past the bottom edge — it looks like
+         * a broken render rather than a full one. Clipping at least fails inside
+         * the frame. The real defence is the type scale: see the vertical budget
+         * note on DESIGN_TYPE_SCALE.linkedinBanner. */
+        overflow: "hidden",
         flexDirection: doc.direction,
         /* `padding` is optional rather than defaulted on the document: unset
          * means "use this geometry's own padding", which is a different
          * statement from a number the user chose. */
         padding: doc.padding ?? scale.padding,
+        /* Reserves the avatar zone. Applied on top of padding rather than instead
+         * of it, so a template states "clear the left third" without also having
+         * to restate its own breathing room. */
+        ...(doc.insetLeft === undefined
+          ? {}
+          : { paddingLeft: Math.round(doc.insetLeft * context.width) }),
         gap: scale.gap,
         fontFamily: CAROUSEL_FONT_FAMILY,
         alignItems:
@@ -536,13 +673,17 @@ export async function renderDesignPng(
    * keeps its never-throw contract for callers that have one. */
   const preset = DESIGN_CANVAS_PRESETS[doc.canvas];
 
+  /* Resolved here unless the caller already did it — phase 5 will pass a shared
+   * map once per deck rather than refetching the same logo for twelve slides. */
+  const images = ctx.images ?? (await resolveDesignImages(doc, preset.width));
+
   const context: BlockContext = {
     doc,
     palette: resolveDesignPalette(doc.paletteId, doc.paletteOverrides),
     scale: getDesignTypeScale(doc.canvas),
     width: preset.width,
     height: preset.height,
-    ctx,
+    ctx: { ...ctx, images },
   };
 
   const response = new ImageResponse(<DesignCanvasView context={context} />, {

@@ -35,6 +35,8 @@ import { contentPlanRouter } from "./content-plan";
 import { linkedinPostsRouter } from "./linkedin-posts";
 import { integrationsRouter } from "./integrations";
 import { carouselRouter } from "./carousel";
+import { studioRouter } from "./studio";
+import { studioBackdropRouter } from "./studio-backdrop";
 import { documentsRouter } from "./documents";
 import { voiceProfileRouter } from "./voice-profile";
 import { postIdeasRouter } from "./post-ideas";
@@ -73,6 +75,8 @@ export const appRouter = createTRPCRouter({
   linkedinPosts: linkedinPostsRouter,
   integrations: integrationsRouter,
   carousel: carouselRouter,
+  studio: studioRouter,
+  studioBackdrop: studioBackdropRouter,
   /* `documents`, plural, matching its RESOURCES key. The Prisma model is
    * `Document` singular — the key names the RESOURCE, not the row. */
   documents: documentsRouter,

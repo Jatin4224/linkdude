@@ -14,7 +14,8 @@
  *   designLeafBlockSchema, DesignLeafBlock, designLayoutOverrideSchema,
  *   DesignLayoutOverride, designBackgroundSchema, DesignBackground,
  *   designDocSchema, DesignDoc, DesignDocInput, DESIGN_MAX_BLOCKS,
- *   slotsUsedBy, block language, design studio, satori element tree
+ *   slotsUsedBy, DESIGN_PATTERNS, DesignPattern, designPatternSchema,
+ *   block language, design studio, satori element tree
  *
  * WHAT:  The declarative block language a studio design is authored in, and the
  *        document shape that gets stored on StudioAsset.doc.
@@ -118,24 +119,28 @@ export const DESIGN_CANVAS_PRESETS = {
     width: 1584,
     height: 396,
     safeZones: [
-      /* TODO(studio): both regions are eyeballed from
-       * research/design/profile-editor/profile-builder-wizard.jpeg. Measure
-       * against a live LinkedIn profile before this ships — a guide the user
-       * trusts and that is wrong is worse than no guide. Correcting them is a
-       * one-line change here that fixes the render guidance and the DOM overlay
-       * together, which is the reason they live in one place. */
+      /* MEASURED against a real LinkedIn profile, not eyeballed. The centre was
+       * close on the first pass; the DIAMETER was half what it should be, which
+       * is the error that mattered — a guide promising more clear space than the
+       * avatar actually takes is worse than no guide, because people trust it and
+       * put the thing they care about underneath their own face. */
       {
         id: "avatar",
         label: "Profile photo safe zone",
         shape: "circle",
-        x: 0.135,
-        y: 0.92,
-        width: 0.11,
-        height: 0.44,
+        x: 0.133,
+        y: 0.89,
+        /* Diameter as a fraction of WIDTH; the height twin is the same length
+         * expressed against the 4:1 canvas, which is why the two differ. */
+        width: 0.198,
+        height: 0.792,
       },
       {
         id: "mobileCrop",
-        label: "Hidden on mobile",
+        /* Still an estimate — LinkedIn crops the cover on narrow viewports, but
+         * the exact fraction has not been measured the way the avatar now has.
+         * Treat it as a hint rather than a boundary. */
+        label: "Tight on mobile",
         shape: "rect",
         x: 0,
         y: 0,
@@ -363,6 +368,14 @@ const designTextBlockSchema = z.object({
    * `display: flex` — see the note in design-render.service. */
   maxLines: z.number().int().min(1).max(6).default(3),
   letterSpacing: z.number().min(-4).max(12).default(0),
+  /* Absolute px, overriding the role's entry in DESIGN_TYPE_SCALE.
+   *
+   * OPTIONAL rather than defaulted, and the distinction carries meaning: unset
+   * means "whatever this geometry says a heading is", so one archetype still
+   * scales correctly across a 396px banner and a 1350px slide. A number means
+   * the member overrode it and their choice must survive a canvas change. */
+  fontSize: z.number().int().min(8).max(200).optional(),
+  lineHeight: z.number().min(0.8).max(2.5).optional(),
 });
 
 const designBadgeRowBlockSchema = z.object({
@@ -490,6 +503,20 @@ export type DesignBlock = z.infer<typeof designBlockSchema>;
 export type DesignBlockInput = z.input<typeof designBlockSchema>;
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: DESIGN_PATTERNS, DesignPattern, designPatternSchema
+ *
+ * WHAT:  The decorative fields a design can sit on, drawn rather than generated.
+ * WHY:   Every one of these is expressible as a CSS gradient, which is the whole
+ *        selection criterion: satori supports gradients on backgroundImage, so a
+ *        pattern costs ONE node. Drawing a grid as fifty positioned divs would
+ *        also work and would triple the render time of a preview that runs on
+ *        every keystroke.
+ */
+export const DESIGN_PATTERNS = ["grid", "dots", "diagonal", "glow"] as const;
+export const designPatternSchema = z.enum(DESIGN_PATTERNS);
+export type DesignPattern = (typeof DESIGN_PATTERNS)[number];
+
+/**
  * SOURCE OF TRUTH KEYWORDS: designBackgroundSchema, DesignBackground
  *
  * WHAT:  The full-bleed field a design sits on.
@@ -505,6 +532,20 @@ export const designBackgroundSchema = z
       from: designColorRefSchema,
       to: designColorRefSchema,
       angle: z.number().min(0).max(360).default(135),
+    }),
+    z.object({
+      /* A drawn pattern rather than a generated image: crisp at any size, costs
+       * no model call and no quota, and — unlike an AI backdrop — is guaranteed
+       * not to fight the text for attention. The reference editors all ship one
+       * of these ("Grid", waves) as the default, and it is what makes an empty
+       * design look composed rather than blank. */
+      kind: z.literal("pattern"),
+      pattern: designPatternSchema,
+      /* The field behind the pattern. */
+      color: designColorRefSchema,
+      /* The pattern's own ink. Kept as a separate ref rather than derived, so a
+       * light pattern on a dark field and the reverse are both expressible. */
+      ink: designColorRefSchema,
     }),
     z.object({
       kind: z.literal("image"),
@@ -554,6 +595,18 @@ export const designDocSchema = z.object({
    * padding from the type scale", which is a different statement from "the user
    * chose 64" — the renderer reads `doc.padding ?? scale.padding`. */
   padding: z.number().int().min(0).max(240).optional(),
+  /* A LEFT inset as a fraction of canvas width, on top of padding.
+   *
+   * Exists because of one platform fact that shapes every banner: LinkedIn drops
+   * the profile photo over the lower LEFT of the cover, so anything placed there
+   * is covered by the member own face. Every banner in research/figma-profile-kit
+   * solves it the same way — the left third is left empty and the composition
+   * lives in the right two-thirds.
+   *
+   * A normalised fraction rather than pixels so one archetype holds across the
+   * four canvas sizes, and optional so a canvas with no avatar (a featured cover)
+   * simply omits it. */
+  insetLeft: z.number().min(0).max(0.8).optional(),
   direction: z.enum(["row", "column"]).default("column"),
   align: z.enum(["left", "center", "right"]).default("left"),
   justify: z.enum(["start", "center", "end", "between"]).default("center"),

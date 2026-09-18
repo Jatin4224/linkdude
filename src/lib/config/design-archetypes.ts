@@ -58,6 +58,9 @@ export interface DesignArchetype {
    * zod rather than restated on every block below. That is why these literals
    * are so much shorter than the DesignBlock they become. */
   readonly blocks: Partial<Record<DesignCanvasKey, readonly DesignBlockInput[]>>;
+  /* Per CANVAS, because only some have something to clear: a profile banner has
+   * the avatar over its lower left, a featured cover has nothing over it at all. */
+  readonly insetLeft?: Partial<Record<DesignCanvasKey, number>>;
 }
 
 /**
@@ -80,9 +83,11 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
     description: "A clear claim, supporting proof, and one call to action.",
     blocks: {
       linkedinBanner: [
-        /* Right-aligned stack. The canvas is 4:1 and LinkedIn drops the avatar
-         * over the lower LEFT, so the type lives right of centre — see the
-         * `avatar` safe zone in DESIGN_CANVAS_PRESETS. */
+        /* Ordered top to bottom in one centred column that sits in the RIGHT
+         * two-thirds — see `insetLeft` on the doc below. That is the single
+         * strongest convention in research/figma-profile-kit: every banner there
+         * leaves the left third empty, because LinkedIn drops the profile photo
+         * over it. */
         {
           id: "eyebrow",
           type: "text",
@@ -90,10 +95,11 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
           role: "meta",
           weight: 700,
           color: { slot: "accent" },
-          align: "left",
           transform: "uppercase",
           maxLines: 1,
-          letterSpacing: 3,
+          /* Wide tracking is what makes a 16px line read as a label rather than
+           * as small body copy. Every reference banner does this. */
+          letterSpacing: 4,
         },
         {
           id: "headline",
@@ -102,7 +108,6 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
           role: "display",
           weight: 700,
           color: { slot: "foreground" },
-          align: "left",
           maxLines: 2,
           letterSpacing: -1,
         },
@@ -111,22 +116,21 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
           type: "text",
           text: { source: "slot", slot: "subheadline" },
           role: "subheading",
-          weight: 400,
-          /* Muted, never foreground — the rule the palette states: supporting
-           * copy that competes with the headline means neither is read. */
+          /* Muted, never foreground — supporting copy that competes with the
+           * headline means neither gets read. */
           color: { slot: "muted" },
-          align: "left",
           maxLines: 1,
         },
-        { id: "gapA", type: "spacer", size: 8 },
-        /* The proof strip and the CTA sit on one row, so they read as a single
-         * "here is why, here is what next" gesture rather than two stacked
-         * afterthoughts. */
+        { id: "gap", type: "spacer", size: 8 },
+        /* CTA and proof on ONE row, so the banner reads as "here is the offer,
+         * here is why to trust it" rather than as two stacked afterthoughts.
+         * Both references put the pill and the credibility marks on a shared
+         * baseline. */
         {
           id: "actionRow",
           type: "group",
           direction: "row",
-          gap: 20,
+          gap: 16,
           align: "center",
           children: [
             {
@@ -136,61 +140,34 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
               fill: { slot: "accent" },
               labelColor: { slot: "background" },
               role: "body",
+              paddingX: 28,
+              paddingY: 13,
             },
             {
               id: "proof",
               type: "badgeRow",
-              /* Every item is `hideWhenEmpty`, so a member who fills one proof
-               * chip gets one chip — not one chip and two empty pills. */
+              /* Each item hides when empty, so filling one proof chip gives one
+               * chip rather than one chip and two empty pills. */
               items: [
                 { source: "slot", slot: "proofA" },
                 { source: "slot", slot: "proofB" },
-                { source: "slot", slot: "proofC" },
               ],
-              fill: { slot: "background", opacity: 0.001 },
+              /* Outlined, not filled: the pill beside it is the only thing on a
+               * banner that should look pressable. */
+              fill: { slot: "background", opacity: 0 },
               label: { slot: "muted" },
               border: { slot: "border" },
               role: "meta",
-            },
-          ],
-        },
-        { id: "gapB", type: "spacer", size: 12 },
-        {
-          id: "rule",
-          type: "divider",
-          thickness: 2,
-          length: 0.28,
-          color: { slot: "border" },
-        },
-        { id: "gapC", type: "spacer", size: 10 },
-        {
-          id: "footer",
-          type: "group",
-          direction: "row",
-          gap: 16,
-          align: "center",
-          children: [
-            {
-              id: "logo",
-              type: "logoText",
-              text: { source: "slot", slot: "logoText" },
-              mark: "square",
-              markFill: { slot: "accent" },
-              color: { slot: "foreground" },
-              role: "meta",
-            },
-            {
-              id: "handle",
-              type: "text",
-              text: { source: "slot", slot: "handle" },
-              role: "meta",
-              color: { slot: "muted" },
-              maxLines: 1,
+              gap: 10,
             },
           ],
         },
       ],
     },
+    /* Reserve the left third of the BANNER. This is the correction that mattered
+     * most: the first version of this archetype stacked everything on the left,
+     * which put the wordmark exactly where the avatar lands. */
+    insetLeft: { linkedinBanner: 0.34 },
   },
 };
 
@@ -243,6 +220,8 @@ export function buildDesignDoc(args: {
     );
   }
 
+  const insetLeft = archetype.insetLeft?.[args.canvas];
+
   return designDocSchema.parse({
     templateId: args.templateId,
     archetypeId: args.archetypeId,
@@ -250,5 +229,6 @@ export function buildDesignDoc(args: {
     paletteId: args.paletteId,
     blocks,
     content: args.content ?? {},
+    ...(insetLeft === undefined ? {} : { insetLeft }),
   });
 }
