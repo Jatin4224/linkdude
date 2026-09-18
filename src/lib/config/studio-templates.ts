@@ -92,6 +92,32 @@ const COACH_SAMPLE = {
   handle: "linkdude.io",
 } as const;
 
+/* The stacked layout reads as a capability list, so its seed is three
+ * capabilities rather than one claim. */
+const STACKED_SAMPLE = {
+  headline: "Full-stack engineer",
+  proofA: "→ AI products, end to end",
+  proofB: "→ TypeScript · Next.js · Postgres",
+  proofC: "→ Open to work",
+  handle: "github.com/you",
+} as const;
+
+/* An offer banner lives or dies on the guarantee line, so the seed shows one. */
+const OFFER_SAMPLE = {
+  eyebrow: "The LinkedIn system",
+  headline: "Turn your profile into pipeline",
+  body: "90 days. If it does not work, you do not pay.",
+  ctaLabel: "Apply now",
+} as const;
+
+/* Conversational asks for a message rather than a booking. */
+const DM_SAMPLE = {
+  headline: "Struggling to get replies?",
+  subheadline: "I fix LinkedIn profiles that recruiters scroll past.",
+  ctaLabel: "Send me a message",
+  handle: "linkdude.io",
+} as const;
+
 export const STUDIO_TEMPLATE_KEYS = [
   "boldFounder",
   "midnightFounder",
@@ -101,18 +127,25 @@ export const STUDIO_TEMPLATE_KEYS = [
   "paperEngineer",
   "boldCoach",
   "forestCreator",
+  "midnightProof",
+  "boldOffer",
+  "paperStacked",
+  "forestConversational",
 ] as const;
 export type StudioTemplateKey = (typeof STUDIO_TEMPLATE_KEYS)[number];
 
 /**
  * SOURCE OF TRUTH KEYWORDS: STUDIO_TEMPLATES
  *
- * WHAT:  Eight entries, all on one archetype.
- * WHY:   Phase 1 of docs/20-studio.md ships ONE archetype, so these eight differ
- *        only by palette, facets and seed copy. That is not a placeholder — it is
- *        the point being demonstrated: eight gallery cards, one block list. The
- *        remaining archetypes are phase 3, and each MULTIPLIES this table without
- *        touching anything else.
+ * WHAT:  Twelve entries across five archetypes.
+ * WHY:   Five archetypes times four palettes is the whole gallery, and this table
+ *        is the only place the combination is spelled out. Adding the four
+ *        non-default archetypes cost four entries here and zero renderer changes —
+ *        which is the property the block language exists to buy.
+ *
+ *        Seed copy varies with the SHAPE, not the colour: a capability stack needs
+ *        three capabilities and an offer banner needs a guarantee, so sharing one
+ *        sample across every entry would leave half of them demonstrating nothing.
  */
 export const STUDIO_TEMPLATES: Record<StudioTemplateKey, StudioTemplate> = {
   boldFounder: {
@@ -225,6 +258,62 @@ export const STUDIO_TEMPLATES: Record<StudioTemplateKey, StudioTemplate> = {
       "Accent still clears contrast at banner scale",
     ],
     sampleContent: COACH_SAMPLE,
+  },
+
+  midnightProof: {
+    label: "Proof First",
+    archetype: "proofStrip",
+    palette: "midnight",
+    tone: "bold",
+    roles: ["founder", "creator"],
+    whyItWorks: [
+      "Credibility above the claim and again below it",
+      "Badges hide themselves when empty, so it never looks unfinished",
+      "Suits a profile whose strongest asset is a track record",
+    ],
+    sampleContent: FOUNDER_SAMPLE,
+  },
+
+  boldOffer: {
+    label: "The Offer",
+    archetype: "offerGuarantee",
+    palette: "boldBlue",
+    tone: "bold",
+    roles: ["coach", "freelancer"],
+    whyItWorks: [
+      "Names one specific thing you sell",
+      "The guarantee line removes the risk of clicking",
+      "One action, and it is the only bright element",
+    ],
+    sampleContent: OFFER_SAMPLE,
+  },
+
+  paperStacked: {
+    label: "Capability Stack",
+    archetype: "stackedKeywords",
+    palette: "paper",
+    tone: "minimal",
+    roles: ["jobSeeker", "freelancer"],
+    whyItWorks: [
+      "Three short lines scan faster than one sentence",
+      "Reads as a capability list, not a pitch",
+      "Built for people whose value is a set of things",
+    ],
+    sampleContent: STACKED_SAMPLE,
+  },
+
+  forestConversational: {
+    label: "Start a Conversation",
+    archetype: "conversational",
+    palette: "forest",
+    tone: "personal",
+    roles: ["coach", "creator"],
+    whyItWorks: [
+      "Opens with their problem, not your credentials",
+      "Asks for a message — the lowest-effort next step there is",
+      "Suits a funnel that runs on DMs rather than calendar links",
+    ],
+    sampleContent: DM_SAMPLE,
   },
 };
 

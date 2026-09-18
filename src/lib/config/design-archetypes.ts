@@ -7,7 +7,8 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: DESIGN_ARCHETYPES, DESIGN_ARCHETYPE_KEYS,
  *   DesignArchetypeKey, DesignArchetype, getDesignArchetype, buildDesignDoc,
- *   statement-cta, studio layouts, block lists
+ *   statementCta, proofStrip, offerGuarantee, stackedKeywords, conversational,
+ *   studio layouts, block lists
  *
  * WHAT:  The layouts themselves — a block list per archetype per canvas, and the
  *        function that clones one into a fresh DesignDoc.
@@ -37,7 +38,13 @@ import {
   type DesignTextSlotKey,
 } from "@/lib/types/design-block";
 
-export const DESIGN_ARCHETYPE_KEYS = ["statementCta"] as const;
+export const DESIGN_ARCHETYPE_KEYS = [
+  "statementCta",
+  "proofStrip",
+  "offerGuarantee",
+  "stackedKeywords",
+  "conversational",
+] as const;
 export type DesignArchetypeKey = (typeof DESIGN_ARCHETYPE_KEYS)[number];
 
 /**
@@ -242,6 +249,275 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
     insetLeft: { linkedinBanner: 0.34 },
     align: { featuredCover: "center", headshot: "center" },
   },
+
+  /* Proof strip: the claim, then the evidence, twice. Badges above the headline
+   * and a credibility bar below it — the shape used by profiles that lead with
+   * social proof rather than with an offer.
+   *
+   * Degrades to a clean statement banner when the proof slots are empty, because
+   * every badge hides itself. */
+  proofStrip: {
+    label: "Proof strip",
+    description: "Credibility above and below the claim.",
+    blocks: {
+      linkedinBanner: [
+        {
+          id: "topProof",
+          type: "badgeRow",
+          items: [
+            { source: "slot", slot: "proofA" },
+            { source: "slot", slot: "proofB" },
+          ],
+          fill: { slot: "accent", opacity: 0.16 },
+          label: { slot: "accent" },
+          role: "meta",
+          gap: 8,
+        },
+        {
+          id: "headline",
+          type: "text",
+          text: { source: "slot", slot: "headline" },
+          role: "display",
+          weight: 700,
+          color: { slot: "foreground" },
+          maxLines: 2,
+          letterSpacing: -1,
+        },
+        {
+          id: "subheadline",
+          type: "text",
+          text: { source: "slot", slot: "subheadline" },
+          role: "subheading",
+          color: { slot: "muted" },
+          maxLines: 1,
+        },
+        { id: "gap", type: "spacer", size: 6 },
+        {
+          id: "rule",
+          type: "divider",
+          thickness: 1,
+          length: 0.42,
+          color: { slot: "border" },
+        },
+        { id: "gapB", type: "spacer", size: 6 },
+        {
+          id: "seenIn",
+          type: "group",
+          direction: "row",
+          gap: 14,
+          align: "center",
+          children: [
+            {
+              id: "seenLabel",
+              type: "text",
+              /* Fixed decoration, not a slot: it is the template's own word and
+               * nobody needs to retype it. */
+              text: { source: "fixed", text: "AS SEEN IN" },
+              role: "meta",
+              weight: 700,
+              color: { slot: "muted" },
+              maxLines: 1,
+              letterSpacing: 3,
+            },
+            {
+              id: "seenProof",
+              type: "text",
+              text: { source: "slot", slot: "proofC" },
+              role: "meta",
+              weight: 700,
+              color: { slot: "foreground" },
+              maxLines: 1,
+            },
+          ],
+        },
+      ],
+    },
+    insetLeft: { linkedinBanner: 0.34 },
+  },
+
+  /* Offer + guarantee: for a profile selling one specific thing. The guarantee
+   * line is doing the work — it is what turns a programme name into something
+   * worth clicking, and it is the line most profiles leave out. */
+  offerGuarantee: {
+    label: "Offer",
+    description: "A named offer, the risk removed, one action.",
+    blocks: {
+      linkedinBanner: [
+        {
+          id: "eyebrow",
+          type: "text",
+          text: { source: "slot", slot: "eyebrow" },
+          role: "meta",
+          weight: 700,
+          color: { slot: "accent" },
+          transform: "uppercase",
+          maxLines: 1,
+          letterSpacing: 4,
+        },
+        {
+          id: "headline",
+          type: "text",
+          text: { source: "slot", slot: "headline" },
+          role: "display",
+          weight: 700,
+          color: { slot: "foreground" },
+          maxLines: 2,
+          letterSpacing: -1,
+        },
+        {
+          id: "guarantee",
+          type: "text",
+          text: { source: "slot", slot: "body" },
+          role: "body",
+          color: { slot: "muted" },
+          maxLines: 2,
+        },
+        { id: "gap", type: "spacer", size: 8 },
+        {
+          id: "cta",
+          type: "buttonPill",
+          label: { source: "slot", slot: "ctaLabel" },
+          fill: { slot: "accent" },
+          labelColor: { slot: "background" },
+          role: "body",
+          paddingX: 30,
+          paddingY: 14,
+        },
+      ],
+    },
+    insetLeft: { linkedinBanner: 0.34 },
+  },
+
+  /* Stacked keywords: three short lines instead of one sentence. Reads as a
+   * capability list rather than a pitch, which is why it suits engineers and
+   * freelancers — the people whose value is a set of things, not one claim. */
+  stackedKeywords: {
+    label: "Stacked",
+    description: "Three short lines instead of one sentence.",
+    blocks: {
+      linkedinBanner: [
+        {
+          id: "headline",
+          type: "text",
+          text: { source: "slot", slot: "headline" },
+          role: "heading",
+          weight: 700,
+          color: { slot: "foreground" },
+          /* One line, not two: the stack below is the point, and a headline that
+           * wraps steals its room. */
+          maxLines: 1,
+          letterSpacing: -1,
+        },
+        { id: "gap", type: "spacer", size: 4 },
+        {
+          id: "stack",
+          type: "group",
+          direction: "column",
+          gap: 4,
+          align: "start",
+          children: [
+            {
+              id: "lineA",
+              type: "text",
+              text: { source: "slot", slot: "proofA" },
+              role: "subheading",
+              color: { slot: "accent" },
+              maxLines: 1,
+            },
+            {
+              id: "lineB",
+              type: "text",
+              text: { source: "slot", slot: "proofB" },
+              role: "subheading",
+              color: { slot: "foreground" },
+              maxLines: 1,
+            },
+            {
+              id: "lineC",
+              type: "text",
+              text: { source: "slot", slot: "proofC" },
+              role: "subheading",
+              color: { slot: "muted" },
+              maxLines: 1,
+            },
+          ],
+        },
+        { id: "gapB", type: "spacer", size: 8 },
+        {
+          id: "handle",
+          type: "text",
+          text: { source: "slot", slot: "handle" },
+          role: "meta",
+          color: { slot: "muted" },
+          maxLines: 1,
+        },
+      ],
+    },
+    insetLeft: { linkedinBanner: 0.34 },
+  },
+
+  /* Conversational: opens with the reader's problem rather than the member's
+   * credentials, and asks for a message rather than a booking. The lowest-effort
+   * ask on the list, which is the whole idea — it suits people whose funnel is a
+   * DM rather than a calendar link. */
+  conversational: {
+    label: "Conversational",
+    description: "Opens with their problem, asks for a message.",
+    blocks: {
+      linkedinBanner: [
+        {
+          id: "headline",
+          type: "text",
+          text: { source: "slot", slot: "headline" },
+          role: "display",
+          weight: 700,
+          color: { slot: "foreground" },
+          maxLines: 2,
+          letterSpacing: -1,
+        },
+        {
+          id: "subheadline",
+          type: "text",
+          text: { source: "slot", slot: "subheadline" },
+          role: "subheading",
+          color: { slot: "muted" },
+          maxLines: 2,
+        },
+        { id: "gap", type: "spacer", size: 10 },
+        {
+          id: "askRow",
+          type: "group",
+          direction: "row",
+          gap: 14,
+          align: "center",
+          children: [
+            {
+              id: "cta",
+              type: "buttonPill",
+              label: { source: "slot", slot: "ctaLabel" },
+              /* A TINT of the accent, not a fill. buttonPill has no border, so an
+               * invisible fill would render an invisible button — a soft wash is
+               * how this language expresses "present but not shouting". */
+              fill: { slot: "accent", opacity: 0.18 },
+              labelColor: { slot: "foreground" },
+              role: "body",
+              paddingX: 26,
+              paddingY: 12,
+            },
+            {
+              id: "handle",
+              type: "text",
+              text: { source: "slot", slot: "handle" },
+              role: "meta",
+              color: { slot: "muted" },
+              maxLines: 1,
+            },
+          ],
+        },
+      ],
+    },
+    insetLeft: { linkedinBanner: 0.34 },
+  },
 };
 
 /**
@@ -283,18 +559,33 @@ export function buildDesignDoc(args: {
   content?: Partial<Record<DesignTextSlotKey, string>>;
 }): DesignDoc {
   const archetype = getDesignArchetype(args.archetypeId);
-  const blocks = archetype.blocks[args.canvas];
+  /* Falls back to the DEFAULT archetype for a canvas this one does not define.
+   *
+   * An archetype is a BANNER convention — that is the canvas where layouts
+   * genuinely differ. A headshot is a photo in a circle whatever style it came
+   * from, and making every archetype restate that would be four identical
+   * copies waiting to drift. Defining a canvas here is therefore opt-in: say
+   * something different, or inherit. */
+  const blocks =
+    archetype.blocks[args.canvas] ??
+    DESIGN_ARCHETYPES.statementCta.blocks[args.canvas];
 
   if (!blocks) {
-    /* Loud, not silent. A missing pair is an authoring bug, and an empty canvas
-     * is the hardest kind of render bug to trace back to its cause. */
+    /* Loud, not silent. A missing canvas after the fallback is an authoring
+     * bug, and an empty canvas is the hardest kind of render bug to trace. */
     throw new Error(
-      `Archetype "${args.archetypeId}" has no layout for canvas "${args.canvas}"`,
+      `Archetype "${args.archetypeId}" has no layout for canvas "${args.canvas}", and neither does the default`,
     );
   }
 
-  const insetLeft = archetype.insetLeft?.[args.canvas];
-  const align = archetype.align?.[args.canvas];
+  /* Inherited alongside the blocks, for the same reason: a borrowed featured
+   * cover layout that lost its centring would be a different design. */
+  const insetLeft =
+    archetype.insetLeft?.[args.canvas] ??
+    DESIGN_ARCHETYPES.statementCta.insetLeft?.[args.canvas];
+  const align =
+    archetype.align?.[args.canvas] ??
+    DESIGN_ARCHETYPES.statementCta.align?.[args.canvas];
 
   return designDocSchema.parse({
     templateId: args.templateId,
