@@ -7,7 +7,7 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: StudioWorkspace, DesignPreview, DesignContentForm,
  *   BackdropControl, BlockStylePanel, ThemePanel, PhotoControl, ExportPanel,
- *   ProfileTextPanel
+ *   ProfileTextPanel, StyleCard
  *
  * WHAT:  Barrel for the studio route's components.
  * WHY:   The page imports one name from one path; the split between the
@@ -28,6 +28,8 @@ export { PhotoControl } from "./photo-control";
 export { ProfileTextPanel } from "./profile-text-panel";
 export type { ProfileTextPanelProps } from "./profile-text-panel";
 export type { PhotoControlProps } from "./photo-control";
+export { StyleCard } from "./style-card";
+export type { StyleCardProps } from "./style-card";
 export { ThemePanel } from "./theme-panel";
 export type { ThemePanelProps } from "./theme-panel";
 

@@ -25,7 +25,7 @@
  */
 
 import * as React from "react";
-import { LayoutTemplateIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { LayoutTemplateIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { getErrorMessage } from "@/lib/errors";
@@ -33,6 +33,7 @@ import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   buildAttachmentUrl,
+  getDesignPalette,
   STUDIO_PREVIEW_PATH,
   STUDIO_TEMPLATE_ENTRIES,
 } from "@/lib/config";
@@ -43,8 +44,8 @@ import {
   type StudioAssetKind,
 } from "@/lib/types";
 import { ContentLayout } from "@/components/global/page-header";
-import { FeatureGate } from "@/components/feature-gate";
 import { UsageMeter } from "@/components/global/usage-meter";
+import { Reveal } from "@/components/global/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,6 +58,7 @@ import { BlockStylePanel } from "./block-style-panel";
 import { ThemePanel } from "./theme-panel";
 import { DesignContentForm } from "./design-content-form";
 import { ExportPanel } from "./export-panel";
+import { StyleCard } from "./style-card";
 import { PhotoControl } from "./photo-control";
 import { ProfileTextPanel } from "./profile-text-panel";
 import { DesignPreview } from "./design-preview";
@@ -464,7 +466,7 @@ export function StudioWorkspace() {
     >
       <div className="flex flex-col gap-8">
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Your profiles</h2>
+          <h2 className="text-sm font-medium">Your profiles</h2>
 
           {listQuery.isLoading ? (
             <Skeleton className="h-24 w-full" />
@@ -473,7 +475,7 @@ export function StudioWorkspace() {
               {listQuery.data.items.map((row) => (
                 <Card
                   key={row.id}
-                  className="surface-raised cursor-pointer transition-colors hover:border-brand-border"
+                  className="surface-raised cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-border"
                   onClick={() => {
                     setOpenId(row.id);
                   }}
@@ -512,55 +514,47 @@ export function StudioWorkspace() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              No profiles yet. Pick a style below to start one.
-            </p>
+            /* Dashed, matching the safe-zone language used throughout the
+               editor — an empty slot rather than an error. */
+            <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-8 text-center">
+              <span className="text-sm font-medium">Nothing here yet</span>
+              <span className="text-xs text-muted-foreground">
+                Pick a style below — you&apos;ll have a banner in about a minute.
+              </span>
+            </div>
           )}
         </section>
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Pick a style</h2>
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-sm font-medium">Pick a style</h2>
+            <p className="text-xs text-muted-foreground">
+              Every one is sized for LinkedIn and keeps your text clear of your
+              profile photo. The dashed circle is where your face lands.
+            </p>
+          </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {STUDIO_TEMPLATE_ENTRIES.map(([key, template]) => (
-              <Card key={key} className="surface-raised flex flex-col">
-                <CardContent className="flex flex-1 flex-col gap-3 pt-6">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium">{template.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {template.tone}
-                    </span>
-                  </div>
-
-                  <ul className="flex flex-1 flex-col gap-1">
-                    {template.whyItWorks.map((reason) => (
-                      <li key={reason} className="text-xs text-muted-foreground">
-                        {reason}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* Gated at the BUTTON, not the card — the FeatureGate rule. */}
-                  <FeatureGate resource="studio">
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      disabled={pendingTemplate !== null}
-                      onClick={() => {
-                        setPendingTemplate(key);
-                        createMutation.mutate({
-                          ...orgInput,
-                          name: template.label,
-                          templateId: key,
-                        });
-                      }}
-                    >
-                      <PlusIcon className="size-4" />
-                      {pendingTemplate === key ? "Starting…" : "Use this style"}
-                    </Button>
-                  </FeatureGate>
-                </CardContent>
-              </Card>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {STUDIO_TEMPLATE_ENTRIES.map(([key, template], index) => (
+              /* Staggered so twelve cards arrive as a wave rather than a slab.
+                 Reveal degrades to visible on its own if the observer never
+                 fires, so a card can't get stuck hidden. */
+              <Reveal key={key} delay={index * 55}>
+                <StyleCard
+                  template={template}
+                  palette={getDesignPalette(template.palette)}
+                  isPending={pendingTemplate === key}
+                  disabled={pendingTemplate !== null}
+                  onUse={() => {
+                    setPendingTemplate(key);
+                    createMutation.mutate({
+                      ...orgInput,
+                      name: template.label,
+                      templateId: key,
+                    });
+                  }}
+                />
+              </Reveal>
             ))}
           </div>
         </section>
