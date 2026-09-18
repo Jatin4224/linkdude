@@ -56,7 +56,9 @@ import { BackdropControl } from "./backdrop-control";
 import { BlockStylePanel } from "./block-style-panel";
 import { ThemePanel } from "./theme-panel";
 import { DesignContentForm } from "./design-content-form";
+import { ExportPanel } from "./export-panel";
 import { PhotoControl } from "./photo-control";
+import { ProfileTextPanel } from "./profile-text-panel";
 import { DesignPreview } from "./design-preview";
 
 export function StudioWorkspace() {
@@ -144,6 +146,14 @@ export function StudioWorkspace() {
   }
 
   const backdropMutation = trpc.studioBackdrop.create.useMutation({
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const profileMutation = trpc.studio.updateProfile.useMutation({
+    onSuccess: async () => {
+      await invalidate();
+      toast.success("Text saved. Paste it straight into LinkedIn.");
+    },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
@@ -280,6 +290,9 @@ export function StudioWorkspace() {
                   <TabsTrigger value="theme" className="flex-1">
                     Theme
                   </TabsTrigger>
+                  <TabsTrigger value="text" className="flex-1">
+                    Text
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="content" className="pt-4">
@@ -331,6 +344,26 @@ export function StudioWorkspace() {
                     onGenerate={async (brief) =>
                       backdropMutation.mutateAsync({ ...orgInput, brief })
                     }
+                  />
+                </TabsContent>
+
+                <TabsContent value="text" className="pt-4">
+                  {/* Not a design. These are the words pasted into LinkedIn
+                      itself, so they save on their own mutation and leave the
+                      exported images alone. */}
+                  <ProfileTextPanel
+                    headline={project.headline ?? ""}
+                    about={project.about ?? ""}
+                    isSaving={profileMutation.isPending}
+                    disabled={renderMutation.isPending}
+                    onSave={(values) => {
+                      profileMutation.mutate({
+                        ...orgInput,
+                        id: project.id,
+                        headline: values.headline,
+                        about: values.about,
+                      });
+                    }}
                   />
                 </TabsContent>
               </Tabs>
@@ -404,6 +437,12 @@ export function StudioWorkspace() {
               {asset.lastError ? (
                 <p className="text-xs text-destructive">{asset.lastError}</p>
               ) : null}
+
+              <ExportPanel
+                projectName={project.name}
+                assets={project.assets}
+                disabled={renderMutation.isPending}
+              />
             </CardContent>
           </Card>
 

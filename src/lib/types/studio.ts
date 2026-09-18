@@ -31,6 +31,9 @@ import { z } from "zod";
 import { designContentIssues } from "@/lib/config/design-slots";
 import { STUDIO_BACKDROP_BRIEF_MAX } from "@/lib/config/studio";
 
+/* LinkedIn's own ceilings, already the source of truth for the profile analyser. */
+import { PROFILE_ABOUT_MAX, PROFILE_HEADLINE_MAX } from "./profile-lookup";
+
 import { designDocSchema, designTextSlotSchema, type DesignCanvasKey } from "./design-block";
 
 /**
@@ -205,6 +208,41 @@ export const generateStudioBackdropSchema = z.object({
 export type GenerateStudioBackdropValues = z.infer<
   typeof generateStudioBackdropSchema
 >;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: updateStudioProfileSchema, UpdateStudioProfileValues
+ *
+ * WHAT:  The text half of a profile kit — the words pasted into LinkedIn itself
+ *        rather than rendered into an image.
+ * WHY:   The ceilings are LinkedIn's own, imported from ./profile-lookup rather
+ *        than restated. They are already the source of truth for the profile
+ *        analyser, and two copies of "220" would eventually disagree.
+ *
+ *        Both fields are optional: someone can write a headline today and an
+ *        About section next week, and a schema that demanded both would make the
+ *        save button useless until they did.
+ */
+export const updateStudioProfileSchema = z.object({
+  id: z.string().min(1),
+  name: studioProjectNameSchema.optional(),
+  headline: z
+    .string()
+    .trim()
+    .max(
+      PROFILE_HEADLINE_MAX,
+      `LinkedIn caps headlines at ${String(PROFILE_HEADLINE_MAX)} characters`,
+    )
+    .optional(),
+  about: z
+    .string()
+    .trim()
+    .max(
+      PROFILE_ABOUT_MAX,
+      `LinkedIn caps the About section at ${String(PROFILE_ABOUT_MAX)} characters`,
+    )
+    .optional(),
+});
+export type UpdateStudioProfileValues = z.infer<typeof updateStudioProfileSchema>;
 
 export const renderStudioAssetSchema = z.object({
   id: z.string().min(1),

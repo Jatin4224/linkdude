@@ -556,6 +556,7 @@ export {
   studioContentSchema,
   createStudioProjectSchema,
   updateStudioAssetSchema,
+  updateStudioProfileSchema,
 
   generateStudioBackdropSchema,
   renderStudioAssetSchema,
@@ -571,6 +572,7 @@ export type {
   CreateStudioProjectValues,
   CreateStudioProjectInput,
   UpdateStudioAssetValues,
+  UpdateStudioProfileValues,
 
   ListStudioProjectsValues,
   GenerateStudioBackdropValues,

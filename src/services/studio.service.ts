@@ -10,6 +10,7 @@ import "server-only";
  * SOURCE OF TRUTH KEYWORDS: listStudioProjects, getStudioProject,
  *   createStudioProjectRecord, updateStudioAssetDoc, attachStudioAssetDocument,
  *   markStudioAssetFailed, discardStudioProject, parseDesignDoc,
+ *   updateStudioProjectText,
  *   STUDIO_PROJECT_SELECT, STUDIO_PROJECT_LIST_SELECT, StudioProjectRow
  *
  * WHAT:  The database half of the studio — every Prisma call the feature makes.
@@ -225,6 +226,36 @@ export async function updateStudioAssetDoc(
       organizationId: args.organizationId,
     },
     data: { doc: args.doc, status: "draft", lastError: null },
+  });
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: updateStudioProjectText
+ *
+ * WHAT:  Saves the project's name, headline and About copy.
+ * WHY:   Separate from updateStudioAssetDoc because it changes NO pixels. An
+ *        asset's status must not drop to "draft" when someone edits their About
+ *        section — that would mark every exported image stale for a change none
+ *        of them render.
+ */
+export async function updateStudioProjectText(
+  db: DbClient,
+  args: {
+    organizationId: string;
+    authorId: string;
+    id: string;
+    name?: string | undefined;
+    headline?: string | undefined;
+    about?: string | undefined;
+  },
+): Promise<{ count: number }> {
+  return db.studioProject.updateMany({
+    where: { id: args.id, organizationId: args.organizationId, authorId: args.authorId },
+    data: {
+      ...(args.name === undefined ? {} : { name: args.name }),
+      ...(args.headline === undefined ? {} : { headline: args.headline }),
+      ...(args.about === undefined ? {} : { about: args.about }),
+    },
   });
 }
 

@@ -37,6 +37,7 @@ import { permissions } from "@/lib/better-auth/permissions";
 import {
   createStudioProjectSchema,
   updateStudioAssetSchema,
+  updateStudioProfileSchema,
   renderStudioAssetSchema,
   getStudioProjectSchema,
   discardStudioProjectSchema,
@@ -172,6 +173,30 @@ export const studioRouter = createTRPCRouter({
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "That design no longer exists.",
+        });
+      }
+
+      return { saved: true as const };
+    }),
+
+  updateProfile: protectedProcedure({
+    requirePermission: permissions.STUDIO_UPDATE,
+  })
+    .input(updateStudioProfileSchema.extend(withOrganization.shape))
+    .mutation(async ({ ctx, input }) => {
+      const { count } = await studioService.updateStudioProjectText(ctx.db, {
+        organizationId: input.organizationId,
+        authorId: ctx.user.id,
+        id: input.id,
+        name: input.name,
+        headline: input.headline,
+        about: input.about,
+      });
+
+      if (count === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That profile no longer exists.",
         });
       }
 
