@@ -66,23 +66,53 @@ const FOUNDER_SAMPLE = {
   handle: "linkdude.io",
 } as const;
 
+/* Engineers and job seekers are the largest group arriving from a shared post,
+ * and the founder seed actively repels them: someone "open to work" reading
+ * "Book a free call" concludes the tool is for coaches selling programmes. Same
+ * archetype, different words. */
+const ENGINEER_SAMPLE = {
+  eyebrow: "Full-stack · AI products",
+  headline: "I build and ship AI products",
+  subheadline: "TypeScript, Next.js, Postgres. Open to work.",
+  ctaLabel: "See my work",
+  proofA: "Open source",
+  proofB: "500+ commits",
+  logoText: "JS",
+  handle: "github.com/you",
+} as const;
+
+const COACH_SAMPLE = {
+  eyebrow: "For ambitious operators",
+  headline: "Get promoted without burning out",
+  subheadline: "1:1 coaching for senior ICs and new managers",
+  ctaLabel: "Book a session",
+  proofA: "200+ clients",
+  proofB: "Ex-FAANG",
+  logoText: "ACME",
+  handle: "linkdude.io",
+} as const;
+
 export const STUDIO_TEMPLATE_KEYS = [
   "boldFounder",
   "midnightFounder",
   "paperConsultant",
   "forestCoach",
+  "midnightEngineer",
+  "paperEngineer",
+  "boldCoach",
+  "forestCreator",
 ] as const;
 export type StudioTemplateKey = (typeof STUDIO_TEMPLATE_KEYS)[number];
 
 /**
  * SOURCE OF TRUTH KEYWORDS: STUDIO_TEMPLATES
  *
- * WHAT:  Four entries, all on one archetype.
- * WHY:   Phase 1 of docs/20-studio.md ships ONE archetype, so these four differ
- *        only by palette and facets. That is not a placeholder — it is the point
- *        being demonstrated: four gallery cards, one block list. The remaining
- *        archetypes are phase 3 and each multiplies this table without touching
- *        anything else.
+ * WHAT:  Eight entries, all on one archetype.
+ * WHY:   Phase 1 of docs/20-studio.md ships ONE archetype, so these eight differ
+ *        only by palette, facets and seed copy. That is not a placeholder — it is
+ *        the point being demonstrated: eight gallery cards, one block list. The
+ *        remaining archetypes are phase 3, and each MULTIPLIES this table without
+ *        touching anything else.
  */
 export const STUDIO_TEMPLATES: Record<StudioTemplateKey, StudioTemplate> = {
   boldFounder: {
@@ -139,6 +169,62 @@ export const STUDIO_TEMPLATES: Record<StudioTemplateKey, StudioTemplate> = {
       "Accent clears contrast at banner scale",
     ],
     sampleContent: FOUNDER_SAMPLE,
+  },
+
+  midnightEngineer: {
+    label: "Dark Engineer",
+    archetype: "statementCta",
+    palette: "midnight",
+    tone: "minimal",
+    roles: ["jobSeeker", "freelancer"],
+    whyItWorks: [
+      "Says what you build, not what you are called",
+      "Stack in the subline, so a recruiter can scan it",
+      "Proof is shipped work, not follower counts",
+    ],
+    sampleContent: ENGINEER_SAMPLE,
+  },
+
+  paperEngineer: {
+    label: "Light Engineer",
+    archetype: "statementCta",
+    palette: "paper",
+    tone: "minimal",
+    roles: ["jobSeeker", "creator"],
+    whyItWorks: [
+      "Reads as a CV header rather than an ad",
+      "High contrast survives a recruiter skimming on mobile",
+      "One accent, used once",
+    ],
+    sampleContent: ENGINEER_SAMPLE,
+  },
+
+  boldCoach: {
+    label: "Bold Coach",
+    archetype: "statementCta",
+    palette: "boldBlue",
+    tone: "bold",
+    roles: ["coach"],
+    whyItWorks: [
+      "Outcome in the headline, not a job title",
+      "Credibility sits beside the ask",
+      "Channel blue reads as native on LinkedIn",
+    ],
+    sampleContent: COACH_SAMPLE,
+  },
+
+  forestCreator: {
+    label: "Green Creator",
+    archetype: "statementCta",
+    palette: "forest",
+    tone: "personal",
+    roles: ["creator", "freelancer"],
+    whyItWorks: [
+      "Non-blue, so it does not disappear into the feed",
+      "Warmer contrast suits a personal brand",
+      "Accent still clears contrast at banner scale",
+    ],
+    sampleContent: COACH_SAMPLE,
   },
 };
 

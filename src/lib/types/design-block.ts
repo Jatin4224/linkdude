@@ -506,13 +506,17 @@ export type DesignBlockInput = z.input<typeof designBlockSchema>;
  * SOURCE OF TRUTH KEYWORDS: DESIGN_PATTERNS, DesignPattern, designPatternSchema
  *
  * WHAT:  The decorative fields a design can sit on, drawn rather than generated.
- * WHY:   Every one of these is expressible as a CSS gradient, which is the whole
- *        selection criterion: satori supports gradients on backgroundImage, so a
- *        pattern costs ONE node. Drawing a grid as fifty positioned divs would
- *        also work and would triple the render time of a preview that runs on
- *        every keystroke.
+ * WHY:   THE SET IS CHOSEN BY WHAT SATORI ACTUALLY RASTERISES. It documents
+ *        `repeating-linear-gradient` as supported, but vercel/satori#554 reports
+ *        it silently failing when the output is PNG — which is every render here.
+ *        `glow` and `fade` are therefore plain radial and linear gradients, and
+ *        `grid` is drawn as nodes because no non-repeating gradient produces one.
+ *
+ *        Dots and diagonal stripes were dropped rather than faked: both need
+ *        repetition, and a dot field as elements costs hundreds of nodes on a
+ *        canvas that re-renders on every keystroke.
  */
-export const DESIGN_PATTERNS = ["grid", "dots", "diagonal", "glow"] as const;
+export const DESIGN_PATTERNS = ["grid", "glow", "fade"] as const;
 export const designPatternSchema = z.enum(DESIGN_PATTERNS);
 export type DesignPattern = (typeof DESIGN_PATTERNS)[number];
 

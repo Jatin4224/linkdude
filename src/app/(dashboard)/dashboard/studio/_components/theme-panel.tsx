@@ -46,11 +46,12 @@ export interface ThemePanelProps {
   disabled?: boolean;
 }
 
+/* Three, not five. The set is bounded by what satori renders to PNG rather than
+ * by what looks good in a picker — see the note on DESIGN_PATTERNS. */
 const PATTERN_LABELS: Record<DesignPattern, string> = {
   grid: "Grid",
-  dots: "Dots",
-  diagonal: "Stripes",
   glow: "Glow",
+  fade: "Fade",
 };
 
 export function ThemePanel({ doc, onChange, disabled = false }: ThemePanelProps) {

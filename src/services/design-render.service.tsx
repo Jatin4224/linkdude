@@ -491,22 +491,24 @@ function renderDesignBlock(
 }
 
 /**
- * SOURCE OF TRUTH KEYWORDS: patternStyle, DESIGN_PATTERNS
+ * SOURCE OF TRUTH KEYWORDS: patternStyle, patternNodes, DESIGN_PATTERNS
  *
- * WHAT:  A drawn background pattern, as CSS satori understands.
- * WHY:   Every pattern is a GRADIENT, never a stack of positioned divs. satori
- *        supports gradients on backgroundImage, so each of these costs one node;
- *        a grid drawn as fifty absolutely-positioned lines would render the same
- *        picture and triple the cost of a preview that runs on every keystroke.
+ * WHAT:  A drawn background pattern — as CSS where satori renders it reliably,
+ *        and as real nodes where it does not.
+ * WHY:   THE PATTERN SET IS CHOSEN BY WHAT ACTUALLY RASTERISES, not by what the
+ *        docs list. satori documents `repeating-linear-gradient` as supported,
+ *        but vercel/satori#554 reports it silently failing when the output is
+ *        PNG — which is every render this app performs. A pattern that comes out
+ *        as a flat colour is worse than one that was never offered, because the
+ *        member cannot tell whether it is broken or just subtle.
  *
- *        Gradient stops are layered back-to-front in ONE backgroundImage value,
- *        which is how a grid becomes two repeating gradients rather than two
- *        elements.
+ *        So: `glow` and `fade` are plain radial and linear gradients, which are
+ *        the two best-supported values in satori. `grid` is drawn as positioned
+ *        divs, because there is no non-repeating gradient that produces one.
  *
- *        Sizes are in px against the real canvas, not percentages: a percentage
- *        grid would stretch to a different cell shape on each of the four asset
- *        geometries, which is exactly the inconsistency a pattern is supposed to
- *        avoid.
+ *        Dots and diagonal stripes were dropped rather than faked. Both need
+ *        repetition, and drawing a dot field as nodes costs hundreds of elements
+ *        on a canvas that re-renders on every keystroke.
  */
 function patternStyle(
   pattern: DesignPattern,
@@ -514,43 +516,96 @@ function patternStyle(
   ink: string,
 ): Record<string, string> {
   switch (pattern) {
-    case "grid":
-      return {
-        backgroundColor: field,
-        backgroundImage: [
-          `repeating-linear-gradient(0deg, ${ink} 0px, ${ink} 1px, transparent 1px, transparent 48px)`,
-          `repeating-linear-gradient(90deg, ${ink} 0px, ${ink} 1px, transparent 1px, transparent 48px)`,
-        ].join(", "),
-      };
-
-    case "diagonal":
-      return {
-        backgroundColor: field,
-        backgroundImage: `repeating-linear-gradient(45deg, ${ink} 0px, ${ink} 2px, transparent 2px, transparent 16px)`,
-      };
-
-    case "dots":
-      return {
-        backgroundColor: field,
-        /* A radial stop that closes well before the tile edge is what makes a
-         * dot rather than a blur. */
-        backgroundImage: `radial-gradient(${ink} 1.5px, transparent 1.6px)`,
-        backgroundSize: "28px 28px",
-      };
-
     case "glow":
       return {
         backgroundColor: field,
         /* Off-centre to the RIGHT, matching where every reference banner puts
-         * its visual weight — and away from the avatar. */
-        backgroundImage: `radial-gradient(circle at 72% 40%, ${ink}, transparent 62%)`,
+         * its visual weight — and away from where the avatar lands. */
+        backgroundImage: `radial-gradient(circle at 72% 40%, ${ink}, ${field} 62%)`,
       };
+
+    case "fade":
+      return {
+        backgroundColor: field,
+        backgroundImage: `linear-gradient(120deg, ${field} 35%, ${ink} 100%)`,
+      };
+
+    case "grid":
+      /* Drawn by patternNodes below; the field is all this contributes. */
+      return { backgroundColor: field };
 
     default: {
       const unreachable: never = pattern;
       return { backgroundColor: field, ...(unreachable as object) };
     }
   }
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: patternNodes
+ *
+ * WHAT:  The pattern layer that has to be elements rather than CSS.
+ * WHY:   Absolutely positioned behind the content, so it never joins the flex
+ *        stack and cannot push the composition around.
+ *
+ *        Spacing is deliberately coarse. A 48px grid across 1584px would be
+ *        thirty-three lines; at 132px it is twelve verticals and three
+ *        horizontals, which reads as the same texture at banner scale for a
+ *        quarter of the nodes — and this tree is rebuilt on every keystroke of a
+ *        debounced preview.
+ */
+function patternNodes(
+  context: BlockContext,
+): React.ReactElement | null {
+  const { background } = context.doc;
+  if (background.kind !== "pattern" || background.pattern !== "grid") return null;
+
+  const ink = color(background.ink, context);
+  const step = 132;
+  const columns = Math.floor(context.width / step);
+  const rows = Math.floor(context.height / step);
+
+  return (
+    <div
+      style={{
+        ...designFlex,
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+      }}
+    >
+      {Array.from({ length: columns }, (_, index) => (
+        <div
+          key={`v-${String(index)}`}
+          style={{
+            ...designFlex,
+            position: "absolute",
+            top: 0,
+            left: (index + 1) * step,
+            width: 1,
+            height: "100%",
+            backgroundColor: ink,
+          }}
+        />
+      ))}
+      {Array.from({ length: rows }, (_, index) => (
+        <div
+          key={`h-${String(index)}`}
+          style={{
+            ...designFlex,
+            position: "absolute",
+            left: 0,
+            top: (index + 1) * step,
+            width: "100%",
+            height: 1,
+            backgroundColor: ink,
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 /* The full-bleed field. Gradients go through `linear-gradient`, which satori
@@ -612,6 +667,8 @@ function DesignCanvasView({ context }: { context: BlockContext }): React.ReactEl
         ...designFlex,
         width: "100%",
         height: "100%",
+        /* The pattern layer positions against this. */
+        position: "relative",
         /* A stack taller than its canvas is CLIPPED, not bled. With justify:center
          * an over-tall column overflows symmetrically, which slices the top off
          * the headline and pushes the footer past the bottom edge — it looks like
@@ -645,6 +702,7 @@ function DesignCanvasView({ context }: { context: BlockContext }): React.ReactEl
         ...backgroundStyle(context),
       }}
     >
+      {patternNodes(context)}
       {nodes}
     </div>
   );
