@@ -266,6 +266,14 @@ export const DESIGN_TEXT_SLOT_KEYS = [
   "attribution",
   "footnote",
   "logoText",
+  /* Lines in a list, NOT badges. Split from proofA–C after the stacked layout
+   * reused those chip slots as full lines and inherited their 24-character
+   * ceiling — so its own sample copy was over the limit and the design could not
+   * be saved. A slot's ceiling belongs to the VISUAL ROLE it fills, so two roles
+   * need two slots even when both hold a short phrase. */
+  "pointA",
+  "pointB",
+  "pointC",
 ] as const;
 export const designTextSlotSchema = z.enum(DESIGN_TEXT_SLOT_KEYS);
 export type DesignTextSlotKey = (typeof DESIGN_TEXT_SLOT_KEYS)[number];

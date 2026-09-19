@@ -163,6 +163,28 @@ export const DESIGN_TEXT_SLOTS: Record<
     maxChars: 24,
     multiline: false,
   },
+  /* Forty-four, not twenty-four. A list line sits alone across the banner's
+   * right two-thirds at subheading size, so it has roughly twice the room a chip
+   * does — and a capability line that has to fit in a chip ("AI products") loses
+   * the specificity that made it worth writing. */
+  pointA: {
+    label: "Point 1",
+    placeholder: "→ AI products, end to end",
+    maxChars: 44,
+    multiline: false,
+  },
+  pointB: {
+    label: "Point 2",
+    placeholder: "→ TypeScript · Next.js · Postgres",
+    maxChars: 44,
+    multiline: false,
+  },
+  pointC: {
+    label: "Point 3",
+    placeholder: "→ Open to work",
+    maxChars: 44,
+    multiline: false,
+  },
 };
 
 /**

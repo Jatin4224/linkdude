@@ -74,6 +74,15 @@ export function BackdropControl({
         images: { ...doc.images, backdrop: image },
         background: { kind: "image", slot: "backdrop" },
       });
+    } catch {
+      /* Swallowed on purpose, and ONLY here. The caller's mutation already
+       * reported the failure in a toast via its own onError; `mutateAsync`
+       * rethrows regardless, and without this catch that second copy escaped as
+       * an unhandled rejection — which in development throws the error overlay
+       * over the editor for a failure the member had already been told about.
+       *
+       * The design is deliberately left untouched: a failed generation must not
+       * clear the backdrop they already had. */
     } finally {
       setIsGenerating(false);
     }

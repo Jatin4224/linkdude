@@ -33,7 +33,11 @@ import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   buildAttachmentUrl,
+  designContentIssues,
   getDesignPalette,
+  getStudioTemplate,
+  isLayoutOutdated,
+  refreshDesignLayout,
   STUDIO_PREVIEW_PATH,
   STUDIO_TEMPLATE_ENTRIES,
 } from "@/lib/config";
@@ -103,6 +107,19 @@ export function StudioWorkspace() {
     setSyncedAssetId(asset.id);
     setDraft(asset.doc);
   }
+
+  /* What the server would reject, computed from the SAME function its schema
+   * runs. Checking here rather than letting the save fail means a member is told
+   * which field to shorten before pressing anything, instead of receiving the
+   * validator's raw issue list in a toast after it. */
+  const contentIssues = draft ? designContentIssues(draft.content) : [];
+
+  /* Whether this design predates a change to its template. Designs are cloned on
+   * create and deliberately never rewritten, so a fixed or improved layout can
+   * only reach an existing design when its owner asks for it. */
+  const archetypeId = project ? getStudioTemplate(project.templateId).archetype : null;
+  const layoutOutdated =
+    draft !== null && archetypeId !== null && isLayoutOutdated(draft, archetypeId);
 
   const isDirty =
     draft !== null && asset !== undefined && JSON.stringify(draft) !== JSON.stringify(asset.doc);
@@ -292,6 +309,28 @@ export function StudioWorkspace() {
                 </div>
               ) : null}
 
+              {layoutOutdated && archetypeId ? (
+                /* An OFFER, never an automatic migration: the refreshed layout
+                   lands in the draft, the preview shows it, and nothing is saved
+                   until they choose to. Declining costs nothing. */
+                <div className="flex flex-col gap-2 rounded-md border border-dashed border-[color:var(--sketch-hair)] p-3">
+                  <p className="text-xs text-muted-foreground">
+                    This style has been improved since you made this design. Update
+                    the layout and keep your words, colours and photos.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="self-start"
+                    onClick={() => {
+                      setDraft(refreshDesignLayout(draft, archetypeId));
+                    }}
+                  >
+                    Update layout
+                  </Button>
+                </div>
+              ) : null}
+
               {/* Three tabs rather than one long column: the reference editors
                   all split content from styling, and a member changing a colour
                   should not have to scroll past every text field to reach it. */}
@@ -387,7 +426,9 @@ export function StudioWorkspace() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  disabled={!isDirty || updateMutation.isPending}
+                  disabled={
+                    !isDirty || updateMutation.isPending || contentIssues.length > 0
+                  }
                   onClick={() => {
                     updateMutation.mutate({
                       ...orgInput,
@@ -442,6 +483,21 @@ export function StudioWorkspace() {
                   </a>
                 ) : null}
               </div>
+
+              {contentIssues.length > 0 ? (
+                /* Named fields, in plain words — not the validator's issue list.
+                   A member needs to know WHICH box to shorten and by how much. */
+                <p className="text-xs text-destructive">
+                  Shorten{" "}
+                  {contentIssues
+                    .map(
+                      (issue) =>
+                        `${issue.label} (${String(issue.length)}/${String(issue.maxChars)})`,
+                    )
+                    .join(", ")}{" "}
+                  to save.
+                </p>
+              ) : null}
 
               {document && asset.status !== "ready" ? (
                 <p className="text-xs text-muted-foreground">

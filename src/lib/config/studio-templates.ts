@@ -92,13 +92,26 @@ const COACH_SAMPLE = {
   handle: "linkdude.io",
 } as const;
 
+/* The proof layout ends in a fixed "AS SEEN IN" label beside proofC. The label
+ * never hides on its own, so a seed without proofC renders the label followed by
+ * nothing — which reads as a broken banner. It is seeded here so the template can
+ * never ship in that state. */
+const PROOF_SAMPLE = {
+  eyebrow: "For B2B founders",
+  headline: "Helping founders grow on LinkedIn",
+  subheadline: "Systems that turn posts into pipeline",
+  proofA: "10k+ followers",
+  proofB: "Top 1% creator",
+  proofC: "Forbes · TechCrunch",
+} as const;
+
 /* The stacked layout reads as a capability list, so its seed is three
  * capabilities rather than one claim. */
 const STACKED_SAMPLE = {
   headline: "Full-stack engineer",
-  proofA: "→ AI products, end to end",
-  proofB: "→ TypeScript · Next.js · Postgres",
-  proofC: "→ Open to work",
+  pointA: "→ AI products, end to end",
+  pointB: "→ TypeScript · Next.js · Postgres",
+  pointC: "→ Open to work",
   handle: "github.com/you",
 } as const;
 
@@ -271,7 +284,7 @@ export const STUDIO_TEMPLATES: Record<StudioTemplateKey, StudioTemplate> = {
       "Badges hide themselves when empty, so it never looks unfinished",
       "Suits a profile whose strongest asset is a track record",
     ],
-    sampleContent: FOUNDER_SAMPLE,
+    sampleContent: PROOF_SAMPLE,
   },
 
   boldOffer: {
