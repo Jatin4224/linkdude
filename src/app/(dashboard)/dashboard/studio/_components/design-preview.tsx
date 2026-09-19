@@ -178,7 +178,7 @@ export function DesignPreview({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div
-        className="sketch-box sketch-paper relative w-full overflow-hidden border bg-muted/40"
+        className="sketch-card sketch-paper relative w-full overflow-hidden"
         /* Reserves the exact aspect before the first render lands, so the form
          * beside it does not jump when the image arrives. */
         style={{ aspectRatio: `${String(preset.width)} / ${String(preset.height)}` }}

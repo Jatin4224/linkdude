@@ -30,19 +30,19 @@
  */
 
 import * as React from "react";
-import { PlusIcon } from "lucide-react";
 
 import { DESIGN_CANVAS_PRESETS } from "@/lib/types";
 import type { DesignPalette, StudioTemplate } from "@/lib/config";
 import { FeatureGate } from "@/components/feature-gate";
-import { Button } from "@/components/ui/button";
-import { Spotlight } from "@/components/global/spotlight";
+import {
+  SketchButton,
+  SketchCard,
+  SketchCheck,
+} from "@/components/global/sketch";
 import { cn } from "@/lib/utils";
 
+
 export interface StyleCardProps {
-  /* Alternates the wobble and the tilt. A grid where every card leans the same
-   * way reads as a broken transform rather than as hand-drawn. */
-  index: number;
   template: StudioTemplate;
   palette: DesignPalette;
   isPending: boolean;
@@ -68,10 +68,7 @@ function StyleMiniature({
 
   return (
     <div
-      className={cn(
-        "relative w-full overflow-hidden border",
-        "sketch-box-alt",
-      )}
+      className="relative w-full overflow-hidden rounded-md border"
       style={{
         aspectRatio: "1584 / 396",
         backgroundColor: palette.background,
@@ -135,7 +132,6 @@ function StyleMiniature({
 export function StyleCard({
   template,
   palette,
-  index,
   isPending,
   disabled,
   onUse,
@@ -143,18 +139,15 @@ export function StyleCard({
   return (
     /* Spotlight writes its cursor position onto ITS OWN element rather than a
      * shared parent, which is what keeps a grid of these from stuttering. */
-    <Spotlight
-      className={cn(
-        "surface-raised sketch-shadow flex flex-col gap-3 border p-3",
-        index % 2 === 0 ? "sketch-box sketch-tilt-a" : "sketch-box-alt sketch-tilt-b",
-      )}
-    >
+    <SketchCard className="sketch-paper gap-3 p-4">
       <StyleMiniature template={template} palette={palette} />
 
       <div className="flex flex-col gap-0.5">
-        <span className="font-sketch text-lg leading-none">{template.label}</span>
+        <span className="font-sketch text-2xl leading-none">{template.label}</span>
         <span className="text-xs capitalize text-muted-foreground">
-          {template.tone} · {template.roles.join(", ").replace(/([A-Z])/g, " $1")}
+          {[template.tone, ...template.roles]
+            .map((word) => word.replace(/([A-Z])/g, " $1"))
+            .join(" · ")}
         </span>
       </div>
 
@@ -164,9 +157,7 @@ export function StyleCard({
             key={reason}
             className="flex gap-1.5 text-xs leading-snug text-muted-foreground"
           >
-            <span aria-hidden className="font-sketch text-sm leading-none text-brand">
-              ✓
-            </span>
+            <SketchCheck />
             {reason}
           </li>
         ))}
@@ -174,16 +165,18 @@ export function StyleCard({
 
       {/* Gated at the BUTTON, not the card — the FeatureGate rule. */}
       <FeatureGate resource="studio">
-        <Button
+        {/* Clean. A control has one job, and anything decorative inside it
+            competes with the word that says what it does — marks belong NEAR a
+            CTA, never in it. */}
+        <SketchButton
           size="sm"
           className={cn("w-full", isPending && "opacity-80")}
           disabled={disabled}
           onClick={onUse}
         >
-          <PlusIcon className="size-4" />
           {isPending ? "Starting…" : "Use this style"}
-        </Button>
+        </SketchButton>
       </FeatureGate>
-    </Spotlight>
+    </SketchCard>
   );
 }
