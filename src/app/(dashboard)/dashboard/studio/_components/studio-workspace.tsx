@@ -246,7 +246,7 @@ export function StudioWorkspace() {
         }
       >
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
-          <Card className="surface-raised sketch-box sketch-scope">
+          <Card className="surface-raised sketch-box sketch-paper sketch-scope">
             <CardContent className="flex flex-col gap-4 pt-6">
               {/* One row per asset in the kit. A segmented control rather than a
                   wizard: the assets are independent, so imposing an order would
@@ -448,7 +448,9 @@ export function StudioWorkspace() {
             </CardContent>
           </Card>
 
-          <DesignPreview doc={draft} onRender={renderPreview} />
+          {/* Its own scope: the preview renders beside the panel rather than
+              inside it, so the hand-drawn font and grain have to reach it here. */}
+          <DesignPreview doc={draft} onRender={renderPreview} className="sketch-scope" />
         </div>
       </ContentLayout>
     );

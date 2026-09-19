@@ -906,4 +906,60 @@
     }
   }
 
+
+  /*
+   * SOURCE OF TRUTH KEYWORDS: sketch-paper, sketch-scribble, paper grain,
+   *   hand-drawn spinner
+   *
+   * WHAT:  Paper grain, and the wobbling stroke used while the preview redraws.
+   * WHY:   The grain is an inline SVG `feTurbulence`, not an image file: it ships
+   *        in the stylesheet, scales to any box, and costs no request. It is
+   *        allowed here precisely because it is DOM-only — satori never sees this
+   *        stylesheet, so an SVG filter that would break the renderer cannot
+   *        reach it.
+   *
+   *        Opacity is low enough to read as texture rather than as noise. On a
+   *        dark field, grain that is visible as grain looks like a broken
+   *        gradient.
+   */
+  .sketch-paper {
+    position: relative;
+  }
+
+  .sketch-paper::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* A stroke that redraws itself, for the moment the preview is regenerating.
+   * A dash offset rather than a rotation: a spinning ring reads as "loading", a
+   * drawing line reads as "being drawn", which is what is actually happening. */
+  .sketch-scribble {
+    stroke-dasharray: 44 120;
+    animation: sketch-draw 1.4s var(--ease-in-out) infinite;
+  }
+
+  @keyframes sketch-draw {
+    0% {
+      stroke-dashoffset: 0;
+    }
+    100% {
+      stroke-dashoffset: -164;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sketch-scribble {
+      animation: none;
+      stroke-dasharray: none;
+      opacity: 0.6;
+    }
+  }
+
 }
