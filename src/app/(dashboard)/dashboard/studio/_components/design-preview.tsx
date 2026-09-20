@@ -84,23 +84,7 @@ function SafeZoneDoodle({ zone }: { zone: DesignSafeZone }) {
         top: `${String(Math.max(zone.y - zone.height / 2, 0) * 100)}%`,
       }}
     >
-      <svg width="46" height="30" viewBox="0 0 46 30" fill="none">
-        <path
-          d="M44 3C33 1 12 4 4 21"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M4 21l7-4M4 21l1-8"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="font-sketch whitespace-nowrap text-sm leading-none">
-        your photo sits here
-      </span>
+      <span className="tech-label whitespace-nowrap">Profile photo</span>
     </div>
   );
 }
@@ -177,8 +161,12 @@ export function DesignPreview({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
+      {/* The marks live on a wrapper rather than on the canvas: the canvas has to
+          clip the rendered PNG to its frame, and a clipping box would also clip
+          the overlay the moment it travels outward on hover. */}
+      <div className="tech-bracket relative">
       <div
-        className="sketch-card sketch-paper relative w-full overflow-hidden"
+        className="tech-panel relative w-full overflow-hidden"
         /* Reserves the exact aspect before the first render lands, so the form
          * beside it does not jump when the image arrives. */
         style={{ aspectRatio: `${String(preset.width)} / ${String(preset.height)}` }}
@@ -238,12 +226,18 @@ export function DesignPreview({
               .map((zone) => <SafeZoneDoodle key={`note-${zone.id}`} zone={zone} />)
           : null}
       </div>
+      </div>
 
-      <p className="text-xs text-muted-foreground">
-        {preset.label} · {preset.width}×{preset.height}px
-        {showSafeZones && preset.safeZones.length > 0
-          ? " · dashed areas are covered on LinkedIn"
-          : null}
+      <p className="tech-label flex flex-wrap items-center gap-x-4 gap-y-1 normal-case tracking-normal">
+        <span className="tech-label">{preset.label}</span>
+        <span className="font-mono text-[0.6875rem] text-foreground/80">
+          {preset.width}×{preset.height}
+        </span>
+        {showSafeZones && preset.safeZones.length > 0 ? (
+          <span className="text-muted-foreground">
+            Dashed regions are obscured on LinkedIn
+          </span>
+        ) : null}
         {isRendering ? (
           <span className="ml-2 inline-flex items-center gap-1 align-middle">
             {/* A stroke redrawing itself rather than a ring spinning — the
@@ -256,10 +250,9 @@ export function DesignPreview({
                 stroke="currentColor"
                 strokeWidth="2.5"
                 strokeLinecap="round"
-                className="sketch-scribble"
               />
             </svg>
-            <span className="font-sketch text-sm leading-none">drawing…</span>
+            <span className="tech-label">Rendering</span>
           </span>
         ) : null}
         {error && !isRendering ? (
