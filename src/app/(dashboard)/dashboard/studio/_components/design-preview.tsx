@@ -39,7 +39,11 @@
 
 import * as React from "react";
 
-import { DESIGN_CANVAS_PRESETS, type DesignDoc } from "@/lib/types";
+import {
+  DESIGN_CANVAS_PRESETS,
+  type DesignDoc,
+  type DesignSafeZone,
+} from "@/lib/types";
 import { STUDIO_PREVIEW_DEBOUNCE_MS } from "@/lib/config";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -50,6 +54,55 @@ export interface DesignPreviewProps {
   onRender: (doc: DesignDoc, signal: AbortSignal) => Promise<{ dataUrl: string }>;
   showSafeZones?: boolean;
   className?: string;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: SafeZoneDoodle
+ *
+ * WHAT:  A drawn arrow and note pointing at the avatar's footprint.
+ * WHY:   The dashed circle alone says "something is here" without saying what or
+ *        why. The single most expensive mistake on a LinkedIn banner is putting
+ *        the thing you care about where your own face lands, and a label is the
+ *        cheapest possible fix for it.
+ *
+ *        Drawn as an inline SVG path with a deliberately uneven curve rather than
+ *        a straight line or an icon — the wobble is what makes it read as an
+ *        annotation on the design rather than as part of it.
+ *
+ *        `currentColor` throughout, so it inherits whatever the caller sets and
+ *        stays inside the no-hardcoded-colour rule.
+ */
+function SafeZoneDoodle({ zone }: { zone: DesignSafeZone }) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute flex flex-col items-center text-muted-foreground"
+      style={{
+        /* Anchored just above and right of the circle, where a banner's content
+         * never sits anyway. */
+        left: `${String((zone.x + zone.width / 2) * 100)}%`,
+        top: `${String(Math.max(zone.y - zone.height / 2, 0) * 100)}%`,
+      }}
+    >
+      <svg width="46" height="30" viewBox="0 0 46 30" fill="none">
+        <path
+          d="M44 3C33 1 12 4 4 21"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M4 21l7-4M4 21l1-8"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="font-sketch whitespace-nowrap text-sm leading-none">
+        your photo sits here
+      </span>
+    </div>
+  );
 }
 
 export function DesignPreview({
@@ -125,7 +178,7 @@ export function DesignPreview({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div
-        className="relative w-full overflow-hidden rounded-lg border bg-muted/40"
+        className="sketch-card sketch-paper relative w-full overflow-hidden"
         /* Reserves the exact aspect before the first render lands, so the form
          * beside it does not jump when the image arrives. */
         style={{ aspectRatio: `${String(preset.width)} / ${String(preset.height)}` }}
@@ -177,6 +230,13 @@ export function DesignPreview({
               />
             ))
           : null}
+
+        {/* Only for the avatar. A note on every guide would be noise. */}
+        {showSafeZones
+          ? preset.safeZones
+              .filter((zone) => zone.id === "avatar")
+              .map((zone) => <SafeZoneDoodle key={`note-${zone.id}`} zone={zone} />)
+          : null}
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -184,7 +244,24 @@ export function DesignPreview({
         {showSafeZones && preset.safeZones.length > 0
           ? " · dashed areas are covered on LinkedIn"
           : null}
-        {isRendering ? <span className="ml-2 opacity-70">updating…</span> : null}
+        {isRendering ? (
+          <span className="ml-2 inline-flex items-center gap-1 align-middle">
+            {/* A stroke redrawing itself rather than a ring spinning — the
+                preview is being DRAWN, and the indicator should say so. */}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <circle
+                cx="12"
+                cy="12"
+                r="9"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                className="sketch-scribble"
+              />
+            </svg>
+            <span className="font-sketch text-sm leading-none">drawing…</span>
+          </span>
+        ) : null}
         {error && !isRendering ? (
           /* Shown BESIDE the caption rather than over the canvas, because the
            * last good frame is still the most useful thing on screen. */

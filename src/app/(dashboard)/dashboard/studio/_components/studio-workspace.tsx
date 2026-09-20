@@ -33,7 +33,11 @@ import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   buildAttachmentUrl,
+  designContentIssues,
   getDesignPalette,
+  getStudioTemplate,
+  isLayoutOutdated,
+  refreshDesignLayout,
   STUDIO_PREVIEW_PATH,
   STUDIO_TEMPLATE_ENTRIES,
 } from "@/lib/config";
@@ -45,6 +49,12 @@ import {
 } from "@/lib/types";
 import { ContentLayout } from "@/components/global/page-header";
 import { UsageMeter } from "@/components/global/usage-meter";
+import {
+  PaperSection,
+  SketchAnnotation,
+  SketchDefs,
+  SketchHeading,
+} from "@/components/global/sketch";
 import { Reveal } from "@/components/global/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -97,6 +107,19 @@ export function StudioWorkspace() {
     setSyncedAssetId(asset.id);
     setDraft(asset.doc);
   }
+
+  /* What the server would reject, computed from the SAME function its schema
+   * runs. Checking here rather than letting the save fail means a member is told
+   * which field to shorten before pressing anything, instead of receiving the
+   * validator's raw issue list in a toast after it. */
+  const contentIssues = draft ? designContentIssues(draft.content) : [];
+
+  /* Whether this design predates a change to its template. Designs are cloned on
+   * create and deliberately never rewritten, so a fixed or improved layout can
+   * only reach an existing design when its owner asks for it. */
+  const archetypeId = project ? getStudioTemplate(project.templateId).archetype : null;
+  const layoutOutdated =
+    draft !== null && archetypeId !== null && isLayoutOutdated(draft, archetypeId);
 
   const isDirty =
     draft !== null && asset !== undefined && JSON.stringify(draft) !== JSON.stringify(asset.doc);
@@ -245,9 +268,17 @@ export function StudioWorkspace() {
           </Button>
         }
       >
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
-          <Card className="surface-raised sketch-box sketch-scope">
-            <CardContent className="flex flex-col gap-4 pt-6">
+        {/* The editor is the same sheet of paper as the gallery. Two surfaces
+            in one feature, one wearing the treatment and one not, reads as an
+            unfinished port rather than as a design. */}
+        <div className="paper-scope sketch-scope sketch-paper relative -m-4 flex flex-col gap-6 p-6 md:-m-6 md:p-10">
+          <SketchDefs />
+
+          {/* PREVIEW FIRST on narrow screens, controls first on wide. The design
+              is what someone came to look at, and on a phone a column of form
+              fields above it means scrolling past the work to reach the work. */}
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,23rem)_minmax(0,1fr)]">
+          <div className="order-2 flex flex-col gap-4 lg:order-1">
               {/* One row per asset in the kit. A segmented control rather than a
                   wizard: the assets are independent, so imposing an order would
                   stop someone fixing their banner without first walking past a
@@ -275,6 +306,28 @@ export function StudioWorkspace() {
                       </button>
                     );
                   })}
+                </div>
+              ) : null}
+
+              {layoutOutdated && archetypeId ? (
+                /* An OFFER, never an automatic migration: the refreshed layout
+                   lands in the draft, the preview shows it, and nothing is saved
+                   until they choose to. Declining costs nothing. */
+                <div className="flex flex-col gap-2 rounded-md border border-dashed border-[color:var(--sketch-hair)] p-3">
+                  <p className="text-xs text-muted-foreground">
+                    This style has been improved since you made this design. Update
+                    the layout and keep your words, colours and photos.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="self-start"
+                    onClick={() => {
+                      setDraft(refreshDesignLayout(draft, archetypeId));
+                    }}
+                  >
+                    Update layout
+                  </Button>
                 </div>
               ) : null}
 
@@ -373,7 +426,9 @@ export function StudioWorkspace() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  disabled={!isDirty || updateMutation.isPending}
+                  disabled={
+                    !isDirty || updateMutation.isPending || contentIssues.length > 0
+                  }
                   onClick={() => {
                     updateMutation.mutate({
                       ...orgInput,
@@ -429,6 +484,21 @@ export function StudioWorkspace() {
                 ) : null}
               </div>
 
+              {contentIssues.length > 0 ? (
+                /* Named fields, in plain words — not the validator's issue list.
+                   A member needs to know WHICH box to shorten and by how much. */
+                <p className="text-xs text-destructive">
+                  Shorten{" "}
+                  {contentIssues
+                    .map(
+                      (issue) =>
+                        `${issue.label} (${String(issue.length)}/${String(issue.maxChars)})`,
+                    )
+                    .join(", ")}{" "}
+                  to save.
+                </p>
+              ) : null}
+
               {document && asset.status !== "ready" ? (
                 <p className="text-xs text-muted-foreground">
                   This design has changed since it was last exported. Export again
@@ -445,10 +515,14 @@ export function StudioWorkspace() {
                 assets={project.assets}
                 disabled={renderMutation.isPending}
               />
-            </CardContent>
-          </Card>
+          </div>
 
-          <DesignPreview doc={draft} onRender={renderPreview} />
+          {/* Its own scope: the preview renders beside the panel rather than
+              inside it, so the hand-drawn font and grain have to reach it here. */}
+          <div className="order-1 flex flex-col gap-3 lg:order-2">
+            <DesignPreview doc={draft} onRender={renderPreview} />
+          </div>
+          </div>
         </div>
       </ContentLayout>
     );
@@ -466,25 +540,52 @@ export function StudioWorkspace() {
     >
       {/* The hand-drawn treatment lives under this one class, so it cannot leak
           into any other route. See .sketch-scope in globals.css. */}
-      <div className="sketch-scope flex flex-col gap-8">
-        <section className="flex flex-col gap-3">
-          <h2 className="font-sketch text-xl leading-none">Your profiles</h2>
+      {/* paper-scope remaps every token to the warm ground; sketch-scope adds
+          the handwriting, the marker accent and the drawn marks. Both are
+          scoped here so neither can reach another route. */}
+      <div className="paper-scope sketch-scope sketch-paper relative -m-4 flex flex-col gap-10 p-6 md:-m-6 md:p-10">
+        {/* One filter definition for every drawn mark on the page. */}
+        <SketchDefs />
+
+        {/* ONE annotation for the page. The brief's ceiling is a couple of
+            marks per section, and a note beside every heading stops guiding
+            attention and starts competing for it. */}
+        <SketchAnnotation direction="downLeft" className="absolute right-6 top-5 hidden lg:flex">
+          small changes, big lift
+        </SketchAnnotation>
+
+        {/* The hero lives ON the paper. The app's own header sits above in dark
+            chrome and says "Studio"; repeating it here would be two titles for
+            one page. This one says what the page is FOR. */}
+        <header className="flex max-w-xl flex-col gap-2">
+          <SketchHeading as="h1" underline="profile" className="text-4xl sm:text-5xl">
+            Design your profile
+          </SketchHeading>
+          <p className="text-sm text-muted-foreground">
+            Pick a style, swap in your words, and export images that are already
+            the right size for LinkedIn.
+          </p>
+        </header>
+        <PaperSection
+          title="Your profiles"
+          description="Each one is a full kit — banner, headshot and featured cover."
+        >
 
           {listQuery.isLoading ? (
             <Skeleton className="h-24 w-full" />
           ) : listQuery.data && listQuery.data.items.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {listQuery.data.items.map((row) => (
                 <Card
                   key={row.id}
-                  className="surface-raised sketch-box sketch-shadow cursor-pointer hover:border-brand-border"
+                  className="sketch-sheet relative cursor-pointer border-0"
                   onClick={() => {
                     setOpenId(row.id);
                   }}
                 >
                   <CardContent className="flex flex-col gap-2 pt-6">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-sketch text-lg leading-none">{row.name}</span>
+                      <span className="font-sketch text-xl leading-none">{row.name}</span>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -518,27 +619,22 @@ export function StudioWorkspace() {
           ) : (
             /* Dashed, matching the safe-zone language used throughout the
                editor — an empty slot rather than an error. */
-            <div className="sketch-box flex flex-col items-center gap-1 border border-dashed px-4 py-8 text-center">
-              <span className="font-sketch text-xl leading-none">Nothing here yet</span>
+            <div className="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-[color:var(--sketch-hair)] px-4 py-12 text-center">
+              <span className="font-sketch text-2xl leading-none">A blank page</span>
               <span className="text-xs text-muted-foreground">
-                Pick a style below — you&apos;ll have a banner in about a minute.
+                Pick a style below. You&apos;ll have a banner in about a minute.
               </span>
             </div>
           )}
-        </section>
+        </PaperSection>
 
-        <section className="flex flex-col gap-3">
-          <div className="flex flex-col gap-0.5">
-            <h2 className="sketch-underline font-sketch text-xl leading-none">
-              Pick a style
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Every one is sized for LinkedIn and keeps your text clear of your
-              profile photo. The dashed circle is where your face lands.
-            </p>
-          </div>
+        <PaperSection
+          title="Pick a style"
+          underline="style"
+          description="Every one is sized for LinkedIn and keeps your text clear of your profile photo. The dashed circle shows where your face lands."
+        >
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {STUDIO_TEMPLATE_ENTRIES.map(([key, template], index) => (
               /* Staggered so twelve cards arrive as a wave rather than a slab.
                  Reveal degrades to visible on its own if the observer never
@@ -547,7 +643,6 @@ export function StudioWorkspace() {
                 <StyleCard
                   template={template}
                   palette={getDesignPalette(template.palette)}
-                  index={index}
                   isPending={pendingTemplate === key}
                   disabled={pendingTemplate !== null}
                   onUse={() => {
@@ -562,7 +657,7 @@ export function StudioWorkspace() {
               </Reveal>
             ))}
           </div>
-        </section>
+        </PaperSection>
       </div>
     </ContentLayout>
   );

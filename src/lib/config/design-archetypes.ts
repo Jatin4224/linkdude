@@ -8,6 +8,7 @@
  * SOURCE OF TRUTH KEYWORDS: DESIGN_ARCHETYPES, DESIGN_ARCHETYPE_KEYS,
  *   DesignArchetypeKey, DesignArchetype, getDesignArchetype, buildDesignDoc,
  *   statementCta, proofStrip, offerGuarantee, stackedKeywords, conversational,
+ *   refreshDesignLayout, isLayoutOutdated, DESIGN_SLOT_RENAMES,
  *   studio layouts, block lists
  *
  * WHAT:  The layouts themselves — a block list per archetype per canvas, and the
@@ -419,7 +420,7 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
             {
               id: "lineA",
               type: "text",
-              text: { source: "slot", slot: "proofA" },
+              text: { source: "slot", slot: "pointA" },
               role: "subheading",
               color: { slot: "accent" },
               maxLines: 1,
@@ -427,7 +428,7 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
             {
               id: "lineB",
               type: "text",
-              text: { source: "slot", slot: "proofB" },
+              text: { source: "slot", slot: "pointB" },
               role: "subheading",
               color: { slot: "foreground" },
               maxLines: 1,
@@ -435,7 +436,7 @@ export const DESIGN_ARCHETYPES: Record<DesignArchetypeKey, DesignArchetype> = {
             {
               id: "lineC",
               type: "text",
-              text: { source: "slot", slot: "proofC" },
+              text: { source: "slot", slot: "pointC" },
               role: "subheading",
               color: { slot: "muted" },
               maxLines: 1,
@@ -597,4 +598,103 @@ export function buildDesignDoc(args: {
     ...(insetLeft === undefined ? {} : { insetLeft }),
     ...(align === undefined ? {} : { align }),
   });
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: DESIGN_SLOT_RENAMES
+ *
+ * WHAT:  Slots whose job moved to a different slot in a later version of a
+ *        layout, so an old design's words can follow them.
+ * WHY:   The stacked layout once drew its list lines from proofA–C, which are
+ *        24-character CHIP slots. The lines outgrew them, so the layout moved to
+ *        pointA–C. A design created before that still holds its words under the
+ *        old keys; without this map, refreshing its layout would drop the member's
+ *        list onto slots nothing reads and show them an empty banner.
+ *
+ *        Explicit rather than inferred. Guessing which old slot "means" which new
+ *        one would eventually move someone's headline into their footnote.
+ *        Add an entry here whenever a layout changes which slot it reads.
+ */
+const DESIGN_SLOT_RENAMES: Partial<
+  Record<DesignArchetypeKey, Partial<Record<DesignTextSlotKey, DesignTextSlotKey>>>
+> = {
+  stackedKeywords: { proofA: "pointA", proofB: "pointB", proofC: "pointC" },
+};
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: refreshDesignLayout, isLayoutOutdated
+ *
+ * WHAT:  Re-applies a template's CURRENT layout to an existing design, keeping
+ *        everything the member made.
+ * WHY:   Designs are cloned on create and never rewritten, and that is right —
+ *        improving a layout must not silently change someone's finished banner.
+ *        But it also means a fixed or improved template can never reach a design
+ *        made before the fix. This is the member choosing to take it.
+ *
+ *        What changes: the block list, and the geometry that goes with it
+ *        (insetLeft, align) — i.e. the LAYOUT.
+ *        What is kept: every word they typed, their palette and colour overrides,
+ *        their uploaded images, and their background. Their choices, untouched.
+ *
+ *        Returns a document rather than saving one. The refreshed design lands in
+ *        the draft, the member sees it in the live preview, and nothing is written
+ *        until they press Save — so an update they dislike costs nothing.
+ * WHERE: The studio editor's "Update layout" control.
+ */
+export function refreshDesignLayout(
+  doc: DesignDoc,
+  archetypeId: DesignArchetypeKey,
+): DesignDoc {
+  const fresh = buildDesignDoc({
+    templateId: doc.templateId,
+    archetypeId,
+    canvas: doc.canvas,
+    paletteId: doc.paletteId,
+  });
+
+  /* Carry words across any slot the layout has since renamed — but never over
+   * something the member already wrote into the new slot. */
+  const content: Partial<Record<DesignTextSlotKey, string>> = { ...doc.content };
+  const renames = DESIGN_SLOT_RENAMES[archetypeId] ?? {};
+  for (const [from, to] of Object.entries(renames) as [
+    DesignTextSlotKey,
+    DesignTextSlotKey,
+  ][]) {
+    const moved = content[from];
+    if (moved !== undefined && !content[to]) {
+      content[to] = moved;
+      delete content[from];
+    }
+  }
+
+  return {
+    ...fresh,
+    content,
+    paletteOverrides: doc.paletteOverrides,
+    images: doc.images,
+    background: doc.background,
+  };
+}
+
+/**
+ * True when the design's layout no longer matches its template's current one —
+ * which is when offering the update is worth a button.
+ */
+export function isLayoutOutdated(
+  doc: DesignDoc,
+  archetypeId: DesignArchetypeKey,
+): boolean {
+  const fresh = buildDesignDoc({
+    templateId: doc.templateId,
+    archetypeId,
+    canvas: doc.canvas,
+    paletteId: doc.paletteId,
+  });
+  /* Blocks and geometry only. Comparing whole documents would call every design
+   * outdated the moment its owner typed a word. */
+  return (
+    JSON.stringify(fresh.blocks) !== JSON.stringify(doc.blocks) ||
+    fresh.insetLeft !== doc.insetLeft ||
+    fresh.align !== doc.align
+  );
 }

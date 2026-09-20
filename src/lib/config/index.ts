@@ -273,6 +273,8 @@ export {
   DESIGN_ARCHETYPES,
   getDesignArchetype,
   buildDesignDoc,
+  refreshDesignLayout,
+  isLayoutOutdated,
 } from "./design-archetypes";
 export type { DesignArchetype, DesignArchetypeKey } from "./design-archetypes";
 export {
