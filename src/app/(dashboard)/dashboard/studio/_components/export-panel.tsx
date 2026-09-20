@@ -32,9 +32,8 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { STUDIO_ASSET_KIND_LABELS, type StudioAssetKind } from "@/lib/types";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+import { TechButton, TechLabel, TechRule } from "@/components/global/tech";
 
 export interface ExportPanelAsset {
   id: string;
@@ -114,7 +113,7 @@ export function ExportPanel({
 
   return (
     <div className="flex flex-col gap-3">
-      <Separator />
+      <TechRule />
 
       <div className="flex items-center justify-between">
         <Label>Export</Label>
@@ -123,7 +122,7 @@ export function ExportPanel({
         </span>
       </div>
 
-      <Button
+      <TechButton
         size="sm"
         className="self-start"
         disabled={disabled || isZipping || ready.length === 0}
@@ -132,7 +131,7 @@ export function ExportPanel({
         }}
       >
         {isZipping ? "Building zip…" : `Download all (${String(ready.length)})`}
-      </Button>
+      </TechButton>
 
       {ready.length < assets.length ? (
         <p className="text-xs text-muted-foreground">
@@ -141,7 +140,7 @@ export function ExportPanel({
       ) : null}
 
       <div className="flex flex-col gap-2 pt-1">
-        <span className="text-xs font-medium">Where to paste it</span>
+        <TechLabel>Where to paste it</TechLabel>
         <ol className="flex flex-col gap-1.5">
           {assets.map((asset) => (
             <li key={asset.id} className="text-xs text-muted-foreground">

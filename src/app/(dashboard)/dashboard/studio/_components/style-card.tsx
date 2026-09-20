@@ -35,10 +35,10 @@ import { DESIGN_CANVAS_PRESETS } from "@/lib/types";
 import type { DesignPalette, StudioTemplate } from "@/lib/config";
 import { FeatureGate } from "@/components/feature-gate";
 import {
-  SketchButton,
-  SketchCard,
-  SketchCheck,
-} from "@/components/global/sketch";
+  TechButton,
+  TechLabel,
+  TechPanel,
+} from "@/components/global/tech";
 import { cn } from "@/lib/utils";
 
 
@@ -68,7 +68,7 @@ function StyleMiniature({
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-md border"
+      className="relative w-full overflow-hidden"
       style={{
         aspectRatio: "1584 / 396",
         backgroundColor: palette.background,
@@ -137,46 +137,45 @@ export function StyleCard({
   onUse,
 }: StyleCardProps) {
   return (
-    /* Spotlight writes its cursor position onto ITS OWN element rather than a
-     * shared parent, which is what keeps a grid of these from stuttering. */
-    <SketchCard className="sketch-paper gap-3 p-4">
-      <StyleMiniature template={template} palette={palette} />
-
-      <div className="flex flex-col gap-0.5">
-        <span className="font-sketch text-2xl leading-none">{template.label}</span>
-        <span className="text-xs capitalize text-muted-foreground">
-          {[template.tone, ...template.roles]
-            .map((word) => word.replace(/([A-Z])/g, " $1"))
-            .join(" · ")}
-        </span>
+    <TechPanel className="gap-0">
+      <div className="border-b border-[color:color-mix(in_oklab,var(--border)_70%,transparent)]">
+        <StyleMiniature template={template} palette={palette} />
       </div>
 
-      <ul className="flex flex-1 flex-col gap-1">
-        {template.whyItWorks.map((reason) => (
-          <li
-            key={reason}
-            className="flex gap-1.5 text-xs leading-snug text-muted-foreground"
-          >
-            <SketchCheck />
-            {reason}
+      <div className="flex flex-col gap-2 p-4 pb-3">
+        <h3 className="tech-display text-xl">{template.label}</h3>
+        <TechLabel>
+          {[template.tone, ...template.roles]
+            .map((word) => word.replace(/([A-Z])/g, " $1"))
+            .join(" / ")}
+        </TechLabel>
+      </div>
+
+      <ul className="flex flex-1 flex-col gap-2 px-4 pb-4">
+        {template.whyItWorks.map((reason, index) => (
+          <li key={reason} className="flex gap-3 text-[0.8125rem] leading-snug">
+            <span className="tech-label pt-0.5 tabular-nums">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <span className="text-muted-foreground">{reason}</span>
           </li>
         ))}
       </ul>
 
       {/* Gated at the BUTTON, not the card — the FeatureGate rule. */}
       <FeatureGate resource="studio">
-        {/* Clean. A control has one job, and anything decorative inside it
-            competes with the word that says what it does — marks belong NEAR a
-            CTA, never in it. */}
-        <SketchButton
+        <TechButton
           size="sm"
-          className={cn("w-full", isPending && "opacity-80")}
+          className={cn(
+            "mt-auto w-full border-t border-[color:color-mix(in_oklab,var(--border)_70%,transparent)]",
+            isPending && "opacity-80",
+          )}
           disabled={disabled}
           onClick={onUse}
         >
-          {isPending ? "Starting…" : "Use this style"}
-        </SketchButton>
+          {isPending ? "Initialising" : "Use this style"}
+        </TechButton>
       </FeatureGate>
-    </SketchCard>
+    </TechPanel>
   );
 }

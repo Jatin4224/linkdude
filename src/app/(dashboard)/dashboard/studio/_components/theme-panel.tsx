@@ -98,17 +98,14 @@ export function ThemePanel({ doc, onChange, disabled = false }: ThemePanelProps)
                   onChange({ ...doc, paletteId: key, paletteOverrides: {} });
                 }}
                 className={cn(
-                  "flex items-center gap-2 rounded-md border p-2 transition-colors",
-                  isActive
-                    ? "border-brand-border bg-brand-soft"
-                    : "bg-muted/40 hover:bg-muted",
+                  "tech-chip flex items-center gap-2 p-2",
                 )}
               >
                 <span className="flex gap-0.5">
                   {DESIGN_COLOR_SLOTS.map((slot) => (
                     <span
                       key={slot}
-                      className="size-4 rounded-sm border border-border/50"
+                      className="size-4 border border-border/50"
                       /* One of the only places a raw colour belongs in the DOM:
                        * these ARE the values, not theme tokens describing them. */
                       style={{ backgroundColor: palette[slot] }}
@@ -176,7 +173,7 @@ export function ThemePanel({ doc, onChange, disabled = false }: ThemePanelProps)
               setPattern(null);
             }}
             className={cn(
-              "rounded-md border px-3 py-1 text-xs transition-colors",
+              "tech-chip",
               doc.background.kind === "solid"
                 ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
                 : "bg-muted/40 hover:bg-muted",
@@ -195,10 +192,7 @@ export function ThemePanel({ doc, onChange, disabled = false }: ThemePanelProps)
                 setPattern(pattern);
               }}
               className={cn(
-                "rounded-md border px-3 py-1 text-xs transition-colors",
-                activePattern === pattern
-                  ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
-                  : "bg-muted/40 hover:bg-muted",
+                "tech-chip",
               )}
             >
               {PATTERN_LABELS[pattern]}

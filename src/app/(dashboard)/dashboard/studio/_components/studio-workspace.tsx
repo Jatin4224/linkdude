@@ -50,15 +50,17 @@ import {
 import { ContentLayout } from "@/components/global/page-header";
 import { UsageMeter } from "@/components/global/usage-meter";
 import {
-  PaperSection,
-  SketchAnnotation,
-  SketchDefs,
-  SketchHeading,
-} from "@/components/global/sketch";
+  TechButton,
+  TechLabel,
+  TechMeta,
+  TechPanel,
+  TechRule,
+  TechSection,
+  TechSurface,
+} from "@/components/global/tech";
 import { Reveal } from "@/components/global/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -271,8 +273,7 @@ export function StudioWorkspace() {
         {/* The editor is the same sheet of paper as the gallery. Two surfaces
             in one feature, one wearing the treatment and one not, reads as an
             unfinished port rather than as a design. */}
-        <div className="paper-scope sketch-scope sketch-paper relative -m-4 flex flex-col gap-6 p-6 md:-m-6 md:p-10">
-          <SketchDefs />
+        <TechSurface className="flex flex-col gap-6">
 
           {/* PREVIEW FIRST on narrow screens, controls first on wide. The design
               is what someone came to look at, and on a phone a column of form
@@ -296,7 +297,7 @@ export function StudioWorkspace() {
                           setOpenAssetId(row.id);
                         }}
                         className={cn(
-                          "rounded-md border px-3 py-1 text-xs transition-colors",
+                          "tech-chip",
                           isOpen
                             ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
                             : "bg-muted/40 hover:bg-muted",
@@ -313,12 +314,12 @@ export function StudioWorkspace() {
                 /* An OFFER, never an automatic migration: the refreshed layout
                    lands in the draft, the preview shows it, and nothing is saved
                    until they choose to. Declining costs nothing. */
-                <div className="flex flex-col gap-2 rounded-md border border-dashed border-[color:var(--sketch-hair)] p-3">
+                <TechPanel bracket={false} className="gap-2 p-3">
                   <p className="text-xs text-muted-foreground">
                     This style has been improved since you made this design. Update
                     the layout and keep your words, colours and photos.
                   </p>
-                  <Button
+                  <TechButton
                     size="sm"
                     variant="outline"
                     className="self-start"
@@ -327,8 +328,8 @@ export function StudioWorkspace() {
                     }}
                   >
                     Update layout
-                  </Button>
-                </div>
+                  </TechButton>
+                </TechPanel>
               ) : null}
 
               {/* Three tabs rather than one long column: the reference editors
@@ -523,7 +524,7 @@ export function StudioWorkspace() {
             <DesignPreview doc={draft} onRender={renderPreview} />
           </div>
           </div>
-        </div>
+        </TechSurface>
       </ContentLayout>
     );
   }
@@ -538,37 +539,31 @@ export function StudioWorkspace() {
       icon={<LayoutTemplateIcon className="size-5" />}
       actions={<UsageMeter resource="studio" className="w-48" />}
     >
-      {/* The hand-drawn treatment lives under this one class, so it cannot leak
-          into any other route. See .sketch-scope in globals.css. */}
-      {/* paper-scope remaps every token to the warm ground; sketch-scope adds
-          the handwriting, the marker accent and the drawn marks. Both are
-          scoped here so neither can reach another route. */}
-      <div className="paper-scope sketch-scope sketch-paper relative -m-4 flex flex-col gap-10 p-6 md:-m-6 md:p-10">
-        {/* One filter definition for every drawn mark on the page. */}
-        <SketchDefs />
+      <TechSurface className="flex flex-col gap-12">
+        {/* The masthead. One oversized grotesk line against one mono marker —
+            the whole type hierarchy of the page in two elements. */}
+        <header className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TechLabel>Studio / Profile assets</TechLabel>
+            <TechMeta
+              items={[
+                { label: "Styles", value: String(STUDIO_TEMPLATE_ENTRIES.length) },
+                { label: "Banner", value: "1584×396" },
+              ]}
+            />
+          </div>
 
-        {/* ONE annotation for the page. The brief's ceiling is a couple of
-            marks per section, and a note beside every heading stops guiding
-            attention and starts competing for it. */}
-        <SketchAnnotation direction="downLeft" className="absolute right-6 top-5 hidden lg:flex">
-          small changes, big lift
-        </SketchAnnotation>
+          <h1 className="tech-display max-w-3xl text-5xl sm:text-6xl">
+            Design your LinkedIn profile
+          </h1>
 
-        {/* The hero lives ON the paper. The app's own header sits above in dark
-            chrome and says "Studio"; repeating it here would be two titles for
-            one page. This one says what the page is FOR. */}
-        <header className="flex max-w-xl flex-col gap-2">
-          <SketchHeading as="h1" underline="profile" className="text-4xl sm:text-5xl">
-            Design your profile
-          </SketchHeading>
-          <p className="text-sm text-muted-foreground">
-            Pick a style, swap in your words, and export images that are already
-            the right size for LinkedIn.
-          </p>
+          <TechRule />
         </header>
-        <PaperSection
+        <TechSection
+          index="01"
+          label="Saved"
           title="Your profiles"
-          description="Each one is a full kit — banner, headshot and featured cover."
+          description="Each profile is a complete set — banner, headshot and featured cover."
         >
 
           {listQuery.isLoading ? (
@@ -576,16 +571,17 @@ export function StudioWorkspace() {
           ) : listQuery.data && listQuery.data.items.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {listQuery.data.items.map((row) => (
-                <Card
+                <TechPanel
                   key={row.id}
-                  className="sketch-sheet relative cursor-pointer border-0"
+                  interactive
+                  className="p-4"
                   onClick={() => {
                     setOpenId(row.id);
                   }}
                 >
-                  <CardContent className="flex flex-col gap-2 pt-6">
+                  <div className="flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-sketch text-xl leading-none">{row.name}</span>
+                      <span className="tech-display text-base">{row.name}</span>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -612,26 +608,28 @@ export function StudioWorkspace() {
                         </Badge>
                       ))}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </TechPanel>
               ))}
             </div>
           ) : (
             /* Dashed, matching the safe-zone language used throughout the
                editor — an empty slot rather than an error. */
-            <div className="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-[color:var(--sketch-hair)] px-4 py-12 text-center">
-              <span className="font-sketch text-2xl leading-none">A blank page</span>
+            <TechPanel className="items-center gap-2 px-4 py-14 text-center">
+              <TechLabel>No records</TechLabel>
+              <span className="tech-display text-xl">Nothing here yet</span>
               <span className="text-xs text-muted-foreground">
                 Pick a style below. You&apos;ll have a banner in about a minute.
               </span>
-            </div>
+            </TechPanel>
           )}
-        </PaperSection>
+        </TechSection>
 
-        <PaperSection
+        <TechSection
+          index="02"
+          label="Library"
           title="Pick a style"
-          underline="style"
-          description="Every one is sized for LinkedIn and keeps your text clear of your profile photo. The dashed circle shows where your face lands."
+          description="Every style is sized for LinkedIn and keeps text clear of the profile photo. The dashed circle marks where it lands."
         >
 
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -657,8 +655,8 @@ export function StudioWorkspace() {
               </Reveal>
             ))}
           </div>
-        </PaperSection>
-      </div>
+        </TechSection>
+      </TechSurface>
     </ContentLayout>
   );
 }

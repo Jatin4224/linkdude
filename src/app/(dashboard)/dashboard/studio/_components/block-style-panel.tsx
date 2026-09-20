@@ -204,10 +204,7 @@ export function BlockStylePanel({
                   setSelectedKey(key);
                 }}
                 className={cn(
-                  "rounded-md border px-2.5 py-1 text-xs transition-colors",
-                  isActive
-                    ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
-                    : "bg-muted/40 hover:bg-muted",
+                  "tech-chip",
                 )}
               >
                 {blockLabel(layer.block)}
@@ -268,10 +265,7 @@ export function BlockStylePanel({
                     patchSelected({ weight });
                   }}
                   className={cn(
-                    "rounded-md border px-3 py-1 text-xs transition-colors",
-                    block.weight === weight
-                      ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
-                      : "bg-muted/40 hover:bg-muted",
+                    "tech-chip",
                   )}
                 >
                   {weight === 700 ? "Bold" : "Regular"}
@@ -293,10 +287,7 @@ export function BlockStylePanel({
                     patchSelected({ align });
                   }}
                   className={cn(
-                    "rounded-md border px-3 py-1 text-xs capitalize transition-colors",
-                    block.align === align
-                      ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
-                      : "bg-muted/40 hover:bg-muted",
+                    "tech-chip capitalize",
                   )}
                 >
                   {align}
@@ -352,10 +343,7 @@ export function BlockStylePanel({
                   patchSelected({ [key]: { slot, opacity: 1 } });
                 }}
                 className={cn(
-                  "rounded-md border px-2.5 py-1 text-xs capitalize transition-colors",
-                  current === slot
-                    ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
-                    : "bg-muted/40 hover:bg-muted",
+                  "tech-chip capitalize",
                 )}
               >
                 {slot}

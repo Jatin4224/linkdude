@@ -371,6 +371,9 @@
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  /* Registers `font-condensed` as a utility; the variable itself is set by
+   * next/font in layout.tsx. */
+  --font-condensed: var(--font-condensed);
   --font-serif: var(--font-serif);
   --font-display: var(--font-display);
 
@@ -804,353 +807,361 @@
   }
 
 
+
+
   /*
-   * SOURCE OF TRUTH KEYWORDS: sketch-scope, sketch-card, sketch-rule,
-   *   sketch-highlight, sketch-note, sketch-paper, sketch-scribble, font-sketch,
-   *   hand-drawn, sketchbook, studio theme
+   * SOURCE OF TRUTH KEYWORDS: tech-scope, brackets, brackets-dark, brackets-lg,
+   *   tech-surface, tech-label, tech-display, tech-hairline, tech-stripe,
+   *   technical editorial, crop marks, registration marks
    *
-   * WHAT:  The studio's sketchbook surface — warm paper, ink, one soft accent,
-   *        and handwriting for anything that is a heading or an annotation.
-   * WHY:   COMPOSED WITH .paper-scope, never a copy of it. That class already
-   *        remaps every shadcn token to the paper palette, pins radius to zero
-   *        and kills shadows, so a shared component dropped in here is already
-   *        correct. Applied as `class="paper-scope sketch-scope"`, this file only
-   *        has to add what is genuinely different: handwriting, a softer accent,
-   *        and the drawn marks.
+   * WHAT:  The technical-editorial surface — light neutral ground, modules
+   *        defined by FILL rather than by borders, and accent crop marks as the
+   *        one recurring motif.
+   * WHY:   BOXES ARE FILL, NOT BORDER. That single rule is what separates this
+   *        from neo-brutalism: a module is one step darker than the page and
+   *        nothing outlines it, so the page reads as a printed document rather
+   *        than as a grid of containers. Hairlines appear only where something
+   *        is genuinely SEPARATED — a divider between rows — never as an edge.
    *
-   *        The first attempt at this built dark cards with wobbly borders, which
-   *        is a different aesthetic wearing the same word. A sketchbook is LIGHT,
-   *        mostly empty, and holds one accent — the wobble was never the point.
+   *        No shadows and no radius anywhere. The one exception is an avatar,
+   *        which stays circular because a square portrait reads as an error.
    *
-   *        Two rules inherited from paper-scope are deliberately BROKEN here, and
-   *        only here: this surface gets a small radius and one offset shadow,
-   *        because a page about drawing should look drawn rather than printed.
-   *        Marketing keeps paper-scope's originals untouched.
-   * WHERE: The studio workspace and its preview.
+   *        The accent is `--brand`, referenced rather than restated, so the
+   *        surface follows a brand change instead of quietly disagreeing with it.
+   * WHERE: `src/app/(dashboard)/dashboard/studio/`.
    */
-  .sketch-scope {
-    /* SEVEN VALUES, and the restraint is the design. A sketchbook reads as
-       considered because it is one paper, one ink and two accents — the moment a
-       third accent appears it reads as a theme rather than as a notebook.
+  .tech-scope {
+    /* DARK, and derived rather than restated. Every value below points at a
+       token this app already owns, so the surface follows a theme change instead
+       of quietly disagreeing with it — and the studio stops being the one screen
+       that looks like a different product from its neighbours.
 
-       Declared inside this scope rather than in the paper ramp so nothing public
-       shifts: marketing keeps its own #2b36e8 primary. */
-    --sketch-paper: #f7f3e8;
-    --sketch-ink: #111827;
-    --sketch-navy: #0b1726;
+       The earlier light-paper pass needed its own hexes because cream is not in
+       this app's vocabulary. An engineering surface is, which is why this one
+       needs almost no colour of its own. */
+    --ed-bg: var(--background);
+    --ed-surface: color-mix(in oklab, var(--card) 70%, transparent);
+    --ed-surface-deep: var(--card);
+    --ed-hairline: color-mix(in oklab, var(--border) 75%, transparent);
+    --ed-ink: var(--foreground);
+    --ed-muted: var(--muted-foreground);
+    --ed-accent: var(--brand);
 
-    /* Blue is what you CLICK. The channel blue, because on a tool for LinkedIn
-       the action colour being LinkedIn's own is a signal, not a coincidence. */
-    --sketch-blue: #0a66c2;
-    --sketch-blue-soft: #4d9de0;
+    /* Crop-mark geometry. Arm and weight are variables so a module can carry a
+       larger mark without a second utility. */
+    --bracket-arm: 8px;
+    --bracket-weight: 1.5px;
+    --bracket-color: var(--ed-accent);
 
-    /* Gold is what a person would have UNDERLINED. Two accents with two jobs —
-       an underline in the button colour reads as a disabled link, and a button
-       in the underline colour stops looking pressable. */
-    --sketch-gold: #f4b942;
-    --sketch-gold-soft: rgba(244, 185, 66, 0.42);
+    /* Eight-point scale, stated so nothing invents a 13px gap. */
+    --ed-1: 8px;
+    --ed-2: 16px;
+    --ed-3: 24px;
+    --ed-4: 32px;
+    --ed-6: 48px;
+    --ed-8: 64px;
+    --ed-section: clamp(48px, 7vw, 80px);
 
-    --sketch-grey: #737373;
-    --sketch-ink-soft: rgba(17, 24, 39, 0.55);
-    --sketch-hair: rgba(17, 24, 39, 0.16);
+    /* Radius and shadow are the only tokens this scope overrides, because they
+       are the two the app's dark theme sets differently from this language.
+       Colour is inherited, deliberately. */
+    --radius: 0px;
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-xl: 0px;
 
-    /* Kept as aliases so existing marks resolve; blue IS the accent now. */
-    --sketch-accent: var(--sketch-blue);
-    --sketch-accent-soft: rgba(10, 102, 194, 0.18);
-
-    /* The remap. Everything shadcn reads resolves to this palette, so a shared
-       component dropped in here is already correct — the same trick paper-scope
-       plays, repeated because the values differ. */
-    --background: var(--sketch-paper);
-    --foreground: var(--sketch-ink);
-    --card: #fffdf7;
-    --card-foreground: var(--sketch-ink);
-    --popover: #fffdf7;
-    --popover-foreground: var(--sketch-ink);
-    --primary: var(--sketch-blue);
-    --primary-foreground: #ffffff;
-    --muted: var(--sketch-paper);
-    --muted-foreground: var(--sketch-grey);
-    --border: var(--sketch-hair);
-    --input: var(--sketch-hair);
-    --ring: var(--sketch-blue);
-    --brand: var(--sketch-blue);
-    --brand-foreground: #ffffff;
-
-    /* Small radius, not pill. Rule 6 of the brief, pinned rather than trusted. */
-    --radius: 6px;
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-xl: 10px;
-
-    background-color: var(--sketch-paper);
-    color: var(--sketch-ink);
-
-    /* Generous, because emptiness is most of this design. */
-    --sketch-gap: clamp(20px, 3vw, 36px);
+    --shadow-2xs: none;
+    --shadow-xs: none;
+    --shadow-sm: none;
+    --shadow: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --shadow-xl: none;
+    --shadow-2xl: none;
   }
 
-  /* Handwriting, for headings and annotations only. Body copy stays in the paper
-     sans — a whole interface in a script face is unreadable, and the reference
-     uses handwriting for exactly the things a person would have written by hand. */
-  .sketch-scope .font-sketch {
-    font-family: var(--font-caveat), var(--font-paper-sans);
-    font-weight: 600;
-    letter-spacing: 0.01em;
-  }
-
-  /* A card is a sheet: white, a 1px ink hairline, one hard offset. No blur —
-     blur is elevation, and elevation is printing, not drawing. */
-  .sketch-scope .sketch-card {
-    background-color: var(--card);
-    border: 1px solid var(--sketch-hair);
-    border-radius: 10px;
-    box-shadow: 2px 3px 0 0 var(--sketch-hair);
-    transition:
-      box-shadow 160ms var(--ease-out),
-      transform 160ms var(--ease-out);
-  }
-
-  .sketch-scope .sketch-card:hover {
-    box-shadow: 3px 4px 0 0 rgba(17, 24, 39, 0.28);
-    transform: translate(-1px, -1px);
-  }
-
-  /* The sheet a drawn frame sits on. No border of its own: SketchFrame strokes
-     the outline, and a CSS border underneath it would show as a second, perfectly
-     straight edge beside the wobbly one. */
-  .sketch-scope .sketch-sheet {
-    background-color: var(--card);
-    border-radius: 10px;
-    box-shadow: 2px 3px 0 0 var(--sketch-hair);
-    transition:
-      box-shadow 160ms var(--ease-out),
-      transform 160ms var(--ease-out);
-  }
-
-  .sketch-scope .sketch-sheet:hover {
-    box-shadow: 3px 4px 0 0 rgba(17, 24, 39, 0.28);
-    transform: translate(-1px, -1px);
-  }
-
-  /* Interactive sheets only. A static card that lifts on hover promises a
-     click it does not have. */
-  .sketch-scope .sketch-sheet-interactive:hover {
-    box-shadow: 3px 4px 0 0 rgba(17, 24, 39, 0.3);
-    transform: translate(-1px, -1px);
-  }
-
-  /* A selected sheet sits slightly proud of the stack. */
-  .sketch-scope .sketch-sheet[data-selected] {
-    box-shadow: 3px 4px 0 0 rgba(10, 102, 194, 0.35);
-  }
-
-  /* A hand-drawn rule: thicker in the middle, like a marker stroke that pressed
-     harder halfway. */
-  .sketch-scope .sketch-rule {
-    height: 3px;
-    border: 0;
-    background: var(--sketch-ink);
-    border-radius: 60% 40% 55% 45% / 100% 100% 40% 40%;
-  }
-
-  /* The highlighted word — a marker swipe behind the text, not a background on
-     it, so the letters stay ink-black and legible. */
-  .sketch-scope .sketch-highlight {
-    position: relative;
-    /* Ink, not accent. The reference underlines the word and leaves the letters
-       black — colouring them too makes the swipe redundant. */
-    color: inherit;
-  }
-
-  .sketch-scope .sketch-highlight::after {
-    content: "";
-    position: absolute;
-    left: -0.1em;
-    right: -0.1em;
-    bottom: -0.06em;
-    height: 0.3em;
-    background: var(--sketch-gold-soft);
-    border-radius: 55% 45% 60% 40% / 100% 100% 35% 35%;
-    z-index: -1;
-    pointer-events: none;
-  }
-
-  /* An annotation in the margin — the "Keep Building" / "Better Ideas" voice. */
-  .sketch-scope .sketch-note {
-    font-family: var(--font-caveat), var(--font-paper-sans);
-    font-weight: 600;
-    color: var(--sketch-ink-soft);
-    line-height: 1.15;
-  }
-
-  /* Paper fibre. Multiply rather than overlay: on a warm ground, overlay lifts
-     the cream toward grey and loses the thing that makes it paper. */
-  .sketch-scope .sketch-paper {
+  /*
+   * THE MOTIF. Four L-shaped crop marks sitting exactly on the box corners, with
+   * the edges between them completely open.
+   *
+   * Eight background gradients on a pseudo-element — two arms per corner. On an
+   * overlay rather than the element itself so the marks can travel outward on
+   * hover: a background never paints outside its own box, so animating them on
+   * the element would clip them at the edge instead of moving them.
+   */
+  .brackets {
     position: relative;
   }
 
-  .sketch-scope .sketch-paper::before {
+  .brackets::after {
     content: "";
     position: absolute;
     inset: 0;
-    border-radius: inherit;
     pointer-events: none;
-    opacity: 0.045;
-    mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-image:
+      linear-gradient(var(--bracket-color), var(--bracket-color)),
+      linear-gradient(var(--bracket-color), var(--bracket-color)),
+      linear-gradient(var(--bracket-color), var(--bracket-color)),
+      linear-gradient(var(--bracket-color), var(--bracket-color)),
+      linear-gradient(var(--bracket-color), var(--bracket-color)),
+      linear-gradient(var(--bracket-color), var(--bracket-color)),
+      linear-gradient(var(--bracket-color), var(--bracket-color)),
+      linear-gradient(var(--bracket-color), var(--bracket-color));
+    background-size:
+      var(--bracket-arm) var(--bracket-weight),
+      var(--bracket-weight) var(--bracket-arm),
+      var(--bracket-arm) var(--bracket-weight),
+      var(--bracket-weight) var(--bracket-arm),
+      var(--bracket-arm) var(--bracket-weight),
+      var(--bracket-weight) var(--bracket-arm),
+      var(--bracket-arm) var(--bracket-weight),
+      var(--bracket-weight) var(--bracket-arm);
+    background-position:
+      top left, top left,
+      top right, top right,
+      bottom left, bottom left,
+      bottom right, bottom right;
+    background-repeat: no-repeat;
+    transition:
+      inset 200ms var(--ease-out),
+      background-size 200ms var(--ease-out);
   }
 
-  /* A stroke that redraws itself while the preview regenerates. A spinning ring
-     says "loading"; a moving line says "being drawn", which is what is happening. */
-  .sketch-scope .sketch-scribble {
-    stroke-dasharray: 44 120;
-    animation: sketch-draw 1.4s var(--ease-in-out) infinite;
+  /* On an accent-filled surface the marks invert, or they vanish into the fill. */
+  .brackets-dark::after {
+    --bracket-color: rgba(255, 255, 255, 0.55);
   }
 
-  @keyframes sketch-draw {
-    from {
-      stroke-dashoffset: 0;
-    }
-    to {
-      stroke-dashoffset: -164;
-    }
+  .brackets-lg {
+    --bracket-arm: 14px;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .sketch-scope .sketch-card,
-    .sketch-scope .sketch-card:hover,
-    .sketch-scope .sketch-sheet,
-    .sketch-scope .sketch-sheet:hover {
-      transform: none;
-      transition: none;
-    }
-
-    .sketch-scope .sketch-scribble {
-      animation: none;
-      stroke-dasharray: none;
-      opacity: 0.6;
-    }
+  /* The marks travel outward and lengthen — one gesture, eased OUT only, because
+     a crop mark that eases in reads as a bounce. `:focus-within` too: the marks
+     are the affordance that says a module is live, and a keyboard user deserves
+     the same signal a pointer gets. */
+  .brackets:hover::after,
+  .brackets:focus-within::after {
+    inset: -6px;
+    background-size:
+      calc(var(--bracket-arm) + 4px) var(--bracket-weight),
+      var(--bracket-weight) calc(var(--bracket-arm) + 4px),
+      calc(var(--bracket-arm) + 4px) var(--bracket-weight),
+      var(--bracket-weight) calc(var(--bracket-arm) + 4px),
+      calc(var(--bracket-arm) + 4px) var(--bracket-weight),
+      var(--bracket-weight) calc(var(--bracket-arm) + 4px),
+      calc(var(--bracket-arm) + 4px) var(--bracket-weight),
+      var(--bracket-weight) calc(var(--bracket-arm) + 4px);
   }
 
-
-  /*
-   * SOURCE OF TRUTH KEYWORDS: sketch-scope controls, paper inputs, notebook tabs,
-   *   ink slider, sketch form
-   *
-   * WHAT:  Every shadcn control, corrected for paper.
-   * WHY:   STYLED BY SCOPE, not by touching each component. The controls in the
-   *        editor are the app's own Input, Textarea, Tabs, Slider and Label —
-   *        rewriting each to know about paper would fork six shared components
-   *        for one route. A descendant selector leaves them untouched and makes
-   *        anything dropped in here already correct, which is the same trick
-   *        paper-scope plays with tokens.
-   *
-   *        These are the 70% half of the seventy-thirty split. Nothing below is
-   *        hand-drawn: a wobbly input border is a usability problem, and a text
-   *        field that looks sketched looks broken. The paper shows through in the
-   *        warmth of the fill and the weight of the ink, and stops there.
-   */
-
-  /* Fields: warm fill, hairline ink, blue focus. No wobble — a text field is
-     data entry, and data entry is the one place imperfection reads as a fault. */
-  .sketch-scope input:not([type="color"]),
-  .sketch-scope textarea {
-    background-color: #fffdf7;
-    border-color: var(--sketch-hair);
-    border-radius: 6px;
-    color: var(--sketch-ink);
+  /* A module: fill only. No border — that is the rule this whole system rests on. */
+  .tech-surface-fill {
+    background-color: var(--ed-surface);
   }
 
-  .sketch-scope input:not([type="color"]):focus-visible,
-  .sketch-scope textarea:focus-visible {
-    border-color: var(--sketch-blue);
-    box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.14);
+  .tech-hairline {
+    height: 1px;
+    width: 100%;
+    border: 0;
+    background-color: var(--ed-hairline);
   }
 
-  .sketch-scope input::placeholder,
-  .sketch-scope textarea::placeholder {
-    color: rgba(115, 115, 115, 0.75);
+  /* Display: condensed, uppercase, tight. The size jump against a 12px mono label
+     IS the hierarchy — there is no middle size doing work. */
+  .tech-scope .tech-display {
+    font-family: var(--font-condensed), var(--font-sans);
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 0.92;
+    letter-spacing: -0.02em;
   }
 
-  /* Labels read as pencilled field names: small, tracked, quiet. Uppercase and
-     wide tracking is what stops a 12px label being mistaken for body copy. */
-  .sketch-scope label {
-    font-size: 0.6875rem;
-    font-weight: 600;
+  .tech-scope .tech-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--sketch-grey);
+    color: var(--ed-muted);
   }
 
-  /* Tabs as notebook dividers: a rule underneath, the active one marked by a
-     stroke of ink rather than by a filled pill. A pill on paper reads as a
-     button, which is the wrong affordance for a section switch. */
-  .sketch-scope [role="tablist"] {
-    background-color: transparent;
-    border-bottom: 1px solid var(--sketch-hair);
+  /* Intro copy is MONO by design — the brief's one deliberate inversion. Key
+     phrases are emphasised in bold rather than in colour, so the accent stays
+     reserved for marks and actions. */
+  .tech-scope .tech-intro {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--ed-muted);
+  }
+
+  .tech-scope .tech-intro strong {
+    font-weight: 700;
+    color: var(--ed-ink);
+  }
+
+  /* The secondary action's diagonal fill. Very low contrast: it should read as a
+     material, not as a pattern. */
+  .tech-stripe {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent 0 6px,
+      color-mix(in oklab, var(--foreground) 7%, transparent) 6px 7px
+    );
+    background-position: 0 0;
+    transition: background-position 220ms var(--ease-out);
+  }
+
+  .tech-stripe:hover {
+    background-position: 14px 0;
+  }
+
+  /* Controls. Surface fill, no border, crop marks on focus — the brief's rule,
+     applied by scope so no shared input had to be forked. */
+  .tech-scope input:not([type="color"]),
+  .tech-scope textarea {
+    background-color: var(--ed-surface);
+    border: 1px solid var(--ed-hairline);
     border-radius: 0;
-    gap: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--ed-ink);
+  }
+
+  .tech-scope input:not([type="color"]):focus-visible,
+  .tech-scope textarea:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
+  .tech-scope label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ed-muted);
+  }
+
+  .tech-scope button {
+    border-radius: 0;
+  }
+
+  /* An avatar is the single exception to radius 0: a square portrait reads as a
+     rendering fault rather than as a style. */
+  .tech-scope [data-slot="avatar"] {
+    border-radius: 9999px;
+    box-shadow: 0 0 0 2px var(--ed-accent);
+  }
+
+  /*
+   * A selectable option — layer, weight, alignment, palette, pattern.
+   *
+   * ONE definition for what was nine near-identical inline class lists across
+   * three panels. They were already the same control wearing different padding,
+   * and nine copies is how a design system drifts: the tenth gets a different
+   * radius and nobody notices.
+   *
+   * Selected state is a solid accent BAR beneath, not a filled pill. A filled
+   * chip competes with the primary action for the eye, and in a language whose
+   * only accent is the crop mark, a second accent-filled object dilutes both.
+   */
+  .tech-scope .tech-chip {
+    position: relative;
+    border: 1px solid var(--ed-hairline);
+    border-radius: 0;
+    background-color: transparent;
+    padding: 0.3125rem 0.625rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    color: var(--ed-muted);
+    transition:
+      color 140ms var(--ease-out),
+      border-color 140ms var(--ease-out);
+  }
+
+  .tech-scope .tech-chip:hover:not(:disabled) {
+    color: var(--ed-ink);
+    border-color: color-mix(in oklab, var(--foreground) 28%, transparent);
+  }
+
+  .tech-scope .tech-chip[aria-pressed="true"] {
+    color: var(--ed-ink);
+    border-color: color-mix(in oklab, var(--foreground) 28%, transparent);
+  }
+
+  .tech-scope .tech-chip[aria-pressed="true"]::after {
+    content: "";
+    position: absolute;
+    inset-inline: -1px;
+    bottom: -1px;
+    height: 2px;
+    background-color: var(--ed-accent);
+  }
+
+  .tech-scope .tech-chip:disabled {
+    opacity: 0.45;
+  }
+
+  /* Tabs as a technical register: hairline beneath, active marked by a solid bar. */
+  .tech-scope [role="tablist"] {
+    background-color: transparent;
+    border-bottom: 1px solid var(--ed-hairline);
+    border-radius: 0;
+    gap: 0;
     padding: 0;
   }
 
-  .sketch-scope [role="tab"] {
+  .tech-scope [role="tab"] {
     background-color: transparent;
     border-radius: 0;
     box-shadow: none;
-    color: var(--sketch-grey);
-    font-weight: 500;
-    padding-bottom: 0.5rem;
+    color: var(--ed-muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0 0.875rem 0.625rem;
     position: relative;
   }
 
-  .sketch-scope [role="tab"][data-selected],
-  .sketch-scope [role="tab"][aria-selected="true"],
-  .sketch-scope [role="tab"][data-state="active"] {
+  .tech-scope [role="tab"][data-selected],
+  .tech-scope [role="tab"][aria-selected="true"],
+  .tech-scope [role="tab"][data-state="active"] {
     background-color: transparent;
     box-shadow: none;
-    color: var(--sketch-ink);
+    color: var(--ed-ink);
   }
 
-  .sketch-scope [role="tab"][data-selected]::after,
-  .sketch-scope [role="tab"][aria-selected="true"]::after,
-  .sketch-scope [role="tab"][data-state="active"]::after {
+  .tech-scope [role="tab"][data-selected]::after,
+  .tech-scope [role="tab"][aria-selected="true"]::after,
+  .tech-scope [role="tab"][data-state="active"]::after {
     content: "";
     position: absolute;
-    left: 0.25rem;
-    right: 0.25rem;
+    inset-inline: 0;
     bottom: -1px;
-    height: 2.5px;
-    background: var(--sketch-ink);
-    /* The one imperfection allowed on a control, and it is decoration rather
-       than the hit area: an underline that ends slightly heavier, like a pen
-       lifting. */
-    border-radius: 60% 40% 55% 45% / 100% 100% 40% 40%;
+    height: 3px;
+    background-color: var(--ed-accent);
   }
 
-  /* Slider: an ink rule with a blue nib. */
-  .sketch-scope [role="slider"] {
-    background-color: var(--sketch-blue);
-    border-color: #fffdf7;
-  }
+  @media (prefers-reduced-motion: reduce) {
+    /* The travel drops; the marks stay. Removing the feedback entirely would
+       cost keyboard and motion-sensitive users the only cue a module is live. */
+    .brackets::after,
+    .tech-stripe {
+      transition: none;
+    }
 
-  /* Chips and badges sit on paper, not on a dark surface. */
-  .sketch-scope [data-slot="badge"] {
-    border-color: var(--sketch-hair);
-    color: var(--sketch-ink);
-  }
+    .brackets:hover::after,
+    .brackets:focus-within::after {
+      inset: 0;
+    }
 
-  /* Colour swatches keep their own value — that is the one control whose fill is
-     the data. Only the frame is corrected. */
-  .sketch-scope input[type="color"] {
-    border: 1px solid var(--sketch-hair);
-    border-radius: 6px;
-  }
-
-  /* Skeletons on cream rather than on the dark app surface. */
-  .sketch-scope [data-slot="skeleton"] {
-    background-color: rgba(17, 24, 39, 0.07);
+    .tech-stripe:hover {
+      background-position: 0 0;
+    }
   }
 
 }

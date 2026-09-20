@@ -35,10 +35,9 @@ import * as React from "react";
 import { STUDIO_BACKDROP_BRIEF_MAX } from "@/lib/config";
 import type { DesignDoc } from "@/lib/types";
 import { FeatureGate } from "@/components/feature-gate";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+import { TechButton, TechRule } from "@/components/global/tech";
 import { cn } from "@/lib/utils";
 
 export interface BackdropControlProps {
@@ -99,7 +98,7 @@ export function BackdropControl({
 
   return (
     <div className="flex flex-col gap-3">
-      <Separator />
+      <TechRule />
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="backdrop-brief">Background image</Label>
@@ -128,27 +127,27 @@ export function BackdropControl({
         {/* Gated at the BUTTON, per the FeatureGate rule — a generation is
             metered separately from the profile itself. */}
         <FeatureGate resource="studioBackdrop">
-          <Button
+          <TechButton
+            tone="secondary"
             size="sm"
-            variant="secondary"
             disabled={disabled || isGenerating || brief.trim().length < 3 || over}
             onClick={() => {
               void generate();
             }}
           >
             {isGenerating ? "Generating…" : hasBackdrop ? "Regenerate" : "Generate"}
-          </Button>
+          </TechButton>
         </FeatureGate>
 
         {hasBackdrop ? (
-          <Button
+          <TechButton
+            tone="secondary"
             size="sm"
-            variant="ghost"
             disabled={disabled || isGenerating}
             onClick={removeBackdrop}
           >
             Remove
-          </Button>
+          </TechButton>
         ) : null}
       </div>
     </div>
