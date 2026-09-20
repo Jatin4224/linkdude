@@ -49,6 +49,7 @@ import {
 } from "@/lib/config";
 import { buildDraftComposerHref, cn } from "@/lib/utils";
 import { CopyButton } from "@/components/global/copy-button";
+import { TechBadge } from "@/components/global/tech";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -216,7 +217,8 @@ function ContentPlanSectionBody({
       const text = result[sectionKey];
       if (!text) return null;
       return (
-        <p className="whitespace-pre-wrap wrap-break-word rounded-md border bg-muted/40 p-3 text-sm leading-relaxed">
+        /* A quoted block inside the card — one step deeper, not outlined. */
+        <p className="whitespace-pre-wrap wrap-break-word bg-(--ed-surface-deep) p-3 text-sm leading-relaxed">
           {text}
         </p>
       );
@@ -271,13 +273,10 @@ function ContentPlanSectionBody({
                 <p className="text-sm leading-relaxed">{week.focus}</p>
                 {week.formats.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
+                    {/* Tags, not controls — TechBadge rather than tech-chip,
+                        which would imply they could be pressed. */}
                     {week.formats.map((format) => (
-                      <span
-                        key={format}
-                        className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground"
-                      >
-                        {format}
-                      </span>
+                      <TechBadge key={format}>{format}</TechBadge>
                     ))}
                   </div>
                 ) : null}

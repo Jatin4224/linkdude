@@ -23,6 +23,7 @@ import { CheckIcon } from "lucide-react";
 
 import { HOOK_FORMULAS } from "@/lib/config";
 import type { PostOpeningChoice } from "@/lib/types";
+import { TechLabel, TechPanel } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 
 export interface HookOpeningsProps {
@@ -40,9 +41,9 @@ export function HookOpenings({
   disabled = false,
 }: HookOpeningsProps) {
   return (
-    <div className="surface-raised flex flex-col gap-3 rounded-lg border p-3">
-      <div>
-        <p className="text-sm font-medium">Opening lines</p>
+    <TechPanel bracket={false} className="gap-3 p-3">
+      <div className="flex flex-col gap-1">
+        <TechLabel>Opening lines</TechLabel>
         <p className="text-xs text-muted-foreground">
           Same post, different hooks. Swapping changes only the first line and
           uses no generation.
@@ -58,13 +59,16 @@ export function HookOpenings({
           return (
             <li
               key={`${index}-${choice.formula ?? "original"}`}
-              className="flex items-start justify-between gap-3 rounded-md border p-2"
+              /* One step deeper than the panel rather than outlined. These are
+                 takes on the same line, so they should read as a stack, not as
+                 separate objects. */
+              className="flex items-start justify-between gap-3 bg-(--ed-surface-deep) p-2"
             >
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="text-xs font-medium text-muted-foreground">
+                <TechLabel>
                   {label}
                   {index === 0 ? " (generated)" : ""}
-                </p>
+                </TechLabel>
                 <p className="text-sm">{choice.line}</p>
               </div>
               <Button
@@ -87,6 +91,6 @@ export function HookOpenings({
           );
         })}
       </ul>
-    </div>
+    </TechPanel>
   );
 }

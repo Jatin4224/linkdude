@@ -14,6 +14,7 @@
 import type { Metadata } from "next";
 
 import { ContentLayout } from "@/components/global/page-header";
+import { TechSurface } from "@/components/global/tech";
 import { OrganizationTab } from "./_components/organization-tab";
 
 export const metadata: Metadata = {
@@ -23,7 +24,9 @@ export const metadata: Metadata = {
 export default function OrganizationSettingsPage() {
   return (
     <ContentLayout title="Organization">
-      <OrganizationTab />
+      <TechSurface>
+        <OrganizationTab />
+      </TechSurface>
     </ContentLayout>
   );
 }

@@ -27,7 +27,7 @@ import {
   type LimitResourceKey,
 } from "@/lib/resources";
 import { UsageMeter } from "@/components/global/usage-meter";
-import { Card, CardContent } from "@/components/ui/card";
+import { TechLabel, TechPanel } from "@/components/global/tech";
 
 /* The quotas a user actually spends day to day. Deliberately not every limit
  * resource — seats and storage are workspace admin concerns and live in
@@ -42,17 +42,17 @@ const DASHBOARD_USAGE_RESOURCES = [
 
 export function UsageSummary() {
   return (
-    <Card className="surface-raised">
-      <CardContent className="grid gap-6 p-6 sm:grid-cols-2 lg:grid-cols-4">
-        {DASHBOARD_USAGE_RESOURCES.map((resource) => (
-          <div key={resource} className="flex flex-col gap-2">
-            <p className="text-sm font-medium">
-              {getResourceDefinition(resource).name}
-            </p>
-            <UsageMeter resource={resource} />
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+    /* ONE module, not four. Each quota is a reading off the same instrument —
+       this plan, this period — and giving each its own bracketed panel would
+       spend the page's whole budget of marks on a single band. The resource
+       names are labels above numbers, which is exactly what mono is for. */
+    <TechPanel className="grid gap-6 p-6 sm:grid-cols-2 lg:grid-cols-4">
+      {DASHBOARD_USAGE_RESOURCES.map((resource) => (
+        <div key={resource} className="flex flex-col gap-2">
+          <TechLabel>{getResourceDefinition(resource).name}</TechLabel>
+          <UsageMeter resource={resource} />
+        </div>
+      ))}
+    </TechPanel>
   );
 }

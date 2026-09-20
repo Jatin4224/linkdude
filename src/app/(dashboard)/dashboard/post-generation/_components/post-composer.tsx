@@ -98,6 +98,7 @@ import { PostStatusBadge } from "@/components/global/post-status-badge";
 import { PostCheckPanel } from "@/components/global/post-check";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TechPanel, TechSurface } from "@/components/global/tech";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -566,8 +567,13 @@ export function PostComposer({
     >
       {/* items-start: both columns start at the top of the row. Without it a
           short controls card and a tall preview column can disagree about where
-          the row begins, which reads as one card sitting lower than the other. */}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+          the row begins, which reads as one card sitting lower than the other.
+
+          The surface covers BOTH columns. The preview is a LinkedIn post as
+          LinkedIn will draw it, so it keeps its own rounded chrome — the scope
+          only reaches the app's controls around it, which is the distinction
+          the preview exists to make. */}
+      <TechSurface className="grid items-start gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         {/* NOT sticky: `.surface-raised` sets `position: relative` so its
             top-edge ::before has something to anchor to, and a second `position`
             on the same element is a coin toss between the two utilities. If this
@@ -689,7 +695,9 @@ export function PostComposer({
           {!isConnected ? (
             /* Tinted rather than destructive: nothing is broken, publishing is
                just the one thing still gated. */
-            <div className="flex items-start gap-2 rounded-lg border border-brand-border bg-brand-soft p-3">
+            /* The tint IS the object — the border it used to carry was drawing
+               the same boundary twice. */
+            <div className="flex items-start gap-2 bg-brand-soft p-3">
               <LinkIcon className="mt-0.5 size-4 shrink-0 text-brand-soft-foreground" />
               <p className="text-sm text-brand-soft-foreground">
                 Connect your LinkedIn account to publish. You can still generate
@@ -699,7 +707,12 @@ export function PostComposer({
           ) : null}
 
           {schedulingEnabled ? (
-            <div className="surface-raised flex flex-wrap items-center gap-3 rounded-lg border p-3">
+            /* Unbracketed: this groups two controls, it does not register a
+               module. Marks are spent on the commit row below instead. */
+            <TechPanel
+              bracket={false}
+              className="flex-row flex-wrap items-center gap-3 p-3"
+            >
               <div className="flex items-center gap-2">
                 <Switch
                   id="schedule-toggle"
@@ -733,18 +746,19 @@ export function PostComposer({
                   from now.
                 </p>
               ) : null}
-            </div>
+            </TechPanel>
           ) : null}
 
           {/* The commit row, given its own surface so the primary action reads
-              as the end of the composer rather than another line of text. */}
-          <div className="surface-raised flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+              as the end of the composer rather than another line of text. It
+              keeps its marks — this is where the post actually leaves. */}
+          <TechPanel className="flex-row flex-wrap items-center justify-between gap-3 p-3">
             <div className="flex items-center gap-3">
               <p
                 className={
                   commentary.length > LINKEDIN_MAX_COMMENTARY
-                    ? "text-sm tabular-nums text-destructive"
-                    : "text-sm tabular-nums text-muted-foreground"
+                    ? "font-mono text-xs tabular-nums text-destructive"
+                    : "font-mono text-xs tabular-nums text-muted-foreground"
                 }
               >
                 {commentary.length} / {LINKEDIN_MAX_COMMENTARY} characters
@@ -753,13 +767,13 @@ export function PostComposer({
                   sense of how much room is left until it is already gone. */}
               <div
                 aria-hidden="true"
-                className="h-1.5 w-24 overflow-hidden rounded-full bg-muted"
+                className="h-1.5 w-24 overflow-hidden bg-muted"
               >
                 <div
                   className={
                     commentary.length > LINKEDIN_MAX_COMMENTARY
-                      ? "h-full rounded-full bg-destructive transition-all"
-                      : "h-full rounded-full bg-brand transition-all"
+                      ? "h-full bg-destructive transition-all"
+                      : "h-full bg-brand transition-all"
                   }
                   style={{
                     width: `${Math.min(100, (commentary.length / LINKEDIN_MAX_COMMENTARY) * 100)}%`,
@@ -798,7 +812,7 @@ export function PostComposer({
                 {isScheduling ? "Schedule post" : "Post to LinkedIn"}
               </Button>
             </div>
-          </div>
+          </TechPanel>
 
           {recentPosts.data && recentPosts.data.length > 0 ? (
             <Card className="surface-raised">
@@ -814,7 +828,7 @@ export function PostComposer({
                         {/* The same chip the calendar and dashboard use, so a
                             post's state looks identical wherever it appears. */}
                         <PostStatusBadge status={post.status} />
-                        <span className="text-xs tabular-nums text-muted-foreground">
+                        <span className="tech-label tabular-nums">
                           {/* Nullable since scheduling landed, though this list
                               only ever holds published rows. */}
                           {post.publishedAt?.toLocaleString() ?? "—"}
@@ -830,7 +844,7 @@ export function PostComposer({
             </Card>
           ) : null}
         </div>
-      </div>
+      </TechSurface>
     </ContentLayout>
   );
 }

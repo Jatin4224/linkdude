@@ -103,8 +103,10 @@ export function NavUser() {
             </div>
             <ChevronsUpDown className="ml-auto size-4" />
           </DropdownMenuTrigger>
+          {/* Scoped at its own root because the menu is portaled out of the
+              rail — see the same note in TeamSwitcher. */}
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="tech-scope w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
@@ -145,8 +147,12 @@ export function NavUser() {
                 click, and a switch you cannot see move is a switch you cannot
                 tell you flipped. `closeOnClick={false}` would keep it open but
                 still steal the pointer from the Switch's own hit area. */}
+            {/* `font-sans normal-case` opts this ONE element out of the scope's
+                label rule. That rule is right for a form label and wrong here:
+                this is a menu row whose text is a sentence, and mono uppercase
+                would make it the only shouting line in the menu. */}
             <label
-              className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm outline-none select-none hover:bg-accent hover:text-accent-foreground rounded-sm"
+              className="flex cursor-pointer items-center gap-2 px-2 py-1.5 font-sans text-sm font-normal normal-case tracking-normal text-foreground outline-none select-none hover:bg-accent hover:text-accent-foreground rounded-sm"
               htmlFor="interface-sound-toggle"
             >
               {soundEnabled ? (

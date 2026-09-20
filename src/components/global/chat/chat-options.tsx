@@ -111,12 +111,14 @@ export function ChatOptions({
               aria-pressed={isActive}
               disabled={disabled || (!isActive && atLimit)}
               onClick={() => handleChip(option)}
+              /* `tech-chip` IS this control. It was already a bordered,
+                 `aria-pressed` option chip in a slightly different costume —
+                 the class in globals.css owns the hover, the disabled state and
+                 the selected bar, so the selected branch that used to live here
+                 is gone rather than duplicated. */
               className={cn(
-                "rounded-full border px-3.5 py-1.5 text-sm transition-colors",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                isActive
-                  ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
-                  : "bg-muted/40 hover:bg-muted",
+                "tech-chip px-3.5 py-1.5 text-sm",
+                "disabled:cursor-not-allowed",
               )}
             >
               <span className="flex items-center gap-1.5">
@@ -132,9 +134,12 @@ export function ChatOptions({
             type="button"
             disabled={disabled}
             onClick={() => setWriting(true)}
+            /* Dashed, and the one chip that stays so: it is an empty slot you
+               fill in rather than an option you pick, which is the same thing
+               the dashed safe-zone marks say elsewhere in the app. */
             className={cn(
-              "rounded-full border border-dashed px-3.5 py-1.5 text-sm text-muted-foreground transition-colors",
-              "hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50",
+              "tech-chip border-dashed px-3.5 py-1.5 text-sm",
+              "disabled:cursor-not-allowed",
             )}
           >
             <span className="flex items-center gap-1.5">

@@ -93,21 +93,26 @@ export function TeamSwitcher() {
               {initialsOf(activeOrganization?.name)}
             </span>
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Workspace
-              </span>
+              {/* The eyebrow was already a label in everything but its face;
+                  `tech-label` is that face. The org name stays sans — it is a
+                  name someone reads, not a marker. */}
+              <span className="tech-label truncate text-[10px]">Workspace</span>
               <span className="truncate font-medium">{label}</span>
             </div>
             <ChevronsUpDown className="ml-auto" />
           </DropdownMenuTrigger>
+          {/* The menu is PORTALED, so it is not a descendant of the rail's
+              scope and would otherwise open as the one rounded object left on
+              screen. Scoping it at its own root is the fix; `rounded-lg` then
+              resolves through the scope's own radius token to 0. */}
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="tech-scope w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-muted-foreground text-xs">
+              <DropdownMenuLabel className="tech-label text-xs">
                 Organizations
               </DropdownMenuLabel>
               {(organizations ?? []).map((org) => {

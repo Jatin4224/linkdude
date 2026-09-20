@@ -14,6 +14,7 @@
 import type { Metadata } from "next";
 
 import { ContentLayout } from "@/components/global/page-header";
+import { TechSurface } from "@/components/global/tech";
 import { BillingTab } from "./_components/billing-tab";
 
 export const metadata: Metadata = {
@@ -23,7 +24,9 @@ export const metadata: Metadata = {
 export default function BillingSettingsPage() {
   return (
     <ContentLayout title="Billing">
-      <BillingTab />
+      <TechSurface>
+        <BillingTab />
+      </TechSurface>
     </ContentLayout>
   );
 }

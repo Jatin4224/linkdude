@@ -273,7 +273,12 @@ export function DataTable<TRow>({
       {body()}
       {pagination && rows.length > 0 && !isLoading && !error ? (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">
+          {/* `tech-label` is defined only inside `.tech-scope`, so it turns this
+              counter into a mono readout on a technical-editorial surface and is
+              inert everywhere else — the component stays design-neutral without
+              needing to know which surface it landed on. A page count is a
+              number with a label on it, which is what mono is for. */}
+          <span className="tech-label text-xs text-muted-foreground">
             Page {pagination.page} of {totalPages}
           </span>
           <div className="flex gap-1">

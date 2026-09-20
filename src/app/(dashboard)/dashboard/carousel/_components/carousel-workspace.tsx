@@ -37,6 +37,7 @@ import {
 } from "@/lib/types";
 import { ContentLayout } from "@/components/global/page-header";
 import { DataTable, type DataTableColumn } from "@/components/global/data-table";
+import { TechSurface } from "@/components/global/tech";
 import { FeatureGate } from "@/components/feature-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -245,6 +246,10 @@ export function CarouselWorkspace() {
         )
       }
     >
+      {/* The editor and the list are the SAME sheet of paper. Two views of one
+          feature, one wearing the treatment and one not, reads as an unfinished
+          port rather than as a design — the same reason studio scopes both. */}
+      <TechSurface>
       {openId && openCarousel && draftSlides ? (
         <SlideEditor
           slides={draftSlides}
@@ -302,6 +307,7 @@ export function CarouselWorkspace() {
           )}
         />
       )}
+      </TechSurface>
 
       {openCarousel?.document ? (
         <PublishDialog
@@ -316,7 +322,10 @@ export function CarouselWorkspace() {
       ) : null}
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-lg">
+        {/* Scoped at its own root: a dialog is PORTALED to the body, so it is
+            not a descendant of the surface above and would otherwise open as a
+            rounded panel over a square page. */}
+        <DialogContent className="tech-scope sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>New carousel</DialogTitle>
             <DialogDescription>

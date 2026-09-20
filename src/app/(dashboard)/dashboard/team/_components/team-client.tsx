@@ -18,6 +18,7 @@
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { permissions } from "@/lib/better-auth/permissions";
 import { ContentLayout } from "@/components/global/page-header";
+import { TechSurface } from "@/components/global/tech";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MemberManager } from "./member-manager";
 import { InviteMemberButton } from "./invite-member-button";
@@ -31,13 +32,13 @@ export function TeamClient() {
   if (isLoading && !activeOrganization) {
     return (
       <ContentLayout title="Team" actions={<InviteMemberButton />}>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <TechSurface className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <div className="space-y-4 md:col-span-2">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-16 w-full" />
           </div>
           <Skeleton className="h-16 w-full md:col-span-1" />
-        </div>
+        </TechSurface>
       </ContentLayout>
     );
   }
@@ -45,11 +46,11 @@ export function TeamClient() {
   if (!organizationId) {
     return (
       <ContentLayout title="Team">
-        <div className="flex items-center justify-center p-12">
+        <TechSurface className="flex items-center justify-center p-12">
           <p className="text-sm text-muted-foreground">
             No active organization found.
           </p>
-        </div>
+        </TechSurface>
       </ContentLayout>
     );
   }
@@ -57,7 +58,7 @@ export function TeamClient() {
   if (!hasAccess) {
     return (
       <ContentLayout title="Team">
-        <div className="flex h-full items-center justify-center p-6">
+        <TechSurface className="flex h-full items-center justify-center p-6">
           <div className="max-w-md space-y-2 text-center">
             <p className="text-sm font-medium text-destructive">
               You don&apos;t have permission to view team members
@@ -70,14 +71,19 @@ export function TeamClient() {
               permission.
             </p>
           </div>
-        </div>
+        </TechSurface>
       </ContentLayout>
     );
   }
 
   return (
     <ContentLayout title="Team" actions={<InviteMemberButton />}>
-      <MemberManager organizationId={organizationId} />
+      {/* Every branch of this route is scoped, not just the happy one — a
+          permission wall that still looks like the old app reads as a
+          different screen. */}
+      <TechSurface>
+        <MemberManager organizationId={organizationId} />
+      </TechSurface>
     </ContentLayout>
   );
 }

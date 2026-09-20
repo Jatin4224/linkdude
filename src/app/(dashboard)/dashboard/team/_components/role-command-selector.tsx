@@ -146,7 +146,8 @@ export function RoleCommandSelector({
         </span>
         <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
-      <PopoverContent className="w-[360px] p-0" align="start">
+      {/* Scoped at its own root — a popover is portaled out of the page. */}
+      <PopoverContent className="tech-scope w-[360px] p-0" align="start">
         <Command>
           <CommandInput
             placeholder="Search roles or create new..."

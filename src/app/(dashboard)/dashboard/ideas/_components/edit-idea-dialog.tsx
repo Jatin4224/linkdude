@@ -85,7 +85,7 @@ export function EditIdeaDialog({ idea, open, onOpenChange }: EditIdeaDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="tech-scope sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit idea</DialogTitle>
           <DialogDescription>

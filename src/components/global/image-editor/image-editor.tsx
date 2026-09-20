@@ -164,7 +164,8 @@ export function ImageEditor({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-3xl">
+        {/* Scoped at its own root — a dialog is portaled out of the page. */}
+        <DialogContent className="tech-scope sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Edit image</DialogTitle>
             <DialogDescription>

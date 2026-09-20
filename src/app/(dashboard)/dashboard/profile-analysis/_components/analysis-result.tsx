@@ -56,6 +56,7 @@ import {
 } from "@/lib/config/profile-sections";
 import { LockedSection } from "@/components/global/locked-section";
 import { CopyButton } from "@/components/global/copy-button";
+import { TechStat } from "@/components/global/tech";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -167,7 +168,7 @@ function RewriteBlock({
         <Separator />
         {/* The rewrite is presented as finished copy, visually distinct from the
             critique above it, so it reads as something to take rather than read. */}
-        <p className="whitespace-pre-wrap wrap-break-word rounded-md border bg-muted/40 p-3 text-sm leading-relaxed">
+        <p className="whitespace-pre-wrap wrap-break-word bg-(--ed-surface-deep) p-3 text-sm leading-relaxed">
           {feedback.rewrite}
         </p>
       </CardContent>
@@ -190,19 +191,20 @@ function SectionStats({ sections }: { sections: StoredProfileAnalysis["input"]["
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {PROFILE_SECTION_ENTRIES.map(({ key, label }) => {
-        const Icon = SECTION_ICONS[key];
+        /* The section icon is gone from the tile rather than squeezed into it.
+           TechStat is a label over a figure by design, and the label already
+           names the section the icon was repeating. */
         const count = sections[key].length;
         return (
-          <div
+          /* TechStat, not a hand-built tile: a mono label over a large accent
+             figure is the shape this kit already owns, and the count is a real
+             number off the analysis rather than a decorative readout. */
+          <TechStat
             key={key}
-            className="surface-raised flex flex-col gap-1 rounded-lg border p-3"
-          >
-            <span className="text-2xl font-semibold tabular-nums">{count}</span>
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Icon className="size-3.5" />
-              {label}
-            </span>
-          </div>
+            label={label}
+            value={String(count)}
+            className="gap-1 p-3"
+          />
         );
       })}
     </div>
@@ -256,11 +258,12 @@ function HeadlineChoices({
               type="button"
               onClick={() => setSelected(index)}
               aria-pressed={isActive}
-              className={`flex flex-col gap-1.5 rounded-md border p-3 text-left text-sm leading-relaxed transition-colors ${
-                isActive
-                  ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
-                  : "bg-muted/40 hover:bg-muted"
-              }`}
+              /* The same option chip as everywhere else — hover, disabled and
+                 the selected accent bar all come from the tech-chip class — but
+                 re-set in sans at reading size, because these options are
+                 sentences rather than labels and mono would make them a
+                 readout. */
+              className="tech-chip flex flex-col gap-1.5 p-3 text-left font-sans text-sm normal-case leading-relaxed tracking-normal"
             >
               <span className="flex items-center justify-between gap-2 text-xs font-medium">
                 {index === 0 ? "Recommended" : `Option ${index + 1}`}
@@ -397,7 +400,7 @@ function SectionInsightBody({ insight }: { insight: SectionInsight }) {
             <p className="text-sm font-medium">{rewrite.target}</p>
             <CopyButton text={rewrite.rewrite} label={`${rewrite.target} rewrite`} />
           </div>
-          <p className="whitespace-pre-wrap wrap-break-word rounded-md border bg-muted/40 p-3 text-sm leading-relaxed">
+          <p className="whitespace-pre-wrap wrap-break-word bg-(--ed-surface-deep) p-3 text-sm leading-relaxed">
             {rewrite.rewrite}
           </p>
         </div>

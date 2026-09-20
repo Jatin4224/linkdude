@@ -31,6 +31,7 @@ import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { ContentLayout } from "@/components/global/page-header";
 import { DataTable, type DataTableColumn } from "@/components/global/data-table";
+import { TechSurface } from "@/components/global/tech";
 import { buildAttachmentUrl } from "@/lib/config";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -148,6 +149,9 @@ export function DocumentsLibrary() {
       description="Files this workspace has generated"
       icon={<FileTextIcon className="size-4" />}
     >
+      {/* One list, one surface — the same shape as the posts route, which uses
+          the same table. */}
+      <TechSurface>
       <DataTable
         rows={visibleRows}
         columns={columns}
@@ -192,6 +196,7 @@ export function DocumentsLibrary() {
           </div>
         )}
       />
+      </TechSurface>
     </ContentLayout>
   );
 }

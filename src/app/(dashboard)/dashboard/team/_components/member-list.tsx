@@ -132,7 +132,9 @@ export function MemberList({
           return (
             <div
               key={member.id}
-              className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50"
+              /* A row is a FILL one step off the page, not a bordered card —
+                 a list of outlined boxes reads as a grid of containers. */
+              className="tech-surface-fill flex items-center justify-between gap-4 p-4 transition-colors hover:bg-accent/50"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <Avatar className="size-10 shrink-0">
@@ -270,7 +272,8 @@ export function MemberList({
         open={removeTarget !== null}
         onOpenChange={(open) => !open && setRemoveTarget(null)}
       >
-        <AlertDialogContent>
+        {/* Scoped at its own root — an alert dialog is portaled out. */}
+        <AlertDialogContent className="tech-scope">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove member?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -298,7 +301,8 @@ export function MemberList({
         open={cancelTarget !== null}
         onOpenChange={(open) => !open && setCancelTarget(null)}
       >
-        <AlertDialogContent>
+        {/* Scoped at its own root — an alert dialog is portaled out. */}
+        <AlertDialogContent className="tech-scope">
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel invitation?</AlertDialogTitle>
             <AlertDialogDescription>

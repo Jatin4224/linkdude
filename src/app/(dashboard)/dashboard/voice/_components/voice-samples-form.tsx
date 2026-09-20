@@ -141,7 +141,7 @@ export function VoiceSamplesForm({
     <Card className="surface-raised h-fit">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <span className="flex size-7 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground">
+          <span className="flex size-7 items-center justify-center bg-brand-soft text-brand-soft-foreground">
             <AudioLinesIcon className="size-4" />
           </span>
           Posts to learn from
@@ -235,7 +235,7 @@ export function VoiceSamplesForm({
               wrote yourself or edited heavily.
             </p>
 
-            <div className="flex items-center justify-between gap-2 border-t pt-4 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 border-t border-(--ed-hairline) pt-4 font-mono text-xs text-muted-foreground">
               <span>
                 {totalChars.toLocaleString()} characters across {fields.length}{" "}
                 posts

@@ -75,7 +75,11 @@ export default async function DashboardLayout({
     <SidebarProvider>
       <HydrationBoundary state={dehydrate(queryClient)}>
         <AppSidebar />
-        <SidebarInset>{children}</SidebarInset>
+        {/* `tech-chrome` converts the SHELL only — the inset's own corner and
+            the page header directly inside it. It sets no inherited token, so
+            a route that has not been converted yet renders exactly as before
+            underneath it. See the block in globals.css. */}
+        <SidebarInset className="tech-chrome">{children}</SidebarInset>
       </HydrationBoundary>
     </SidebarProvider>
   );

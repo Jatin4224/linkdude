@@ -166,7 +166,8 @@ export function MemberSheetContent({
   const isProcessing = invite.isPending || update.isPending;
 
   return (
-    <SheetContent className="w-full overflow-y-auto p-6 sm:max-w-md">
+    /* Scoped at its own root — a sheet is portaled out of the page. */
+    <SheetContent className="tech-scope w-full overflow-y-auto p-6 sm:max-w-md">
       <SheetHeader className="p-0">
         <SheetTitle className="text-xl">
           {isEditing ? "Edit member" : "Invite member"}
@@ -180,7 +181,7 @@ export function MemberSheetContent({
 
       <div className="space-y-6">
         {isEditing ? (
-          <div className="space-y-1 rounded-lg border bg-muted/50 p-4">
+          <div className="tech-surface-fill space-y-1 p-4">
             <p className="text-sm font-medium">{editingMember?.user.name}</p>
             <p className="text-sm text-muted-foreground">
               {editingMember?.user.email}
@@ -245,7 +246,7 @@ export function MemberSheetContent({
         )}
 
         {invitationLink ? (
-          <div className="space-y-3 rounded-lg border bg-muted/50 p-4">
+          <div className="tech-surface-fill space-y-3 p-4">
             <div className="space-y-1">
               <Label className="text-sm font-medium">Invitation link</Label>
               <p className="text-xs text-muted-foreground">

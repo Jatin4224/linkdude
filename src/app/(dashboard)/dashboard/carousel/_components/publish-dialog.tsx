@@ -131,7 +131,8 @@ export function PublishDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      {/* Scoped at its own root — a dialog is portaled out of the page. */}
+      <DialogContent className="tech-scope sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Publish carousel</DialogTitle>
           <DialogDescription>
@@ -141,7 +142,7 @@ export function PublishDialog({
         </DialogHeader>
 
         {!isConnected ? (
-          <div className="flex flex-col items-start gap-3 rounded-md border p-4">
+          <div className="tech-surface-fill flex flex-col items-start gap-3 p-4">
             <p className="text-sm text-muted-foreground">
               Connect a LinkedIn account to publish this carousel.
             </p>

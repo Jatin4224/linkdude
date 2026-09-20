@@ -145,7 +145,7 @@ export function AnalysisHistory({
                     onClick={() => onSelect(analysis)}
                     aria-current={isSelected}
                     className={cn(
-                      "flex flex-1 flex-col gap-1.5 rounded-md p-2 text-left transition-colors hover:bg-muted/60",
+                      "flex flex-1 flex-col gap-1.5 p-2 text-left transition-colors hover:bg-muted/60",
                       isSelected && "bg-muted",
                     )}
                   >
@@ -205,7 +205,8 @@ export function AnalysisHistory({
           if (!open) setDiscardTarget(null);
         }}
       >
-        <AlertDialogContent>
+        {/* Scoped at its own root — an alert dialog is portaled out. */}
+        <AlertDialogContent className="tech-scope">
           <AlertDialogHeader>
             <AlertDialogTitle>Discard this analysis?</AlertDialogTitle>
             <AlertDialogDescription>

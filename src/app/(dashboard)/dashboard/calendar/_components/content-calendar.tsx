@@ -47,6 +47,7 @@ import {
 } from "@/components/global/month-calendar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TechSurface } from "@/components/global/tech";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -124,7 +125,9 @@ export function ContentCalendar({ schedulingEnabled }: ContentCalendarProps) {
           >
             <ChevronLeftIcon className="size-4" />
           </Button>
-          <span className="min-w-36 text-center text-sm font-medium">
+          {/* The month is the page's one readout, so it is set in mono like
+              every other number on a technical surface. */}
+          <span className="min-w-36 text-center font-mono text-sm tracking-[0.04em] uppercase">
             {format(month, "MMMM yyyy")}
           </span>
           <Button
@@ -145,9 +148,9 @@ export function ContentCalendar({ schedulingEnabled }: ContentCalendarProps) {
         </div>
       }
     >
-      <div className="flex flex-col gap-4">
+      <TechSurface className="flex flex-col gap-4">
         {posts.isLoading ? (
-          <Skeleton className="h-128 w-full rounded-lg" />
+          <Skeleton className="h-128 w-full" />
         ) : (
           <MonthCalendar
             month={month}
@@ -178,7 +181,9 @@ export function ContentCalendar({ schedulingEnabled }: ContentCalendarProps) {
                 : undefined
             }
             renderItem={(post) => (
-              <div className="flex flex-col gap-0.5 rounded-md border bg-background p-1 text-left">
+              /* A fill one step off the cell, not an outlined chip — the cell
+                 is already ruled, and a box inside a box is two frames. */
+              <div className="flex flex-col gap-0.5 bg-(--ed-surface-deep) p-1 text-left">
                 <div className="flex items-center gap-1">
                   <PostStatusBadge status={post.status} />
                   {post.imageUrl ? (
@@ -203,7 +208,7 @@ export function ContentCalendar({ schedulingEnabled }: ContentCalendarProps) {
             cancellingId={cancel.variables?.postId}
           />
         ) : null}
-      </div>
+      </TechSurface>
     </ContentLayout>
   );
 }

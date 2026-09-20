@@ -33,8 +33,8 @@ import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { getResourceDefinition } from "@/lib/resources";
 import { PostStatusBadge } from "@/components/global/post-status-badge";
+import { TechButton, TechPanel } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /* How far ahead the queue is worth reading. Long enough to cover a month of
@@ -68,12 +68,12 @@ function PostRow({
   when: string;
 }) {
   return (
-    <li className="flex flex-col gap-1.5 border-b py-3 last:border-0 last:pb-0 first:pt-0">
+    /* A hairline between rows — the one place this language draws a line,
+       because these rows are genuinely separated rather than boxed. */
+    <li className="flex flex-col gap-1.5 border-b border-(--ed-hairline) py-3 last:border-0 last:pb-0 first:pt-0">
       <div className="flex items-center gap-2">
         <PostStatusBadge status={status} />
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {when}
-        </span>
+        <span className="tech-label tabular-nums">{when}</span>
       </div>
       {/* Two lines: enough to recognise which post this is, not enough to
           re-read it here instead of in the composer. */}
@@ -130,19 +130,20 @@ export function ActivityPanel() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card className="surface-raised">
-        <CardHeader className="flex-row items-center justify-between gap-2">
-          <CardTitle className="text-base">Going out next</CardTitle>
+      <TechPanel className="gap-4 p-6">
+        <div className="flex flex-row items-center justify-between gap-2">
+          <h3 className="tech-display text-xl">Going out next</h3>
           <Button
             variant="ghost"
             size="sm"
+            className="tech-label"
             nativeButton={false}
             render={<Link href={CALENDAR_HREF} />}
           >
             Calendar
           </Button>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div>
           {upcoming.isPending && enabled ? (
             <PanelSkeleton />
           ) : queued.length === 0 ? (
@@ -152,14 +153,15 @@ export function ActivityPanel() {
               <p className="text-sm text-muted-foreground">
                 Nothing scheduled. The gap in your cadence starts here.
               </p>
-              <Button
-                variant="brand"
+              {/* The one primary action on this page, so it is the one thing
+                  wearing the accent fill. */}
+              <TechButton
                 size="sm"
                 nativeButton={false}
                 render={<Link href={POST_COMPOSER_HREF} />}
               >
                 Write a post
-              </Button>
+              </TechButton>
             </div>
           ) : (
             <ul className="flex flex-col">
@@ -175,14 +177,12 @@ export function ActivityPanel() {
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </TechPanel>
 
-      <Card className="surface-raised">
-        <CardHeader>
-          <CardTitle className="text-base">Recently published</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <TechPanel className="gap-4 p-6">
+        <h3 className="tech-display text-xl">Recently published</h3>
+        <div>
           {recent.isPending && enabled ? (
             <PanelSkeleton />
           ) : published.length === 0 ? (
@@ -205,8 +205,8 @@ export function ActivityPanel() {
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </TechPanel>
     </div>
   );
 }

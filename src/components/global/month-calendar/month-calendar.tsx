@@ -116,12 +116,22 @@ export function MonthCalendar<TItem>({
   }, [items, getItemDate]);
 
   return (
-    <div className={cn("overflow-hidden rounded-lg border bg-card", className)}>
+    /* `data-slot` is a styling hook, not a fork. A calendar is the one place in
+       this app where ruled lines are the CONTENT — the cells are genuinely
+       separated — so a technical-editorial surface retunes their weight rather
+       than removing them, and it needs a handle to do that. */
+    <div
+      data-slot="month-calendar"
+      className={cn("overflow-hidden rounded-lg border bg-card", className)}
+    >
       <div className="grid grid-cols-7 border-b bg-muted/40">
         {WEEKDAY_LABELS.map((label) => (
           <div
             key={label}
-            className="px-2 py-2 text-center text-xs font-medium text-muted-foreground"
+            /* `tech-label` resolves only inside `.tech-scope`, so the weekday
+               row reads as mono column headings there and is untouched
+               elsewhere. */
+            className="tech-label px-2 py-2 text-center text-xs font-medium text-muted-foreground"
           >
             {label}
           </div>
@@ -162,8 +172,9 @@ export function MonthCalendar<TItem>({
             >
               <div className="flex items-center justify-between">
                 <span
+                  data-slot="month-calendar-day-number"
                   className={cn(
-                    "flex size-6 items-center justify-center rounded-full text-xs",
+                    "flex size-6 items-center justify-center rounded-full text-xs tabular-nums",
                     outside
                       ? "text-muted-foreground/60"
                       : "text-muted-foreground",

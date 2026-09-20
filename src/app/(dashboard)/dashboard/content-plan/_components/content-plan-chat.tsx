@@ -61,6 +61,7 @@ import {
   isContentPlanAnswered,
 } from "@/lib/config";
 import { ContentLayout } from "@/components/global/page-header";
+import { TechSurface } from "@/components/global/tech";
 import { UsageMeter } from "@/components/global/usage-meter";
 import { ChatMessage, ChatOptions, ChatShell, ChatTyping } from "@/components/global/chat";
 import { Button } from "@/components/ui/button";
@@ -605,6 +606,10 @@ export function ContentPlanChat() {
       actions={<UsageMeter resource="contentPlan" />}
       bare
     >
+      {/* `bare` hands this route a BOUNDED region, so the surface has to carry
+          the height through rather than wrap a block — otherwise the composer
+          loses the definite height it pins itself to and slides off the page. */}
+      <TechSurface className="flex min-h-0 flex-1 flex-col">
       <ChatShell
         scrollKey={`${transcript.length}-${busyLabel ?? ""}`}
         footer={renderComposer()}
@@ -623,6 +628,7 @@ export function ContentPlanChat() {
 
         {busyLabel ? <ChatTyping label={busyLabel} /> : null}
       </ChatShell>
+      </TechSurface>
     </ContentLayout>
   );
 }

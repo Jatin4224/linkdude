@@ -830,7 +830,8 @@
    *        surface follows a brand change instead of quietly disagreeing with it.
    * WHERE: `src/app/(dashboard)/dashboard/studio/`.
    */
-  .tech-scope {
+  .tech-scope,
+  .tech-chrome > [data-slot="page-header"] {
     /* DARK, and derived rather than restated. Every value below points at a
        token this app already owns, so the surface follows a theme change instead
        of quietly disagreeing with it — and the studio stops being the one screen
@@ -870,6 +871,11 @@
     --radius-md: 0px;
     --radius-lg: 0px;
     --radius-xl: 0px;
+    /* The top of the scale matters as much as the rest of it. A chat bubble is
+       `rounded-2xl`, and leaving these two out left the most rounded object in
+       the app as the only rounded thing on a square page. */
+    --radius-2xl: 0px;
+    --radius-3xl: 0px;
 
     --shadow-2xs: none;
     --shadow-xs: none;
@@ -969,7 +975,8 @@
 
   /* Display: condensed, uppercase, tight. The size jump against a 12px mono label
      IS the hierarchy — there is no middle size doing work. */
-  .tech-scope .tech-display {
+  .tech-scope .tech-display,
+  .tech-chrome > [data-slot="page-header"] .tech-display {
     font-family: var(--font-condensed), var(--font-sans);
     font-weight: 700;
     text-transform: uppercase;
@@ -977,7 +984,8 @@
     letter-spacing: -0.02em;
   }
 
-  .tech-scope .tech-label {
+  .tech-scope .tech-label,
+  .tech-chrome > [data-slot="page-header"] .tech-label {
     font-family: var(--font-mono);
     font-size: 0.75rem;
     font-weight: 500;
@@ -989,7 +997,8 @@
   /* Intro copy is MONO by design — the brief's one deliberate inversion. Key
      phrases are emphasised in bold rather than in colour, so the accent stays
      reserved for marks and actions. */
-  .tech-scope .tech-intro {
+  .tech-scope .tech-intro,
+  .tech-chrome > [data-slot="page-header"] .tech-intro {
     font-family: var(--font-mono);
     font-size: 0.875rem;
     line-height: 1.7;
@@ -1164,4 +1173,225 @@
     }
   }
 
+}
+
+/*
+ * SOURCE OF TRUTH KEYWORDS: tech-chrome, app chrome, sidebar-inset, page-header,
+ *   dashboard shell, nav surface, technical editorial, inset corner
+ *
+ * WHAT:  The dashboard shell — the inset pane and the sticky page header that
+ *        frame every route under `(dashboard)`.
+ * WHY:   A MARKER, not a scope. It declares no INHERITED custom property,
+ *        because the class sits on the element that also contains the route
+ *        body: putting `--radius: 0` here would silently convert twelve routes
+ *        nobody has looked at yet. Everything below therefore reaches its target
+ *        through an explicit selector.
+ *
+ *        The header is scoped with `>` rather than a descendant combinator for
+ *        that same reason — ContentLayout renders it as a DIRECT child of the
+ *        inset, so a child combinator cannot leak into the content region under
+ *        it. That precision is what lets the chrome convert now while the routes
+ *        beneath it convert one commit at a time.
+ *
+ *        UTILITIES, not components. Every declaration here exists to correct a
+ *        Tailwind utility already in the markup (`md:rounded-xl`, `shadow-sm`,
+ *        `font-medium`), and layer order beats specificity — a components-layer
+ *        rule would lose to all three and the correction would silently not
+ *        happen. `.tech-scope` has no such problem because its callers write no
+ *        competing utility.
+ *
+ *        The rail is absent from this block on purpose: AppSidebar wears
+ *        `.tech-scope` on its own regions, which is less CSS and the reason the
+ *        scope exists at all. Only what a className cannot reach lives here —
+ *        the inset's own corner, and a header shared with `/portal`, which has
+ *        to keep its current look and whose markup therefore stays untouched.
+ * WHERE: `src/app/(dashboard)/layout.tsx`, on SidebarInset.
+ */
+@layer utilities {
+  /* Own-element properties, deliberately. The inset variant rounds and lifts the
+     content pane, and those two are exactly what make the shell disagree with a
+     square, unshadowed surface sitting inside it. The attribute is carried for
+     specificity, so the `md:` corner cannot win on source order. */
+  [data-slot="sidebar-inset"].tech-chrome {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* A rule BENEATH the chrome rather than a raised bar: the same ground as the
+     page, separated by the one hairline. */
+  .tech-chrome > [data-slot="page-header"] {
+    background-color: var(--ed-bg);
+    border-color: var(--ed-hairline);
+  }
+
+  /* The route's name, in the display face. Set here rather than as a class in
+     PageHeader so /portal renders the identical component unchanged. */
+  .tech-chrome > [data-slot="page-header"] h1 {
+    font-family: var(--font-condensed), var(--font-sans);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    font-size: 1.125rem;
+    line-height: 1.1;
+  }
+}
+
+/*
+ * SOURCE OF TRUTH KEYWORDS: tech-scope, usage-meter-bar, scope corrections,
+ *   shared component, rounded-full, radius 0, technical editorial
+ *
+ * WHAT:  Scope corrections that have to OUT-RANK a utility written inside a
+ *        shared component.
+ * WHY:   `.tech-scope`'s own block lives in the components layer and works
+ *        because its callers write no competing utility — a caller asks for
+ *        `tech-display` and nothing argues with it. These are different: the
+ *        declaration being corrected is baked into a component in
+ *        `components/global/`, and layer order beats specificity, so a
+ *        components-layer rule would lose silently. Correcting it here is the
+ *        alternative to forking the component, which the design system forbids.
+ *
+ *        Each entry names a LITERAL that no token can reach. `rounded-full` is
+ *        9999px, not `var(--radius)`, so taking every radius token to 0 leaves
+ *        it a pill — the one rounded object on a square page.
+ * WHERE: Any route wrapped in <TechSurface>.
+ */
+@layer utilities {
+  .tech-scope [data-slot="usage-meter-bar"],
+  .tech-scope [data-slot="usage-meter-bar"] > * {
+    border-radius: 0;
+  }
+}
+
+/*
+ * SOURCE OF TRUTH KEYWORDS: tech-scope, card, card-title, surface-raised,
+ *   table-head, table-row, DataTable, scope corrections, module is a fill
+ *
+ * WHAT:  What a shadcn Card and Table become inside a technical-editorial
+ *        surface.
+ * WHY:   THE ALTERNATIVE WAS FORKING, and the design system forbids it for good
+ *        reason: Card and Table are the substrate of most of this app, and a
+ *        `TechCard` beside `Card` would mean every future list picks one at
+ *        random. Correcting them by scope means a route converts by being
+ *        wrapped, and a route that has not been wrapped is untouched.
+ *
+ *        The two corrections are the two rules the language rests on.
+ *
+ *        A MODULE IS A FILL. Card carries `ring-1 ring-foreground/10`, which is
+ *        an outline in everything but name, and `.surface-raised` adds a lit
+ *        gradient and a bright top edge to imply a light source. Both are right
+ *        for the app's default look and both are exactly what this language
+ *        removes — a plane is read here by being one step off the page, not by
+ *        being drawn around or lit from above.
+ *
+ *        A COLUMN HEADING IS A LABEL. It names the numbers under it and never
+ *        reads as prose, which is the one thing mono is for. The cells stay
+ *        sans, because a table of mono paragraphs is a terminal readout.
+ *
+ *        A Card corrected this way gets NO crop marks, deliberately. Marks are
+ *        placed by hand on the few things that earn them; a route wrapping
+ *        itself should not silently bracket every card it owns. Where a panel
+ *        does earn one, the route reaches for TechPanel instead.
+ *
+ *        Utilities layer, because every declaration here overrides a utility
+ *        written inside `components/ui` — layer order beats specificity, so the
+ *        components layer would lose all of them without a word.
+ * WHERE: Any route wrapped in <TechSurface> — posts, carousel and documents get
+ *        this through the global DataTable.
+ */
+@layer utilities {
+  .tech-scope [data-slot="card"] {
+    background-color: var(--ed-surface);
+    /* Tailwind draws `ring-1` as a box-shadow, so this removes the outline and
+       any elevation in one declaration. */
+    box-shadow: none;
+  }
+
+  /* The lit-from-above treatment, undone: flat fill, no top edge. */
+  .tech-scope .surface-raised {
+    background-image: none;
+  }
+
+  .tech-scope .surface-raised::before {
+    content: none;
+  }
+
+  .tech-scope [data-slot="card-title"] {
+    font-family: var(--font-condensed), var(--font-sans);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    line-height: 1.05;
+  }
+
+  .tech-scope [data-slot="table-head"] {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ed-muted);
+  }
+
+  /* The row divider is the hairline, at the weight the rest of the surface
+     uses — `border-b` would otherwise be a full-strength line and the table
+     would read as a grid. */
+  .tech-scope [data-slot="table-row"] {
+    border-color: var(--ed-hairline);
+  }
+}
+
+/*
+ * SOURCE OF TRUTH KEYWORDS: tech-scope, month-calendar, month-calendar-day-number,
+ *   ruled lines, hairline, calendar grid, scope corrections
+ *
+ * WHAT:  What the shared MonthCalendar becomes inside a technical-editorial
+ *        surface.
+ * WHY:   THE ONE PLACE RULED LINES ARE THE CONTENT. Everywhere else this
+ *        language reads a module as a fill and treats a drawn box as noise, but
+ *        a month grid's cells are genuinely separated — take the lines out and
+ *        there is no calendar left. So the treatment here is weight, not
+ *        removal: every border drops to the surface's hairline.
+ *
+ *        Redefining `--border` on the root does that in ONE declaration, because
+ *        Tailwind's `border` utilities all resolve it and it inherits to every
+ *        cell. The alternative was a hook on each of the grid's four line-drawing
+ *        elements, which would have to be kept in step with the component
+ *        forever.
+ *
+ *        The day number loses its pill for the reason the whole surface has no
+ *        radius: `rounded-full` is a literal no token can reach, and a single
+ *        circle on a square page is the one thing the eye finds. An avatar keeps
+ *        its circle; a date is not a portrait.
+ * WHERE: /dashboard/calendar, and any surface that renders MonthCalendar.
+ */
+@layer utilities {
+  .tech-scope [data-slot="month-calendar"] {
+    --border: var(--ed-hairline);
+  }
+
+  .tech-scope [data-slot="month-calendar-day-number"] {
+    border-radius: 0;
+    font-family: var(--font-mono);
+  }
+}
+
+/*
+ * SOURCE OF TRUTH KEYWORDS: tech-scope, chat-wallpaper, ChatShell, doodle
+ *   pattern, texture, scope corrections
+ *
+ * WHAT:  The chat wallpaper, withdrawn on a technical-editorial surface.
+ * WHY:   The doodle tile is the right background for a conversational product
+ *        and the wrong one for this language, which allows exactly ONE texture
+ *        and gets its value from that being true. Nothing replaces it: swapping
+ *        in a second pattern would spend the budget the one texture is holding.
+ *
+ *        Hidden by scope rather than deleted, because ChatShell is a shared
+ *        component and the wallpaper is a real decision it owns — the surface
+ *        declines it here rather than removing the option from the component.
+ * WHERE: /dashboard/content-plan.
+ */
+@layer utilities {
+  .tech-scope [data-slot="chat-wallpaper"] {
+    display: none;
+  }
 }

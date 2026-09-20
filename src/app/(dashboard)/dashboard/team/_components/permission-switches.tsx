@@ -66,7 +66,7 @@ export function PermissionSwitches({
   return (
     <div className="space-y-4">
       {isOwner ? (
-        <div className="mb-4 flex items-start gap-2 rounded-lg bg-muted/50 p-3">
+        <div className="tech-surface-fill mb-4 flex items-start gap-2 p-3">
           <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             Organization owners have full access to all permissions and cannot
@@ -80,7 +80,7 @@ export function PermissionSwitches({
         const allEnabled =
           isOwner || groupPermissions.every((p) => selectedSet.has(p));
         return (
-          <div key={group.resourceKey} className="rounded-lg border">
+          <div key={group.resourceKey} className="tech-surface-fill">
             <div
               className={cn(
                 "flex items-center justify-between p-4",

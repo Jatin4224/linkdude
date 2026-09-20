@@ -287,7 +287,10 @@ export function BillingTab() {
           labelDescription="Payment methods for your subscription."
         >
           {methods.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center">
+            /* Dashed, and square — an empty slot rather than a rounded card.
+                A dashed edge is this app already-established way of marking a
+                reservation. */
+            <div className="flex flex-col items-center justify-center border border-dashed py-8 text-center">
               <CreditCard className="mb-3 h-10 w-10 text-muted-foreground" />
               <p className="text-sm font-medium">No payment methods on file</p>
               <p className="mt-1 text-xs text-muted-foreground">

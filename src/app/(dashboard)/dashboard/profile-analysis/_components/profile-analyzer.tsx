@@ -45,6 +45,7 @@ import type {
 } from "@/lib/types";
 import { PROFILE_SECTION_ENTRIES } from "@/lib/config/profile-sections";
 import { ContentLayout } from "@/components/global/page-header";
+import { TechSurface } from "@/components/global/tech";
 import { UsageMeter } from "@/components/global/usage-meter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileForm } from "./profile-form";
@@ -170,7 +171,9 @@ export function ProfileAnalyzer() {
       description="Score your profile and get paste-ready rewrites"
       icon={<UserSearchIcon className="size-4" />}
     >
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+      {/* Input on the left, findings on the right — one surface, because the
+          score is a reading OF the text beside it. */}
+      <TechSurface className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         <Card className="surface-raised h-fit">
           <CardHeader>
             <CardTitle className="text-base">Paste your profile</CardTitle>
@@ -252,7 +255,7 @@ export function ProfileAnalyzer() {
             />
           </div>
         ) : null}
-      </div>
+      </TechSurface>
     </ContentLayout>
   );
 }

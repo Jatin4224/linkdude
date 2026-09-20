@@ -123,7 +123,8 @@ export function ManageRoleSheetContent({
   const isSaving = createRole.isPending || updateRole.isPending;
 
   return (
-    <SheetContent className="w-full overflow-y-auto p-6 sm:max-w-md">
+    /* Scoped at its own root — a sheet is portaled out of the page. */
+    <SheetContent className="tech-scope w-full overflow-y-auto p-6 sm:max-w-md">
       <SheetHeader className="p-0">
         <SheetTitle className="text-xl">Manage roles</SheetTitle>
         <SheetDescription className="text-sm">
@@ -143,7 +144,7 @@ export function ManageRoleSheetContent({
               {roles.map((role) => (
                 <div
                   key={role.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
+                  className="tech-surface-fill flex items-center justify-between p-3"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{role.role}</span>
