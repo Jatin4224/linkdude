@@ -577,3 +577,6 @@ export type {
   ListStudioProjectsValues,
   GenerateStudioBackdropValues,
 } from "./studio";
+/* Theme — the colour schemes the signed-in app can be switched between. */
+export { THEME_PREFERENCES, themePreferenceSchema } from "./theme";
+export type { ThemePreference } from "./theme";

@@ -307,7 +307,9 @@ export function TechButton({
             "border-b-[3px] hover:border-b-[5px]",
             accentBar
               ? "border-b-[color:var(--ed-accent)]"
-              : "border-b-[color:#b9b9b9]",
+              : /* A neutral bar derived from the ink, so it holds its contrast
+                   on a light page as well as a dark one. */
+                "border-b-[color:color-mix(in_oklab,var(--ed-ink)_30%,transparent)]",
             "transition-[border-bottom-width] duration-150",
             className,
           )}
@@ -337,7 +339,7 @@ export function TechButton({
       {...rest}
       className={cn(
         shared,
-        "brackets brackets-dark bg-[color:var(--ed-accent)] text-white hover:bg-[color:var(--ed-accent)] hover:opacity-90",
+        "brackets brackets-dark bg-[color:var(--ed-accent)] text-brand-foreground hover:bg-[color:var(--ed-accent)] hover:opacity-90",
         className,
       )}
     >
@@ -372,7 +374,8 @@ const ASCII_GLYPHS = ["1", "$", "%", "#"] as const;
 /**
  * SOURCE OF TRUTH KEYWORDS: TechAsciiPanel
  *
- * WHAT:  A dark panel filled with a dim monospace character field.
+ * WHAT:  A deep panel filled with a dim monospace character field — the
+ *        surface’s deepest fill, so it reads as recessed in either theme.
  * WHY:   The ONE texture in the design, and it earns its place by being the only
  *        one. Generated rather than an image so it costs no request and scales,
  *        and seeded deterministically so it does not reshuffle on every render —
@@ -411,7 +414,7 @@ export function TechAsciiPanel({
     <div
       aria-hidden
       className={cn(
-        "select-none overflow-hidden bg-[#111315] p-5 font-mono text-[10px] leading-[1.35] text-[color:var(--ed-accent)]/35",
+        "select-none overflow-hidden bg-[color:var(--ed-surface-deep)] p-5 font-mono text-[10px] leading-[1.35] text-[color:var(--ed-accent)]/35",
         className,
       )}
     >

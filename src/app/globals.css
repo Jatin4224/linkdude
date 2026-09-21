@@ -11,24 +11,42 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.99 0 0);
+  /*
+   * SOURCE OF TRUTH KEYWORDS: light theme, cream, warm white, light neutrals,
+   *   --background, --card, --muted, --border, theme toggle
+   * WHAT:  The light theme’s neutrals, tinted a warm cream.
+   * WHY:   Pure achromatic white read as clinical beside the dark theme, whose
+   *        near-black is the product’s real identity. Every neutral carries
+   *        the SAME hue (85, a warm cream) at low chroma, so the light theme is
+   *        one paper rather than a stack of greys that disagree. Chroma stays
+   *        under ~0.02: past that it stops reading as warm white and starts
+   *        reading as yellow, and brand blue on yellow vibrates.
+   *
+   *        Card sits a step LIGHTER than the page, so cards still lift. The
+   *        technical-editorial surfaces derive their fills from these two by
+   *        color-mix, so they turn cream with no change of their own.
+   *        Text stays near-black: warmth belongs to the paper, not the ink.
+   * WHERE: Visible only in light mode, which only the dashboard and portal can
+   *        enter (see src/lib/config/theme.ts).
+   */
+  --background: oklch(0.972 0.014 85);
   --foreground: oklch(0 0 0);
-  --card: oklch(1 0 0);
+  --card: oklch(0.988 0.009 85);
   --card-foreground: oklch(0 0 0);
-  --popover: oklch(0.99 0 0);
+  --popover: oklch(0.985 0.01 85);
   --popover-foreground: oklch(0 0 0);
   --primary: oklch(0 0 0);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.94 0 0);
+  --secondary: oklch(0.93 0.016 85);
   --secondary-foreground: oklch(0 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.44 0 0);
-  --accent: oklch(0.94 0 0);
+  --muted: oklch(0.948 0.015 85);
+  --muted-foreground: oklch(0.44 0.012 70);
+  --accent: oklch(0.93 0.016 85);
   --accent-foreground: oklch(0 0 0);
   --destructive: oklch(0.63 0.19 23.03);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.92 0 0);
-  --input: oklch(0.94 0 0);
+  --border: oklch(0.895 0.018 85);
+  --input: oklch(0.915 0.017 85);
   --ring: oklch(0 0 0);
 
   /*
@@ -102,13 +120,15 @@
   --chart-3: oklch(0.72 0 0);
   --chart-4: oklch(0.92 0 0);
   --chart-5: oklch(0.56 0 0);
-  --sidebar: oklch(0.99 0 0);
+  /* The rail is a half-step deeper than the page, so it reads as the frame the
+     cream page sits in rather than as more of the same sheet. */
+  --sidebar: oklch(0.955 0.016 85);
   --sidebar-foreground: oklch(0 0 0);
   --sidebar-primary: oklch(0 0 0);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.94 0 0);
+  --sidebar-accent: oklch(0.92 0.018 85);
   --sidebar-accent-foreground: oklch(0 0 0);
-  --sidebar-border: oklch(0.94 0 0);
+  --sidebar-border: oklch(0.9 0.018 85);
   --sidebar-ring: oklch(0 0 0);
   /* Resolves the next/font-hashed families exposed on <html> by layout.tsx.
    * The literal names ("Geist") only ever matched for people who happened to
@@ -832,14 +852,15 @@
    */
   .tech-scope,
   .tech-chrome > [data-slot="page-header"] {
-    /* DARK, and derived rather than restated. Every value below points at a
+    /* Derived rather than restated. Every value below points at a
        token this app already owns, so the surface follows a theme change instead
        of quietly disagreeing with it — and the studio stops being the one screen
        that looks like a different product from its neighbours.
 
        The earlier light-paper pass needed its own hexes because cream is not in
        this app's vocabulary. An engineering surface is, which is why this one
-       needs almost no colour of its own. */
+       needs almost no colour of its own. These values are tuned for DARK; the
+       light theme adjusts three of them in the block that follows. */
     --ed-bg: var(--background);
     --ed-surface: color-mix(in oklab, var(--card) 70%, transparent);
     --ed-surface-deep: var(--card);
@@ -934,9 +955,11 @@
       background-size 200ms var(--ease-out);
   }
 
-  /* On an accent-filled surface the marks invert, or they vanish into the fill. */
+  /* On an accent-filled surface the marks invert, or they vanish into the fill.
+     Derived from the accent’s own foreground rather than a literal white, so
+     the marks stay readable on the fill in both themes and follow a rebrand. */
   .brackets-dark::after {
-    --bracket-color: rgba(255, 255, 255, 0.55);
+    --bracket-color: color-mix(in oklab, var(--brand-foreground) 55%, transparent);
   }
 
   .brackets-lg {
@@ -1427,5 +1450,38 @@
   .tech-scope [data-slot="linkedin-identity"],
   .tech-chrome > [data-slot="page-header"] [data-slot="linkedin-identity"] {
     border-radius: 0;
+  }
+}
+
+/*
+ * SOURCE OF TRUTH KEYWORDS: tech-scope, light theme, --ed-surface,
+ *   --ed-surface-deep, --ed-hairline, module is a fill, theme toggle
+ *
+ * WHAT:  The three technical-editorial tokens the light theme has to state
+ *        differently.
+ * WHY:   The dark derivation lifts a module by laying `--card` over the page,
+ *        which works because dark card sits well above dark background. In
+ *        light the relationship inverts — card is pure white on a near-white
+ *        page — so the same formula yields a fill one imperceptible step off the
+ *        ground, and "a module is a fill" silently becomes "a module is
+ *        nothing".
+ *
+ *        So in light the fills are drawn DOWN from the page toward the ink
+ *        instead of up toward the card: a few percent of foreground mixed into
+ *        background. That keeps them tokens (they follow a rebrand of either),
+ *        and keeps the dark theme byte-identical, because this block only
+ *        matches under `.light` — which next-themes sets for an explicit light
+ *        choice and for "system" on a light OS alike.
+ *
+ *        The hairline goes to full `--border`: at 75% over a near-white page it
+ *        falls below what a divider needs to be seen.
+ * WHERE: Every `.tech-scope` and the dashboard page header, in light mode.
+ */
+@layer components {
+  .light .tech-scope,
+  .light .tech-chrome > [data-slot="page-header"] {
+    --ed-surface: color-mix(in oklab, var(--background), var(--foreground) 4%);
+    --ed-surface-deep: color-mix(in oklab, var(--background), var(--foreground) 7%);
+    --ed-hairline: var(--border);
   }
 }

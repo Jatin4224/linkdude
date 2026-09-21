@@ -338,3 +338,12 @@ export {
   studioAssetTitle,
   studioAssetFileName,
 } from "./studio";
+/* Theme — where light/dark applies, its default, and the toggle's labels. */
+export {
+  DEFAULT_THEME,
+  THEME_STORAGE_KEY,
+  FORCED_THEME,
+  THEME_PREFERENCE_LABELS,
+  getThemeablePathPrefixes,
+  isThemeablePath,
+} from "./theme";

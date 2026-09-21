@@ -9,7 +9,8 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: NavUser
  *
- * WHAT:  Sidebar-footer user menu — avatar/name/email with a sign-out action.
+ * WHAT:  Sidebar-footer user menu — avatar/name/email, the theme choice, the
+ *        interface-sound switch and sign-out.
  * WHY:   Reads identity from Better Auth's useSession (no dedicated user
  *        router needed); sign-out redirects to the canonical sign-in route so
  *        the auth-flow target stays centralized in AUTH_ROUTES.
@@ -21,17 +22,26 @@ import { useRouter } from "next/navigation";
 import {
   ChevronsUpDown,
   LogOut,
+  MonitorIcon,
+  MoonIcon,
+  SunIcon,
   UserIcon,
   ShieldCheckIcon,
   Volume2Icon,
   VolumeXIcon,
+  type LucideIcon,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -43,17 +53,35 @@ import {
 } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
 import { authClient } from "@/lib/better-auth/auth-client";
-import { AUTH_ROUTES, PORTAL_PATH } from "@/lib/config";
+import {
+  AUTH_ROUTES,
+  PORTAL_PATH,
+  THEME_PREFERENCE_LABELS,
+} from "@/lib/config";
+import { THEME_PREFERENCES, type ThemePreference } from "@/lib/types";
 import { useSoundPreference } from "@/hooks/use-sound-preference";
 import { playSound } from "@/lib/sound";
 import { initialsOf } from "@/lib/utils";
 import { trpc } from "@/trpc/react-provider";
+
+/* The glyph for each choice. Local rather than config: it is presentation, and
+ * `satisfies` makes adding a preference without an icon a compile error. */
+const THEME_ICONS = {
+  dark: MoonIcon,
+  light: SunIcon,
+  system: MonitorIcon,
+} as const satisfies Record<ThemePreference, LucideIcon>;
 
 export function NavUser() {
   const { isMobile } = useSidebar();
   const router = useRouter();
   const [signingOut, setSigningOut] = React.useState(false);
   const { soundEnabled, setSoundEnabled } = useSoundPreference();
+  /* `theme` is the STORED choice ("system" included), not the resolved one —
+   * the radio has to show what the member picked, not what the OS resolved it
+   * to. Undefined until next-themes reads storage on the client; the menu is
+   * closed on first render, so nothing shows unchecked. */
+  const { theme, setTheme } = useTheme();
   /* Profile is prefetched + hydrated by the dashboard/portal layout, so this
    * resolves from cache on first render (no flicker, no client round-trip). */
   const { data: user } = trpc.user.getProfile.useQuery(undefined, {
@@ -140,6 +168,31 @@ export function NavUser() {
               <UserIcon />
               Account
             </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            {/* Beside the sound switch because both are how the app feels to
+                YOU on this device, not settings of the workspace. Radio items
+                keep the menu open, so the page visibly changes under the
+                choice — the confirmation is the theme itself. */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="tech-label">Theme</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={theme}>
+                {THEME_PREFERENCES.map((preference) => {
+                  const Icon = THEME_ICONS[preference];
+                  return (
+                    <DropdownMenuRadioItem
+                      key={preference}
+                      value={preference}
+                      onClick={() => setTheme(preference)}
+                    >
+                      <Icon />
+                      {THEME_PREFERENCE_LABELS[preference]}
+                    </DropdownMenuRadioItem>
+                  );
+                })}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
 
             <DropdownMenuSeparator />
 

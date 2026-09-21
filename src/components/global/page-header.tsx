@@ -14,8 +14,8 @@
  *        padded content region.
  * WHY:   Every dashboard page renders the same header treatment; centralizing
  *        it here means a page is just `<ContentLayout title=... actions=...>`.
- *        The app is dark-only (forcedTheme in the root layout), so there is no
- *        theme toggle here.
+ *        The theme toggle lives in the sidebar user menu (NavUser), not here,
+ *        so the header stays title-and-actions only.
  * WHERE: Used by pages under src/app/(dashboard)/** and (portal)/**. Pairs with
  *        the sidebar from src/components/global/sidebar.
  */
