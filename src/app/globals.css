@@ -1395,3 +1395,37 @@
     display: none;
   }
 }
+
+/*
+ * SOURCE OF TRUTH KEYWORDS: tech-scope, tech-chrome, post-status-badge,
+ *   linkedin-identity, PostStatusBadge, LinkedInConnectButton, status pill
+ *
+ * WHAT:  The two shared pills that appear on converted routes, squared.
+ * WHY:   Both carry a literal `rounded-full` no radius token can reach, and
+ *        both appear on nearly every converted screen — the status badge in
+ *        every post list, the identity pill in the composer header. Left alone
+ *        they would be the only rounded objects on a square page.
+ *
+ *        The status badge is also set in mono: it is a label, and it sits
+ *        beside mono dates in every list it appears in. Its colours stay the
+ *        component's own — status tone is information, not decoration.
+ *
+ *        The chrome selector is listed because the identity pill lives in the
+ *        page header's action slot, which sits under `.tech-chrome` rather than
+ *        inside a route's `.tech-scope`. Its avatar keeps its circle.
+ * WHERE: posts, calendar, dashboard home, post-generation, carousel publish.
+ */
+@layer utilities {
+  .tech-scope [data-slot="post-status-badge"],
+  .tech-chrome > [data-slot="page-header"] [data-slot="post-status-badge"] {
+    border-radius: 0;
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .tech-scope [data-slot="linkedin-identity"],
+  .tech-chrome > [data-slot="page-header"] [data-slot="linkedin-identity"] {
+    border-radius: 0;
+  }
+}
