@@ -18,3 +18,6 @@ export {
   WEEKDAY_LABELS,
 } from "./month-calendar";
 export type { MonthCalendarProps } from "./month-calendar";
+/* The list view of the same month, for phones. */
+export { MonthAgenda } from "./month-agenda";
+export type { MonthAgendaProps } from "./month-agenda";

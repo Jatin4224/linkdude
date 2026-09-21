@@ -90,6 +90,7 @@ export function ChatShell({
           messages and read as a very long image rather than as a surface.
           Decorative, so it is hidden from assistive tech and takes no pointer. */}
       <div
+        data-slot="chat-wallpaper"
         aria-hidden="true"
         style={CHAT_PATTERN_STYLE}
         className="pointer-events-none absolute inset-0 -z-10 opacity-[0.35]"

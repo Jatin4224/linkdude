@@ -65,7 +65,7 @@ import { DataTable, type DataTableColumn } from "@/components/global/data-table"
 import { IdeaQuickAdd } from "@/components/global/idea-quick-add";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { TechPanel, TechSurface } from "@/components/global/tech";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -278,12 +278,13 @@ export function IdeasInbox() {
       description="Capture ideas, sharpen them into angles, and draft them in one click"
       icon={<LightbulbIcon className="size-4" />}
     >
-      <div className="flex flex-col gap-4">
-        <Card className="surface-raised">
-          <CardContent className="p-4">
-            <IdeaQuickAdd placeholder="Jot down an idea for a post..." />
-          </CardContent>
-        </Card>
+      <TechSurface className="flex flex-col gap-4">
+        {/* The capture box keeps its marks. It is the one module on this page
+            that does something rather than lists something, and it is what the
+            route is for. */}
+        <TechPanel className="p-4">
+          <IdeaQuickAdd placeholder="Jot down an idea for a post..." />
+        </TechPanel>
 
         <DataTable
           rows={rows}
@@ -439,7 +440,7 @@ export function IdeasInbox() {
             );
           }}
         />
-      </div>
+      </TechSurface>
 
       {editing ? (
         <EditIdeaDialog

@@ -30,7 +30,12 @@ import {
 } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
-import { BRANDING } from "@/lib/config";
+import {
+  BRANDING,
+  DEFAULT_THEME,
+  THEME_STORAGE_KEY,
+  getThemeablePathPrefixes,
+} from "@/lib/config";
 import {
   hasMissingRequiredEnv,
   getEnvChecklist,
@@ -158,10 +163,15 @@ export default function RootLayout({
         className="min-h-full flex flex-col antialiased"
         suppressHydrationWarning
       >
+        {/* Dark stays the default, so nobody sees a change until they choose
+            one. The themeable prefixes are resolved here on the server because
+            the portal path comes from a server-only env var. */}
         <ThemeProvider
           attribute="class"
-          forcedTheme="dark"
-          enableSystem={false}
+          defaultTheme={DEFAULT_THEME}
+          storageKey={THEME_STORAGE_KEY}
+          themeablePrefixes={getThemeablePathPrefixes()}
+          enableSystem
           disableTransitionOnChange
         >
           {/* Developer setup gate: until every REQUIRED env var is set, show the

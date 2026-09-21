@@ -44,6 +44,7 @@ import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { ContentLayout } from "@/components/global/page-header";
 import { DataTable, type DataTableColumn } from "@/components/global/data-table";
+import { TechLabel, TechSurface } from "@/components/global/tech";
 import {
   PostStatusBadge,
   postStatusLabel,
@@ -186,13 +187,13 @@ export function PostsLibrary() {
       align: "end",
       className: "w-px whitespace-nowrap text-muted-foreground",
       render: (row) => (
+        /* A date over what the date MEANS — the label was already mono in
+           everything but its face. */
         <span className="flex flex-col items-end">
-          <span className="tabular-nums">
+          <span className="font-mono text-xs tabular-nums">
             {postRowDate(row).toLocaleDateString()}
           </span>
-          <span className="text-[10px] uppercase">
-            {postRowDateLabel(row)}
-          </span>
+          <TechLabel className="text-[10px]">{postRowDateLabel(row)}</TechLabel>
         </span>
       ),
     },
@@ -204,121 +205,132 @@ export function PostsLibrary() {
       description="Every draft, scheduled and published post in this workspace"
       icon={<FileStackIcon className="size-4" />}
     >
-      <DataTable
-        rows={rows}
-        columns={columns}
-        rowKey={(row) => row.id}
-        isLoading={listQuery.isLoading}
-        error={listQuery.error ? "Posts couldn’t be loaded." : undefined}
-        /* Says which emptiness this is. "No posts yet" under an active status
+      {/* The whole route is one list, so the surface wraps the table and
+          nothing else. Column headings, the search field, the status select and
+          the pager all correct themselves from here — see the DataTable block
+          in globals.css. */}
+      <TechSurface>
+        <DataTable
+          rows={rows}
+          columns={columns}
+          rowKey={(row) => row.id}
+          isLoading={listQuery.isLoading}
+          error={listQuery.error ? "Posts couldn’t be loaded." : undefined}
+          /* Says which emptiness this is. "No posts yet" under an active status
            filter would read as an empty workspace when the workspace is fine. */
-        empty={
-          status === POST_STATUS_FILTER_ALL
-            ? "No posts yet. Write one from Create Post."
-            : `No ${postStatusLabel(status).toLowerCase()} posts.`
-        }
-        search={{
-          value: search,
-          onChange: (value) => {
-            setSearch(value);
-            /* Back to page one on every narrowing — staying on page three of a
+          empty={
+            status === POST_STATUS_FILTER_ALL
+              ? "No posts yet. Write one from Create Post."
+              : `No ${postStatusLabel(status).toLowerCase()} posts.`
+          }
+          search={{
+            value: search,
+            onChange: (value) => {
+              setSearch(value);
+              /* Back to page one on every narrowing — staying on page three of a
                result set that now has one page renders an empty table. */
-            setPage(1);
-          },
-          placeholder: "Search post text…",
-        }}
-        filters={
-          <Select
-            value={status}
-            onValueChange={(value) => {
-              setStatus(value as PostStatusFilter);
               setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-40">
-              {/* Base UI's Select.Value renders the raw VALUE unless given
+            },
+            placeholder: "Search post text…",
+          }}
+          filters={
+            <Select
+              value={status}
+              onValueChange={(value) => {
+                setStatus(value as PostStatusFilter);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-40">
+                {/* Base UI's Select.Value renders the raw VALUE unless given
                   children — see the note in image-editor.tsx. */}
-              <SelectValue>
-                {status === POST_STATUS_FILTER_ALL
-                  ? "All statuses"
-                  : postStatusLabel(status)}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {POST_STATUS_FILTERS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option === POST_STATUS_FILTER_ALL
+                <SelectValue>
+                  {status === POST_STATUS_FILTER_ALL
                     ? "All statuses"
-                    : postStatusLabel(option)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-        pagination={{
-          page,
-          pageSize: PAGE_SIZE,
-          total: listQuery.data?.total ?? 0,
-          onPageChange: setPage,
-        }}
-        rowActions={(row) => {
-          const isPending = pendingId === row.id;
-          const isDraft = row.status === DRAFT;
-          return (
-            <div className="flex justify-end gap-1">
-              {isDraft ? (
-                /* buttonVariants rather than <Button asChild> — Button is a
+                    : postStatusLabel(status)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {POST_STATUS_FILTERS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option === POST_STATUS_FILTER_ALL
+                      ? "All statuses"
+                      : postStatusLabel(option)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+          pagination={{
+            page,
+            pageSize: PAGE_SIZE,
+            total: listQuery.data?.total ?? 0,
+            onPageChange: setPage,
+          }}
+          rowActions={(row) => {
+            const isPending = pendingId === row.id;
+            const isDraft = row.status === DRAFT;
+            return (
+              <div className="flex justify-end gap-1">
+                {isDraft ? (
+                  /* buttonVariants rather than <Button asChild> — Button is a
                    base-ui primitive with no asChild slot, so a link that looks
                    like a button borrows the classes. */
-                <Link
-                  href={buildDraftComposerHref(row.id)}
-                  className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                >
-                  <PencilIcon className="size-4" />
-                  Edit
-                </Link>
-              ) : null}
-              {row.postUrn ? (
-                <a
-                  href={buildLinkedInPostUrl(row.postUrn)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                >
-                  <ExternalLinkIcon className="size-4" />
-                  <span className="sr-only">Open on LinkedIn</span>
-                </a>
-              ) : null}
-              {/* `publishing` offers neither: the worker has claimed the row and
+                  <Link
+                    href={buildDraftComposerHref(row.id)}
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                    )}
+                  >
+                    <PencilIcon className="size-4" />
+                    Edit
+                  </Link>
+                ) : null}
+                {row.postUrn ? (
+                  <a
+                    href={buildLinkedInPostUrl(row.postUrn)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                    )}
+                  >
+                    <ExternalLinkIcon className="size-4" />
+                    <span className="sr-only">Open on LinkedIn</span>
+                  </a>
+                ) : null}
+                {/* `publishing` offers neither: the worker has claimed the row and
                   the server refuses both verbs, so a button here would only ever
                   produce an error toast. */}
-              {row.status === ("publishing" satisfies LinkedInPostStatus) ? null : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => {
-                    setPendingId(row.id);
-                    /* Two verbs, one button, chosen by the row — a draft never
+                {row.status ===
+                ("publishing" satisfies LinkedInPostStatus) ? null : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isPending}
+                    onClick={() => {
+                      setPendingId(row.id);
+                      /* Two verbs, one button, chosen by the row — a draft never
                        spent a post slot, so discarding must not refund one. See
                        the note on linkedinPosts.discard. */
-                    if (isDraft) {
-                      discard.mutate({ ...orgInput, postId: row.id });
-                    } else {
-                      remove.mutate({ ...orgInput, postId: row.id });
-                    }
-                  }}
-                >
-                  {isPending ? (
-                    <Loader2Icon className="size-4 animate-spin" />
-                  ) : null}
-                  {isDraft ? "Discard" : "Delete"}
-                </Button>
-              )}
-            </div>
-          );
-        }}
-      />
+                      if (isDraft) {
+                        discard.mutate({ ...orgInput, postId: row.id });
+                      } else {
+                        remove.mutate({ ...orgInput, postId: row.id });
+                      }
+                    }}
+                  >
+                    {isPending ? (
+                      <Loader2Icon className="size-4 animate-spin" />
+                    ) : null}
+                    {isDraft ? "Discard" : "Delete"}
+                  </Button>
+                )}
+              </div>
+            );
+          }}
+        />
+      </TechSurface>
     </ContentLayout>
   );
 }

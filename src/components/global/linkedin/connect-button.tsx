@@ -90,7 +90,10 @@ export function LinkedInConnectButton() {
     <div className="flex items-center gap-2">
       {/* Tinted pill: the accent is what tells you the channel is live, so the
           connected identity carries it rather than a separate status label. */}
-      <div className="flex items-center gap-2 rounded-full border border-brand-border bg-brand-soft py-1 pr-3 pl-1">
+      <div
+        data-slot="linkedin-identity"
+        className="flex items-center gap-2 rounded-full border border-brand-border bg-brand-soft py-1 pr-3 pl-1"
+      >
         <Avatar className="size-6">
           {status.avatarUrl ? (
             <AvatarImage src={status.avatarUrl} alt={status.name ?? ""} />

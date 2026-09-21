@@ -68,8 +68,13 @@ const NAV_SECTIONS = getSidebarNav();
  * would silently never apply. `relative` is required too: the base button
  * variants set no position, and without it the bar would anchor to whichever
  * ancestor happened to be positioned. */
+/* Square, and full-height rather than inset. The rounded pill was the last
+ * rounded thing left in the rail once the scope took the radius to 0, and a bar
+ * that stops short of the row's edges reads as a highlight rather than as a
+ * register mark — which is what the rest of this language uses to say "this
+ * one". Same job as the active tab's bar in .tech-scope. */
 const ACTIVE_ITEM_CLASSES =
-  "relative data-active:bg-brand-soft data-active:text-brand-soft-foreground data-active:before:absolute data-active:before:left-0 data-active:before:top-1.5 data-active:before:bottom-1.5 data-active:before:w-0.5 data-active:before:rounded-full data-active:before:bg-brand group-data-[collapsible=icon]:before:hidden";
+  "relative data-active:bg-brand-soft data-active:text-brand-soft-foreground data-active:before:absolute data-active:before:left-0 data-active:before:inset-y-0 data-active:before:w-0.5 data-active:before:bg-brand group-data-[collapsible=icon]:before:hidden";
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
@@ -97,11 +102,16 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
-      <SidebarHeader>
+      {/* The scope goes on the three REGIONS, not on <Sidebar>: that component
+          forwards className only on its desktop branch, so scoping the root
+          would leave the mobile sheet — the whole nav on a phone — untreated.
+          From here the kit's own descendant rules correct the controls, and the
+          `tech-label` class below resolves without any chrome-specific CSS. */}
+      <SidebarHeader className="tech-scope">
         <TeamSwitcher />
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="tech-scope">
         {/* Dashboard sits alone and unlabelled above the groups. It is the home
             of the whole app rather than a member of any one category, and
             filing it under a heading made that heading a lie. */}
@@ -128,7 +138,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           if (visibleItems.length === 0) return null;
           return (
             <SidebarGroup key={section.section}>
-              <SidebarGroupLabel>
+              {/* A section marker, which is exactly what mono is for here. */}
+              <SidebarGroupLabel className="tech-label">
                 {SECTION_LABELS[section.section] ?? section.section}
               </SidebarGroupLabel>
               <SidebarMenu>
@@ -154,7 +165,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         })}
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="tech-scope">
         <NavUser />
       </SidebarFooter>
     </Sidebar>

@@ -54,6 +54,7 @@ import {
 } from "@/lib/config";
 import { RESOURCES } from "@/lib/resources";
 import { FeatureGate } from "@/components/feature-gate";
+import { TechButton } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -271,9 +272,8 @@ export function GenerateForm({
                   </FormItem>
                 )}
               />
-              <Button
+              <TechButton
                 type="submit"
-                variant="brand"
                 disabled={busy}
                 className="w-full"
               >
@@ -283,7 +283,7 @@ export function GenerateForm({
                   <SparklesIcon className="size-4" />
                 )}
                 Generate Post
-              </Button>
+              </TechButton>
             </form>
           </Form>
         </TabsContent>
@@ -313,9 +313,8 @@ export function GenerateForm({
                   </FormItem>
                 )}
               />
-              <Button
+              <TechButton
                 type="submit"
-                variant="brand"
                 disabled={busy}
                 className="w-full"
               >
@@ -325,7 +324,7 @@ export function GenerateForm({
                   <SparklesIcon className="size-4" />
                 )}
                 Generate Post
-              </Button>
+              </TechButton>
             </form>
           </Form>
         </TabsContent>
@@ -334,7 +333,9 @@ export function GenerateForm({
       {/* Shared across both tabs, so they sit outside the Tabs content. Side by
           side rather than stacked: two short selects in one row keeps the whole
           control panel above the fold instead of pushing Generate off it. */}
-      <div className="grid grid-cols-2 gap-3 border-t pt-5">
+      {/* A hairline, at the surface's weight — the settings below are separated
+          from the topic above, not boxed away from it. */}
+      <div className="grid grid-cols-2 gap-3 border-t border-(--ed-hairline) pt-5">
         {/* Full width and first: the goal decides which hook formulas the post
             is shaped with, so it is the choice that changes the draft most. */}
         <div className="col-span-2 flex flex-col gap-2">

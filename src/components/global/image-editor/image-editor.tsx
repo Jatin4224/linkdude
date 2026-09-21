@@ -49,6 +49,7 @@ import {
   type PostImageValues,
 } from "@/lib/types";
 import { buildTransformedUrl } from "@/lib/config";
+import { TechButton } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -164,7 +165,8 @@ export function ImageEditor({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-3xl">
+        {/* Scoped at its own root — a dialog is portaled out of the page. */}
+        <DialogContent className="tech-scope sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Edit image</DialogTitle>
             <DialogDescription>
@@ -466,9 +468,9 @@ export function ImageEditor({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" variant="brand">
+                <TechButton type="submit">
                   Apply
-                </Button>
+                </TechButton>
               </DialogFooter>
             </form>
           </Form>

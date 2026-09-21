@@ -83,7 +83,7 @@ export function IdeaAnglesDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="tech-scope sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Angles for this idea</DialogTitle>
           <DialogDescription className="line-clamp-2">{idea.text}</DialogDescription>
@@ -108,7 +108,7 @@ export function IdeaAnglesDialog({
             {angles.map((angle, index) => (
               <li
                 key={`${index}-${angle.formula}`}
-                className="flex flex-col gap-2 rounded-lg border p-3"
+                className="tech-surface-fill flex flex-col gap-2 p-3"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium">{angle.title}</p>

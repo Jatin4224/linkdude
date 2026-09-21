@@ -39,6 +39,7 @@ import {
   type PostImageValues,
 } from "@/lib/types";
 import { buildTransformedUrl, LINKEDIN_IMAGE_TRANSFORM } from "@/lib/config";
+import { TechButton } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -158,7 +159,8 @@ export function AiImageEdit({
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-3xl">
+        {/* Scoped at its own root — a dialog is portaled out of the page. */}
+        <DialogContent className="tech-scope sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Edit with AI</DialogTitle>
             <DialogDescription>
@@ -266,14 +268,13 @@ export function AiImageEdit({
                   )}
                   {result ? "Try again" : "Generate"}
                 </Button>
-                <Button
+                <TechButton
                   type="button"
-                  variant="brand"
                   onClick={handleAccept}
                   disabled={!result || isGenerating}
                 >
                   Use this image
-                </Button>
+                </TechButton>
               </DialogFooter>
             </form>
           </Form>

@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TechLabel } from "@/components/global/tech";
 import {
   Card,
   CardAction,
@@ -90,6 +91,7 @@ export function VoiceDescriptorCard({
     return (
       <Card className="surface-raised">
         <CardHeader>
+          <TechLabel>02 / Extracted</TechLabel>
           <CardTitle className="text-base">Your voice</CardTitle>
           <CardDescription>
             {profile
@@ -163,7 +165,8 @@ export function VoiceDescriptorCard({
   return (
     <Card className="surface-raised">
       <CardHeader>
-        <CardTitle className="text-base">Your voice</CardTitle>
+        <TechLabel>02 / Extracted</TechLabel>
+          <CardTitle className="text-base">Your voice</CardTitle>
         <CardDescription>
           Learned from {profile.sampleCount} posts on{" "}
           {new Date(current.extractedAt).toLocaleDateString()}
@@ -226,7 +229,8 @@ export function VoiceDescriptorCard({
                 {group.patterns.map((entry, index) => (
                   <li
                     key={`${group.title}-${index}`}
-                    className="rounded-md border p-3 text-sm"
+                    /* One step deeper than the card, not outlined. */
+                    className="bg-(--ed-surface-deep) p-3 text-sm"
                   >
                     <p>{entry.pattern}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -288,7 +292,8 @@ export function VoiceDescriptorCard({
       ) : null}
 
       <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <AlertDialogContent>
+        {/* Scoped at its own root — an alert dialog is portaled out. */}
+        <AlertDialogContent className="tech-scope">
           <AlertDialogHeader>
             <AlertDialogTitle>Discard your voice?</AlertDialogTitle>
             <AlertDialogDescription>

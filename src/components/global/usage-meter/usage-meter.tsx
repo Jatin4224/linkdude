@@ -81,8 +81,14 @@ export function UsageMeter({ resource, className }: UsageMeterProps) {
       </div>
 
       {/* Presentational only — the numbers above are the accessible copy, so the
-          bar is hidden from screen readers rather than duplicating them. */}
+          bar is hidden from screen readers rather than duplicating them.
+
+          `data-slot` is a styling HOOK, not a fork: `rounded-full` is a literal
+          9999px that no radius token can reach, so a technical-editorial surface
+          needs a selector to square it. Naming the element here is what lets
+          .tech-scope do that without this component knowing it exists. */}
       <div
+        data-slot="usage-meter-bar"
         aria-hidden="true"
         className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
       >

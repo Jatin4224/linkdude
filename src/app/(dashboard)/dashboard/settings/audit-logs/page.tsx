@@ -14,6 +14,7 @@
 import type { Metadata } from "next";
 
 import { ContentLayout } from "@/components/global/page-header";
+import { TechSurface } from "@/components/global/tech";
 import { AuditLogsTable } from "./_components/audit-logs-table";
 
 export const metadata: Metadata = {
@@ -23,7 +24,9 @@ export const metadata: Metadata = {
 export default function AuditLogsSettingsPage() {
   return (
     <ContentLayout title="Audit Logs">
-      <AuditLogsTable />
+      <TechSurface>
+        <AuditLogsTable />
+      </TechSurface>
     </ContentLayout>
   );
 }

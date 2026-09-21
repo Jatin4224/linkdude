@@ -41,6 +41,7 @@ import {
 } from "@/lib/types";
 import { FeatureGate } from "@/components/feature-gate";
 import { Badge } from "@/components/ui/badge";
+import { TechButton, TechLabel } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -140,8 +141,9 @@ export function VoiceSamplesForm({
   return (
     <Card className="surface-raised h-fit">
       <CardHeader>
+        <TechLabel>01 / Samples</TechLabel>
         <CardTitle className="flex items-center gap-2 text-base">
-          <span className="flex size-7 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground">
+          <span className="flex size-7 items-center justify-center bg-brand-soft text-brand-soft-foreground">
             <AudioLinesIcon className="size-4" />
           </span>
           Posts to learn from
@@ -235,7 +237,7 @@ export function VoiceSamplesForm({
               wrote yourself or edited heavily.
             </p>
 
-            <div className="flex items-center justify-between gap-2 border-t pt-4 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 border-t border-(--ed-hairline) pt-4 font-mono text-xs text-muted-foreground">
               <span>
                 {totalChars.toLocaleString()} characters across {fields.length}{" "}
                 posts
@@ -247,9 +249,8 @@ export function VoiceSamplesForm({
             ) : null}
 
             <FeatureGate resource="voiceProfile">
-              <Button
+              <TechButton
                 type="submit"
-                variant="brand"
                 className="w-full"
                 disabled={busy}
               >
@@ -259,7 +260,7 @@ export function VoiceSamplesForm({
                   <AudioLinesIcon className="size-4" />
                 )}
                 {hasVoice ? "Re-extract my voice" : "Extract my voice"}
-              </Button>
+              </TechButton>
             </FeatureGate>
             {disabled ? (
               <p className="text-center text-xs text-muted-foreground">

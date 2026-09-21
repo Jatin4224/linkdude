@@ -56,7 +56,9 @@ export function ContentPlanRefineBar({
               type="button"
               disabled={disabled}
               onClick={() => onEdit(key)}
-              className="rounded-full border bg-muted/40 px-3.5 py-1.5 text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              /* The same option chip the conversation above uses, so "change
+                 this answer" looks like the answers it changes. */
+              className="tech-chip px-3.5 py-1.5 text-sm disabled:cursor-not-allowed"
             >
               {CONTENT_PLAN_STEPS[key].editLabel}
             </button>

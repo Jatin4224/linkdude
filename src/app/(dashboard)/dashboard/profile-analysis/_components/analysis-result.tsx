@@ -37,7 +37,6 @@ import {
   LanguagesIcon,
   LightbulbIcon,
   NewspaperIcon,
-  ThumbsUpIcon,
   WrenchIcon,
 } from "lucide-react";
 
@@ -56,6 +55,7 @@ import {
 } from "@/lib/config/profile-sections";
 import { LockedSection } from "@/components/global/locked-section";
 import { CopyButton } from "@/components/global/copy-button";
+import { TechLabel, TechSection, TechStat } from "@/components/global/tech";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -167,7 +167,7 @@ function RewriteBlock({
         <Separator />
         {/* The rewrite is presented as finished copy, visually distinct from the
             critique above it, so it reads as something to take rather than read. */}
-        <p className="whitespace-pre-wrap wrap-break-word rounded-md border bg-muted/40 p-3 text-sm leading-relaxed">
+        <p className="whitespace-pre-wrap wrap-break-word bg-(--ed-surface-deep) p-3 text-sm leading-relaxed">
           {feedback.rewrite}
         </p>
       </CardContent>
@@ -190,19 +190,20 @@ function SectionStats({ sections }: { sections: StoredProfileAnalysis["input"]["
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {PROFILE_SECTION_ENTRIES.map(({ key, label }) => {
-        const Icon = SECTION_ICONS[key];
+        /* The section icon is gone from the tile rather than squeezed into it.
+           TechStat is a label over a figure by design, and the label already
+           names the section the icon was repeating. */
         const count = sections[key].length;
         return (
-          <div
+          /* TechStat, not a hand-built tile: a mono label over a large accent
+             figure is the shape this kit already owns, and the count is a real
+             number off the analysis rather than a decorative readout. */
+          <TechStat
             key={key}
-            className="surface-raised flex flex-col gap-1 rounded-lg border p-3"
-          >
-            <span className="text-2xl font-semibold tabular-nums">{count}</span>
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Icon className="size-3.5" />
-              {label}
-            </span>
-          </div>
+            label={label}
+            value={String(count)}
+            className="gap-1 p-3"
+          />
         );
       })}
     </div>
@@ -256,11 +257,12 @@ function HeadlineChoices({
               type="button"
               onClick={() => setSelected(index)}
               aria-pressed={isActive}
-              className={`flex flex-col gap-1.5 rounded-md border p-3 text-left text-sm leading-relaxed transition-colors ${
-                isActive
-                  ? "border-brand-border bg-brand-soft text-brand-soft-foreground"
-                  : "bg-muted/40 hover:bg-muted"
-              }`}
+              /* The same option chip as everywhere else — hover, disabled and
+                 the selected accent bar all come from the tech-chip class — but
+                 re-set in sans at reading size, because these options are
+                 sentences rather than labels and mono would make them a
+                 readout. */
+              className="tech-chip flex flex-col gap-1.5 p-3 text-left font-sans text-sm normal-case leading-relaxed tracking-normal"
             >
               <span className="flex items-center justify-between gap-2 text-xs font-medium">
                 {index === 0 ? "Recommended" : `Option ${index + 1}`}
@@ -397,7 +399,7 @@ function SectionInsightBody({ insight }: { insight: SectionInsight }) {
             <p className="text-sm font-medium">{rewrite.target}</p>
             <CopyButton text={rewrite.rewrite} label={`${rewrite.target} rewrite`} />
           </div>
-          <p className="whitespace-pre-wrap wrap-break-word rounded-md border bg-muted/40 p-3 text-sm leading-relaxed">
+          <p className="whitespace-pre-wrap wrap-break-word bg-(--ed-surface-deep) p-3 text-sm leading-relaxed">
             {rewrite.rewrite}
           </p>
         </div>
@@ -411,7 +413,12 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
   const band = bandFor(result.score);
 
   return (
-    <div className="flex flex-col gap-4">
+    /* Four numbered bands in the order a member acts on them: how good is it,
+       what is wrong, what to paste instead, what to keep. They were always
+       that order — the bands only NAME it, so a long result can be scanned by
+       heading instead of read card by card. */
+    <div className="flex flex-col gap-10">
+      <TechSection index="01" label="Verdict" title="Your score">
       <Card className="surface-raised border-t-2 border-t-brand">
         <CardContent className="flex flex-col gap-5 p-5">
           {/* Score and verdict lead. This is the finding the whole pane exists
@@ -419,11 +426,13 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
               smaller than they were — so the first thing the eye landed on was
               how many certifications you have. */}
           <div className="flex flex-wrap items-start justify-between gap-4">
+            {/* The one number on this page worth reading from across the room,
+                so it gets the display face and the accent, like a TechStat. */}
             <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-semibold leading-none tabular-nums">
+              <span className="tech-display text-6xl leading-none tabular-nums text-(--ed-accent)">
                 {result.score}
               </span>
-              <span className="text-lg text-muted-foreground">/ 100</span>
+              <span className="font-mono text-sm text-muted-foreground">/ 100</span>
             </div>
             <Badge
               variant="outline"
@@ -444,9 +453,7 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
               an unlabelled line of text next to a score reads as a caption for
               the score rather than as the profile's own headline. */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Headline analyzed
-            </span>
+            <TechLabel>Headline analyzed</TechLabel>
             <p className="text-sm font-medium wrap-break-word">
               {input.headline}
             </p>
@@ -455,9 +462,13 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
           <SectionStats sections={input.sections} />
         </CardContent>
       </Card>
+      </TechSection>
 
-      <IssueList improvements={result.improvements} />
+      <TechSection index="02" label="Fixes" title="What to change">
+        <IssueList improvements={result.improvements} />
+      </TechSection>
 
+      <TechSection index="03" label="Rewrites" title="Paste-ready copy">
       <HeadlineChoices feedback={result.headlineFeedback} />
       <RewriteBlock
         title="About"
@@ -497,14 +508,12 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
           </LockedSection>
         );
       })}
+      </TechSection>
 
+      <TechSection index="04" label="Strengths" title="What’s working">
+      {/* No card title: the section heading above already says this, and the
+          same words twice in a row read as a rendering slip. */}
       <Card className="surface-raised">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ThumbsUpIcon className="size-4 text-brand-soft-foreground" />
-            What&apos;s working
-          </CardTitle>
-        </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {result.strengths.map((strength, index) => (
             <React.Fragment key={strength}>
@@ -514,6 +523,7 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
           ))}
         </CardContent>
       </Card>
+      </TechSection>
     </div>
   );
 }

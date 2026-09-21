@@ -26,7 +26,7 @@ import { ArrowRightIcon } from "lucide-react";
 
 import { getResourceDefinition, type ResourceKey } from "@/lib/resources";
 import { getNavIcon } from "@/components/global/sidebar/nav-icons";
-import { Card, CardContent } from "@/components/ui/card";
+import { TechPanel } from "@/components/global/tech";
 
 interface DashboardAction {
   resource: ResourceKey;
@@ -70,25 +70,31 @@ export function QuickActions() {
         const Icon = getNavIcon(definition.nav?.icon ?? "");
 
         return (
-          <Card
-            key={resource}
-            className="surface-raised group transition-colors hover:border-brand-border"
-          >
-            <CardContent className="p-5">
-              <Link href={href} className="flex flex-col gap-3 outline-none">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-brand-soft text-brand-soft-foreground">
-                  <Icon className="size-4.5" />
-                </span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  {action}
-                  {/* Nudges on hover to say the tile goes somewhere; a transform
-                      the user asked for by pointing at it, not ambient motion. */}
-                  <ArrowRightIcon className="size-3.5 text-muted-foreground transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
-                </span>
-                <span className="text-sm text-muted-foreground">{prompt}</span>
-              </Link>
-            </CardContent>
-          </Card>
+          /* Bracketed, and one of the few places on this page that earns it:
+             these four ARE the modules the home screen exists to offer. The
+             marks travel outward on `:focus-within` as well as hover, so
+             tabbing through the tiles gives the keyboard the same signal the
+             pointer gets — which is why the Link sits inside the panel rather
+             than the panel inside the Link.
+
+             The old hover was a border colour change. Nothing here draws a
+             border any more, so the marks carry that state instead. */
+          <TechPanel key={resource} className="group p-5">
+            <Link href={href} className="flex flex-col gap-3 outline-none">
+              <span className="flex size-9 items-center justify-center bg-brand-soft text-brand-soft-foreground">
+                <Icon className="size-4.5" />
+              </span>
+              <span className="tech-display flex items-center gap-1.5 text-lg">
+                {action}
+                {/* Nudges on hover to say the tile goes somewhere; a transform
+                    the user asked for by pointing at it, not ambient motion. */}
+                <ArrowRightIcon className="size-3.5 text-muted-foreground transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
+              </span>
+              <span className="text-sm leading-relaxed text-muted-foreground">
+                {prompt}
+              </span>
+            </Link>
+          </TechPanel>
         );
       })}
     </div>

@@ -6,7 +6,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: Bracketed, TechSurface, TechSection, TechPanel,
- *   TechStat, TechBadge, TechButton, TechLabel, TechRule, TechMeta,
+ *   TechStat, TechBadge, TechButton, TechEmpty, TechLabel, TechRule, TechMeta,
  *   TechAsciiPanel, technical editorial design system
  *
  * WHAT:  Barrel for the technical-editorial kit.
@@ -21,6 +21,7 @@ export {
   TechStat,
   TechBadge,
   TechButton,
+  TechEmpty,
   TechLabel,
   TechRule,
   TechMeta,

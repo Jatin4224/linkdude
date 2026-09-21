@@ -8,7 +8,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: Bracketed, TechSurface, TechSection, TechPanel,
- *   TechLabel, TechRule, TechMeta, TechStat, TechBadge, TechButton,
+ *   TechLabel, TechRule, TechMeta, TechStat, TechBadge, TechButton, TechEmpty,
  *   TechAsciiPanel, crop marks, registration marks, technical editorial
  *
  * WHAT:  The technical-editorial kit — the primitives an engineering-document
@@ -245,6 +245,53 @@ export function TechStat({
   );
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: TechEmpty, empty state, no records, no matches,
+ *   load failed, DataTable empty, zero state
+ *
+ * WHAT:  What a surface shows when it has nothing to show — a mono label, a
+ *        condensed line saying what is missing, and the next step.
+ * WHY:   ONE shape for every kind of nothing. Studio had a good empty state and
+ *        every list beside it showed a sentence of grey text in a card, so
+ *        emptiness looked designed in one place and forgotten in four. The label
+ *        says WHICH nothing this is (no records, no matches, failed), because
+ *        an empty workspace, a search that missed and a query that broke call
+ *        for three different reactions.
+ *
+ *        `tone="error"` only recolours the label: the failure is information,
+ *        and painting the whole panel red would make a transient error look like
+ *        a broken screen.
+ * WHERE: The global DataTable (posts, carousel, documents, ideas) and the
+ *        studio gallery.
+ */
+export function TechEmpty({
+  label = "No records",
+  title,
+  hint,
+  action,
+  tone = "default",
+  className,
+}: {
+  label?: string | undefined;
+  title: React.ReactNode;
+  hint?: React.ReactNode | undefined;
+  /** The one next step, if there is one. */
+  action?: React.ReactNode | undefined;
+  tone?: "default" | "error" | undefined;
+  className?: string | undefined;
+}) {
+  return (
+    <TechPanel className={cn("items-center gap-2 px-4 py-14 text-center", className)}>
+      <TechLabel className={cn(tone === "error" && "text-destructive")}>{label}</TechLabel>
+      <span className="tech-display text-xl">{title}</span>
+      {hint ? (
+        <span className="max-w-prose text-xs text-muted-foreground">{hint}</span>
+      ) : null}
+      {action ? <div className="pt-2">{action}</div> : null}
+    </TechPanel>
+  );
+}
+
 export function TechBadge({
   children,
   className,
@@ -307,7 +354,9 @@ export function TechButton({
             "border-b-[3px] hover:border-b-[5px]",
             accentBar
               ? "border-b-[color:var(--ed-accent)]"
-              : "border-b-[color:#b9b9b9]",
+              : /* A neutral bar derived from the ink, so it holds its contrast
+                   on a light page as well as a dark one. */
+                "border-b-[color:color-mix(in_oklab,var(--ed-ink)_30%,transparent)]",
             "transition-[border-bottom-width] duration-150",
             className,
           )}
@@ -337,7 +386,7 @@ export function TechButton({
       {...rest}
       className={cn(
         shared,
-        "brackets brackets-dark bg-[color:var(--ed-accent)] text-white hover:bg-[color:var(--ed-accent)] hover:opacity-90",
+        "brackets brackets-dark bg-[color:var(--ed-accent)] text-brand-foreground hover:bg-[color:var(--ed-accent)] hover:opacity-90",
         className,
       )}
     >
@@ -372,7 +421,8 @@ const ASCII_GLYPHS = ["1", "$", "%", "#"] as const;
 /**
  * SOURCE OF TRUTH KEYWORDS: TechAsciiPanel
  *
- * WHAT:  A dark panel filled with a dim monospace character field.
+ * WHAT:  A deep panel filled with a dim monospace character field — the
+ *        surface’s deepest fill, so it reads as recessed in either theme.
  * WHY:   The ONE texture in the design, and it earns its place by being the only
  *        one. Generated rather than an image so it costs no request and scales,
  *        and seeded deterministically so it does not reshuffle on every render —
@@ -411,7 +461,7 @@ export function TechAsciiPanel({
     <div
       aria-hidden
       className={cn(
-        "select-none overflow-hidden bg-[#111315] p-5 font-mono text-[10px] leading-[1.35] text-[color:var(--ed-accent)]/35",
+        "select-none overflow-hidden bg-[color:var(--ed-surface-deep)] p-5 font-mono text-[10px] leading-[1.35] text-[color:var(--ed-accent)]/35",
         className,
       )}
     >

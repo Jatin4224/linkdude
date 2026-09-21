@@ -32,7 +32,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
+import { TechButton } from "@/components/global/tech";
 import { Input } from "@/components/ui/input";
 
 export interface ContentPlanUrlStepProps {
@@ -84,14 +84,14 @@ export function ContentPlanUrlStep({
             </FormItem>
           )}
         />
-        <Button type="submit" variant="brand" disabled={busy}>
+        <TechButton type="submit" disabled={busy}>
           {isBusy ? (
             <Loader2Icon className="size-4 animate-spin" />
           ) : (
             <SparklesIcon className="size-4" />
           )}
           {isBusy ? busyLabel : "Start"}
-        </Button>
+        </TechButton>
       </form>
     </Form>
   );

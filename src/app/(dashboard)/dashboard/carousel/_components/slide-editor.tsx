@@ -42,6 +42,7 @@ import {
 } from "@/lib/types";
 import { buildAttachmentUrl } from "@/lib/config";
 import { Badge } from "@/components/ui/badge";
+import { TechButton } from "@/components/global/tech";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -159,8 +160,7 @@ export function SlideEditor({
             </a>
           ) : null}
           {documentId && onPublish ? (
-            <Button
-              variant="brand"
+            <TechButton
               size="sm"
               onClick={onPublish}
               /* Gated on isDirty for the same reason Render is: publishing while
@@ -171,7 +171,7 @@ export function SlideEditor({
             >
               <SendIcon className="size-4" />
               Publish
-            </Button>
+            </TechButton>
           ) : null}
         </div>
       </div>

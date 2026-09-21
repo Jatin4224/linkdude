@@ -14,8 +14,8 @@
  *        padded content region.
  * WHY:   Every dashboard page renders the same header treatment; centralizing
  *        it here means a page is just `<ContentLayout title=... actions=...>`.
- *        The app is dark-only (forcedTheme in the root layout), so there is no
- *        theme toggle here.
+ *        The theme toggle lives in the sidebar user menu (NavUser), not here,
+ *        so the header stays title-and-actions only.
  * WHERE: Used by pages under src/app/(dashboard)/** and (portal)/**. Pairs with
  *        the sidebar from src/components/global/sidebar.
  */
@@ -50,11 +50,19 @@ export function PageHeader({
   actions,
 }: PageHeaderProps) {
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+    /* `data-slot` is a styling HOOK, not a fork: it lets the dashboard shell
+       convert this header by descendant selector while /portal, which renders
+       the same component, keeps its current treatment. Nothing here knows which
+       of the two it is in. */
+    <header
+      data-slot="page-header"
+      className="flex h-16 shrink-0 items-center gap-2 border-b px-4"
+    >
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
       {icon ? (
         <span
+          data-slot="page-header-icon"
           aria-hidden
           className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground"
         >
@@ -63,6 +71,11 @@ export function PageHeader({
       ) : null}
       {/* min-w-0 so a long description truncates instead of pushing the actions
           off the end of the header. */}
+      {/* Untouched by the dashboard treatment — the title picks up the condensed
+          face from the shell's own selector, so this markup stays identical for
+          /portal, which renders the same component and keeps its look. The
+          subtitle is deliberately NOT promoted to mono: a subtitle is a
+          sentence, and the system reserves mono for labels and numbers. */}
       <div className="min-w-0">
         <h1 className="truncate text-base font-medium leading-tight">{title}</h1>
         {description ? (

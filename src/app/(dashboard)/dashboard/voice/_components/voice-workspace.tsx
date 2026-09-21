@@ -38,6 +38,7 @@ import {
 } from "@/hooks/use-active-organization";
 import type { VoiceSample } from "@/lib/types";
 import { ContentLayout } from "@/components/global/page-header";
+import { TechSurface } from "@/components/global/tech";
 import {
   Card,
   CardDescription,
@@ -144,7 +145,8 @@ export function VoiceWorkspace() {
   if (!canRead) {
     return (
       <ContentLayout {...layoutProps}>
-        <Card className="surface-raised">
+        <TechSurface>
+          <Card className="surface-raised">
           <CardHeader>
             <CardTitle className="text-base">No access</CardTitle>
             <CardDescription>
@@ -152,7 +154,8 @@ export function VoiceWorkspace() {
               an owner to grant it.
             </CardDescription>
           </CardHeader>
-        </Card>
+          </Card>
+        </TechSurface>
       </ContentLayout>
     );
   }
@@ -160,10 +163,10 @@ export function VoiceWorkspace() {
   if (profileQuery.isLoading) {
     return (
       <ContentLayout {...layoutProps}>
-        <div className="grid items-start gap-6 lg:grid-cols-2">
+        <TechSurface className="grid items-start gap-6 lg:grid-cols-2">
           <Skeleton className="h-96 w-full" />
           <Skeleton className="h-96 w-full" />
-        </div>
+        </TechSurface>
       </ContentLayout>
     );
   }
@@ -173,7 +176,9 @@ export function VoiceWorkspace() {
 
   return (
     <ContentLayout {...layoutProps}>
-      <div className="grid items-start gap-6 lg:grid-cols-2">
+      {/* Both columns, one surface. The samples you paste in and the voice the
+          app reads back out are two halves of the same document. */}
+      <TechSurface className="grid items-start gap-6 lg:grid-cols-2">
         <VoiceSamplesForm
           /* Re-seeded whenever the stored voice changes (extract or revert), so
            * the posts shown are always the ones the displayed voice came from. */
@@ -228,7 +233,7 @@ export function VoiceWorkspace() {
             />
           ) : null}
         </div>
-      </div>
+      </TechSurface>
     </ContentLayout>
   );
 }

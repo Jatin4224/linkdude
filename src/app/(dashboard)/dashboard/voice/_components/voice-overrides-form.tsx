@@ -34,6 +34,7 @@ import {
 } from "@/lib/types";
 import { VOICE_EMOJI_USE_LABELS, VOICE_REGISTER_LABELS } from "@/lib/config";
 import { Button } from "@/components/ui/button";
+import { TechLabel } from "@/components/global/tech";
 import {
   Card,
   CardContent,
@@ -106,6 +107,7 @@ export function VoiceOverridesForm({
   return (
     <Card className="surface-raised">
       <CardHeader>
+        <TechLabel>03 / Adjust</TechLabel>
         <CardTitle className="text-base">Corrections</CardTitle>
         <CardDescription>
           Fix anything the AI misread. Corrections are free and survive a

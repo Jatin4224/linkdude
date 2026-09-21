@@ -38,6 +38,7 @@ import { SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { TechEmpty } from "@/components/global/tech";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -170,13 +171,17 @@ export function DataTable<TRow>({
   );
 
   function body() {
+    /* Every kind of nothing uses the kit’s one empty state, labelled with WHICH
+     * nothing it is — see TechEmpty. All four consumers render inside a
+     * TechSurface, which is what gives the panel its fill and marks. */
     if (error) {
       return (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            {error}
-          </CardContent>
-        </Card>
+        <TechEmpty
+          tone="error"
+          label="Load failed"
+          title="Couldn’t load this list"
+          hint={error}
+        />
       );
     }
 
@@ -191,17 +196,17 @@ export function DataTable<TRow>({
     }
 
     if (rows.length === 0) {
-      return (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            {/* A search that matched nothing is a different situation from an
-                empty workspace, and the copy has to say which — otherwise a
-                filtered list reads as "you have nothing". */}
-            {search?.value
-              ? `Nothing matches “${search.value}”.`
-              : (empty ?? "Nothing here yet.")}
-          </CardContent>
-        </Card>
+      /* A search that matched nothing is a different situation from an empty
+         workspace, and the label has to say which — otherwise a filtered list
+         reads as "you have nothing". */
+      return search?.value ? (
+        <TechEmpty
+          label="No matches"
+          title={`Nothing matches “${search.value}”`}
+          hint="Try a shorter search, or clear it to see everything."
+        />
+      ) : (
+        <TechEmpty title="Nothing here yet" hint={empty} />
       );
     }
 
@@ -273,7 +278,12 @@ export function DataTable<TRow>({
       {body()}
       {pagination && rows.length > 0 && !isLoading && !error ? (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">
+          {/* `tech-label` is defined only inside `.tech-scope`, so it turns this
+              counter into a mono readout on a technical-editorial surface and is
+              inert everywhere else — the component stays design-neutral without
+              needing to know which surface it landed on. A page count is a
+              number with a label on it, which is what mono is for. */}
+          <span className="tech-label text-xs text-muted-foreground">
             Page {pagination.page} of {totalPages}
           </span>
           <div className="flex gap-1">

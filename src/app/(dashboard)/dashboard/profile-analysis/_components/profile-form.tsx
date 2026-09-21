@@ -41,6 +41,7 @@ import { FeatureGate } from "@/components/feature-gate";
 import { UsageMeter } from "@/components/global/usage-meter";
 import { ProfileSectionFields } from "@/components/global/profile-section-fields";
 import { Separator } from "@/components/ui/separator";
+import { TechButton } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -241,9 +242,8 @@ export function ProfileForm({
               no path to fixing it. The server check is unchanged; this is the
               difference between being told no and being offered the upgrade. */}
           <FeatureGate resource="profileAnalysis">
-            <Button
+            <TechButton
               type="submit"
-              variant="brand"
               disabled={busy}
               className="w-full"
             >
@@ -253,7 +253,7 @@ export function ProfileForm({
                 <SparklesIcon className="size-4" />
               )}
               Analyze Profile
-            </Button>
+            </TechButton>
           </FeatureGate>
         </form>
       </Form>

@@ -51,7 +51,10 @@ export function AddPaymentMethodDialog({
 }: AddPaymentMethodDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      {/* Scoped at its own root: a dialog is PORTALED to the body, so it is not
+          a descendant of the surface that opened it and would otherwise appear
+          as a rounded panel over a square page. */}
+      <DialogContent className="tech-scope sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add payment method</DialogTitle>
           <DialogDescription>

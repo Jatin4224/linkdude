@@ -38,7 +38,7 @@ import {
   useActiveOrganizationId,
 } from "@/hooks/use-active-organization";
 import { FeatureGate } from "@/components/feature-gate";
-import { Button } from "@/components/ui/button";
+import { TechButton } from "@/components/global/tech";
 import {
   Form,
   FormControl,
@@ -110,14 +110,14 @@ export function IdeaQuickAdd({
           )}
         />
         <FeatureGate resource="postIdeas">
-          <Button type="submit" variant="brand" disabled={create.isPending}>
+          <TechButton type="submit" disabled={create.isPending}>
             {create.isPending ? (
               <Loader2Icon className="size-4 animate-spin" />
             ) : (
               <PlusIcon className="size-4" />
             )}
             Save idea
-          </Button>
+          </TechButton>
         </FeatureGate>
       </form>
     </Form>

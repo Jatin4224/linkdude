@@ -76,7 +76,10 @@ export interface PostStatusBadgeProps {
 export function PostStatusBadge({ status, className }: PostStatusBadgeProps) {
   const key = asStatus(status);
   return (
+    /* data-slot is a styling hook: a technical-editorial surface squares this
+       pill and sets it in mono by scope, without this badge knowing. */
     <span
+      data-slot="post-status-badge"
       className={cn(
         "inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium",
         POST_STATUS_CLASSES[key],
