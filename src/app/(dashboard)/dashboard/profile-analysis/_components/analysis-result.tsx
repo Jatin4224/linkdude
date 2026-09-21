@@ -37,7 +37,6 @@ import {
   LanguagesIcon,
   LightbulbIcon,
   NewspaperIcon,
-  ThumbsUpIcon,
   WrenchIcon,
 } from "lucide-react";
 
@@ -56,7 +55,7 @@ import {
 } from "@/lib/config/profile-sections";
 import { LockedSection } from "@/components/global/locked-section";
 import { CopyButton } from "@/components/global/copy-button";
-import { TechStat } from "@/components/global/tech";
+import { TechLabel, TechSection, TechStat } from "@/components/global/tech";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -414,7 +413,12 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
   const band = bandFor(result.score);
 
   return (
-    <div className="flex flex-col gap-4">
+    /* Four numbered bands in the order a member acts on them: how good is it,
+       what is wrong, what to paste instead, what to keep. They were always
+       that order — the bands only NAME it, so a long result can be scanned by
+       heading instead of read card by card. */
+    <div className="flex flex-col gap-10">
+      <TechSection index="01" label="Verdict" title="Your score">
       <Card className="surface-raised border-t-2 border-t-brand">
         <CardContent className="flex flex-col gap-5 p-5">
           {/* Score and verdict lead. This is the finding the whole pane exists
@@ -422,11 +426,13 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
               smaller than they were — so the first thing the eye landed on was
               how many certifications you have. */}
           <div className="flex flex-wrap items-start justify-between gap-4">
+            {/* The one number on this page worth reading from across the room,
+                so it gets the display face and the accent, like a TechStat. */}
             <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-semibold leading-none tabular-nums">
+              <span className="tech-display text-6xl leading-none tabular-nums text-(--ed-accent)">
                 {result.score}
               </span>
-              <span className="text-lg text-muted-foreground">/ 100</span>
+              <span className="font-mono text-sm text-muted-foreground">/ 100</span>
             </div>
             <Badge
               variant="outline"
@@ -447,9 +453,7 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
               an unlabelled line of text next to a score reads as a caption for
               the score rather than as the profile's own headline. */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Headline analyzed
-            </span>
+            <TechLabel>Headline analyzed</TechLabel>
             <p className="text-sm font-medium wrap-break-word">
               {input.headline}
             </p>
@@ -458,9 +462,13 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
           <SectionStats sections={input.sections} />
         </CardContent>
       </Card>
+      </TechSection>
 
-      <IssueList improvements={result.improvements} />
+      <TechSection index="02" label="Fixes" title="What to change">
+        <IssueList improvements={result.improvements} />
+      </TechSection>
 
+      <TechSection index="03" label="Rewrites" title="Paste-ready copy">
       <HeadlineChoices feedback={result.headlineFeedback} />
       <RewriteBlock
         title="About"
@@ -500,14 +508,12 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
           </LockedSection>
         );
       })}
+      </TechSection>
 
+      <TechSection index="04" label="Strengths" title="What’s working">
+      {/* No card title: the section heading above already says this, and the
+          same words twice in a row read as a rendering slip. */}
       <Card className="surface-raised">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ThumbsUpIcon className="size-4 text-brand-soft-foreground" />
-            What&apos;s working
-          </CardTitle>
-        </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {result.strengths.map((strength, index) => (
             <React.Fragment key={strength}>
@@ -517,6 +523,7 @@ export function AnalysisResult({ analysis }: AnalysisResultProps) {
           ))}
         </CardContent>
       </Card>
+      </TechSection>
     </div>
   );
 }

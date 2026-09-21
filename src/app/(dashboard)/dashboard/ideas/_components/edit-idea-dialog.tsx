@@ -30,6 +30,7 @@ import {
 } from "@/lib/types";
 import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { TechButton } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -128,12 +129,12 @@ export function EditIdeaDialog({ idea, open, onOpenChange }: EditIdeaDialogProps
               >
                 Cancel
               </Button>
-              <Button type="submit" variant="brand" disabled={update.isPending}>
+              <TechButton type="submit" disabled={update.isPending}>
                 {update.isPending ? (
                   <Loader2Icon className="size-4 animate-spin" />
                 ) : null}
                 Save
-              </Button>
+              </TechButton>
             </DialogFooter>
           </form>
         </Form>

@@ -1247,6 +1247,15 @@
     border-color: var(--ed-hairline);
   }
 
+  /* The route icon without its tinted tile. The tile was decoration — a filled
+     square that marked nothing — and in a language where a fill means "this is
+     a module", it claimed to be one. The glyph alone still names the route.
+     /portal keeps its tile: this only matches under the dashboard shell. */
+  .tech-chrome > [data-slot="page-header"] [data-slot="page-header-icon"] {
+    background-color: transparent;
+    color: var(--ed-muted);
+  }
+
   /* The route's name, in the display face. Set here rather than as a class in
      PageHeader so /portal renders the identical component unchanged. */
   .tech-chrome > [data-slot="page-header"] h1 {
@@ -1388,7 +1397,8 @@
  * WHERE: /dashboard/calendar, and any surface that renders MonthCalendar.
  */
 @layer utilities {
-  .tech-scope [data-slot="month-calendar"] {
+  .tech-scope [data-slot="month-calendar"],
+  .tech-scope [data-slot="month-agenda"] {
     --border: var(--ed-hairline);
   }
 

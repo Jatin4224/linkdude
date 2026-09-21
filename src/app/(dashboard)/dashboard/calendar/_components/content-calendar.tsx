@@ -42,12 +42,13 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { CANCELABLE_POST_STATUSES, type LinkedInPostStatus } from "@/lib/types";
 import { ContentLayout } from "@/components/global/page-header";
 import {
+  MonthAgenda,
   MonthCalendar,
   getMonthGridRange,
 } from "@/components/global/month-calendar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TechSurface } from "@/components/global/tech";
+import { TechEmpty, TechSurface } from "@/components/global/tech";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -127,8 +128,12 @@ export function ContentCalendar({ schedulingEnabled }: ContentCalendarProps) {
           </Button>
           {/* The month is the page's one readout, so it is set in mono like
               every other number on a technical surface. */}
-          <span className="min-w-36 text-center font-mono text-sm tracking-[0.04em] uppercase">
-            {format(month, "MMMM yyyy")}
+          {/* Abbreviated below sm: the header also carries the title, two
+              arrows and Today, and a fixed 144px label pushed the row past a
+              390px screen. The full name returns as soon as there is room. */}
+          <span className="min-w-20 text-center font-mono text-sm tracking-[0.04em] uppercase sm:min-w-36">
+            <span className="sm:hidden">{format(month, "MMM yyyy")}</span>
+            <span className="hidden sm:inline">{format(month, "MMMM yyyy")}</span>
           </span>
           <Button
             variant="outline"
@@ -152,7 +157,13 @@ export function ContentCalendar({ schedulingEnabled }: ContentCalendarProps) {
         {posts.isLoading ? (
           <Skeleton className="h-128 w-full" />
         ) : (
+          <>
+          {/* Grid from md up, list below it — the same props feed both, so the
+              two views cannot disagree about what is on which day. A 7-column
+              grid at phone width leaves each day ~50px, too narrow to read a
+              post or tap a cell; see MonthAgenda. */}
           <MonthCalendar
+            className="hidden md:block"
             month={month}
             items={items}
             getItemDate={getCalendarPostDate}
@@ -196,6 +207,51 @@ export function ContentCalendar({ schedulingEnabled }: ContentCalendarProps) {
               </div>
             )}
           />
+          <MonthAgenda
+            className="md:hidden"
+            month={month}
+            items={items}
+            getItemDate={getCalendarPostDate}
+            getItemKey={(post) => post.id}
+            selectedDay={selectedDay}
+            onDayClick={setSelectedDay}
+            renderDayAction={
+              schedulingEnabled
+                ? (day) => (
+                    <Link
+                      href={composeHref(day)}
+                      aria-label={`Schedule a post on ${format(day, "PPP")}`}
+                      className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <PlusIcon className="size-4" />
+                    </Link>
+                  )
+                : undefined
+            }
+            /* Reading size, not cell size: a list row has the width a grid
+               cell never did, so the post can be read rather than recognised. */
+            renderItem={(post) => (
+              <div className="flex flex-col gap-1 bg-(--ed-surface-deep) p-2 text-left">
+                <div className="flex items-center gap-1.5">
+                  <PostStatusBadge status={post.status} />
+                  {post.imageUrl ? (
+                    <ImageIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                  ) : null}
+                </div>
+                <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                  {post.commentary}
+                </p>
+              </div>
+            )}
+            empty={
+              <TechEmpty
+                title="Nothing this month"
+                hint="Use the arrows above to look at another month, or write a post and schedule it."
+              />
+            }
+          />
+          </>
         )}
 
         {selectedDay ? (

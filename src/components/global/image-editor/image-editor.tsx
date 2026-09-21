@@ -49,6 +49,7 @@ import {
   type PostImageValues,
 } from "@/lib/types";
 import { buildTransformedUrl } from "@/lib/config";
+import { TechButton } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -467,9 +468,9 @@ export function ImageEditor({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" variant="brand">
+                <TechButton type="submit">
                   Apply
-                </Button>
+                </TechButton>
               </DialogFooter>
             </form>
           </Form>

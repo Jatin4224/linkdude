@@ -51,6 +51,7 @@ import { ContentLayout } from "@/components/global/page-header";
 import { UsageMeter } from "@/components/global/usage-meter";
 import {
   TechButton,
+  TechEmpty,
   TechLabel,
   TechMeta,
   TechPanel,
@@ -425,7 +426,9 @@ export function StudioWorkspace() {
               </Tabs>
 
               <div className="flex flex-wrap gap-2">
-                <Button
+                {/* The editor’s one primary action, in the same accent object
+                    every other route uses for its main verb. */}
+                <TechButton
                   size="sm"
                   disabled={
                     !isDirty || updateMutation.isPending || contentIssues.length > 0
@@ -441,7 +444,7 @@ export function StudioWorkspace() {
                   }}
                 >
                   {updateMutation.isPending ? "Saving…" : "Save"}
-                </Button>
+                </TechButton>
 
                 <Button
                   size="sm"
@@ -615,13 +618,10 @@ export function StudioWorkspace() {
           ) : (
             /* Dashed, matching the safe-zone language used throughout the
                editor — an empty slot rather than an error. */
-            <TechPanel className="items-center gap-2 px-4 py-14 text-center">
-              <TechLabel>No records</TechLabel>
-              <span className="tech-display text-xl">Nothing here yet</span>
-              <span className="text-xs text-muted-foreground">
-                Pick a style below. You&apos;ll have a banner in about a minute.
-              </span>
-            </TechPanel>
+            <TechEmpty
+              title="Nothing here yet"
+              hint="Pick a style below. You’ll have a banner in about a minute."
+            />
           )}
         </TechSection>
 

@@ -62,6 +62,7 @@ export function PageHeader({
       <Separator orientation="vertical" className="mr-2 h-4" />
       {icon ? (
         <span
+          data-slot="page-header-icon"
           aria-hidden
           className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground"
         >

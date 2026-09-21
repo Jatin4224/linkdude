@@ -25,7 +25,6 @@ import {
   MonitorIcon,
   MoonIcon,
   SunIcon,
-  UserIcon,
   ShieldCheckIcon,
   Volume2Icon,
   VolumeXIcon,
@@ -155,19 +154,20 @@ export function NavUser() {
                 </span>
               </div>
             </div>
-            <DropdownMenuSeparator />
+            {/* No "Account" item: it pointed at /dashboard/settings/profile,
+                which has never existed, so every click was a 404. It comes back
+                when there is an account page to send it to. The admin link now
+                carries its own separator, so a non-admin never sees two rules
+                with nothing between them. */}
             {portalAccess?.isPortalAdmin ? (
-              <DropdownMenuItem onClick={() => router.push(PORTAL_PATH)}>
-                <ShieldCheckIcon />
-                Platform admin
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push(PORTAL_PATH)}>
+                  <ShieldCheckIcon />
+                  Platform admin
+                </DropdownMenuItem>
+              </>
             ) : null}
-            <DropdownMenuItem
-              onClick={() => router.push("/dashboard/settings/profile")}
-            >
-              <UserIcon />
-              Account
-            </DropdownMenuItem>
 
             <DropdownMenuSeparator />
 

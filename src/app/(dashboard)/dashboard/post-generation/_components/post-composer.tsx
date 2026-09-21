@@ -98,7 +98,7 @@ import { PostStatusBadge } from "@/components/global/post-status-badge";
 import { PostCheckPanel } from "@/components/global/post-check";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TechPanel, TechSurface } from "@/components/global/tech";
+import { TechPanel, TechSurface, TechButton } from "@/components/global/tech";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -797,8 +797,7 @@ export function PostComposer({
                 )}
                 {draftId ? "Save draft" : "Save as draft"}
               </Button>
-              <Button
-                variant="brand"
+              <TechButton
                 onClick={handleSubmit}
                 disabled={!canPublish || publish.isPending}
               >
@@ -810,7 +809,7 @@ export function PostComposer({
                   <SendIcon className="size-4" />
                 )}
                 {isScheduling ? "Schedule post" : "Post to LinkedIn"}
-              </Button>
+              </TechButton>
             </div>
           </TechPanel>
 

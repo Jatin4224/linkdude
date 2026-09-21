@@ -37,7 +37,7 @@ import {
 } from "@/lib/types";
 import { ContentLayout } from "@/components/global/page-header";
 import { DataTable, type DataTableColumn } from "@/components/global/data-table";
-import { TechSurface } from "@/components/global/tech";
+import { TechButton, TechSurface } from "@/components/global/tech";
 import { FeatureGate } from "@/components/feature-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -238,10 +238,10 @@ export function CarouselWorkspace() {
           </Button>
         ) : (
           <FeatureGate resource="carousel">
-            <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+            <TechButton size="sm" onClick={() => setIsCreateOpen(true)}>
               <PlusIcon className="size-4" />
               New carousel
-            </Button>
+            </TechButton>
           </FeatureGate>
         )
       }

@@ -54,6 +54,7 @@ import {
 } from "@/lib/config";
 import { RESOURCES } from "@/lib/resources";
 import { FeatureGate } from "@/components/feature-gate";
+import { TechButton } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -271,9 +272,8 @@ export function GenerateForm({
                   </FormItem>
                 )}
               />
-              <Button
+              <TechButton
                 type="submit"
-                variant="brand"
                 disabled={busy}
                 className="w-full"
               >
@@ -283,7 +283,7 @@ export function GenerateForm({
                   <SparklesIcon className="size-4" />
                 )}
                 Generate Post
-              </Button>
+              </TechButton>
             </form>
           </Form>
         </TabsContent>
@@ -313,9 +313,8 @@ export function GenerateForm({
                   </FormItem>
                 )}
               />
-              <Button
+              <TechButton
                 type="submit"
-                variant="brand"
                 disabled={busy}
                 className="w-full"
               >
@@ -325,7 +324,7 @@ export function GenerateForm({
                   <SparklesIcon className="size-4" />
                 )}
                 Generate Post
-              </Button>
+              </TechButton>
             </form>
           </Form>
         </TabsContent>

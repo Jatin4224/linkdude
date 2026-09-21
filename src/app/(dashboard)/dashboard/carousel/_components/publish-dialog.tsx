@@ -34,7 +34,7 @@ import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { LINKEDIN_MAX_COMMENTARY, MIN_SCHEDULE_LEAD_MS } from "@/lib/config";
 import { cn, earliestSchedule } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { TechButton } from "@/components/global/tech";
 import {
   Dialog,
   DialogContent,
@@ -196,8 +196,7 @@ export function PublishDialog({
               </div>
             ) : null}
 
-            <Button
-              variant="brand"
+            <TechButton
               onClick={submit}
               disabled={!canPublish}
               className="w-full"
@@ -208,7 +207,7 @@ export function PublishDialog({
                 <SendIcon className="size-4" />
               )}
               {isScheduled ? "Schedule carousel" : "Publish now"}
-            </Button>
+            </TechButton>
           </div>
         )}
       </DialogContent>

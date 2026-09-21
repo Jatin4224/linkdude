@@ -39,6 +39,7 @@ import {
   type PostImageValues,
 } from "@/lib/types";
 import { buildTransformedUrl, LINKEDIN_IMAGE_TRANSFORM } from "@/lib/config";
+import { TechButton } from "@/components/global/tech";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -267,14 +268,13 @@ export function AiImageEdit({
                   )}
                   {result ? "Try again" : "Generate"}
                 </Button>
-                <Button
+                <TechButton
                   type="button"
-                  variant="brand"
                   onClick={handleAccept}
                   disabled={!result || isGenerating}
                 >
                   Use this image
-                </Button>
+                </TechButton>
               </DialogFooter>
             </form>
           </Form>

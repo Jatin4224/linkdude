@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TechLabel } from "@/components/global/tech";
 import {
   Card,
   CardAction,
@@ -90,6 +91,7 @@ export function VoiceDescriptorCard({
     return (
       <Card className="surface-raised">
         <CardHeader>
+          <TechLabel>02 / Extracted</TechLabel>
           <CardTitle className="text-base">Your voice</CardTitle>
           <CardDescription>
             {profile
@@ -163,7 +165,8 @@ export function VoiceDescriptorCard({
   return (
     <Card className="surface-raised">
       <CardHeader>
-        <CardTitle className="text-base">Your voice</CardTitle>
+        <TechLabel>02 / Extracted</TechLabel>
+          <CardTitle className="text-base">Your voice</CardTitle>
         <CardDescription>
           Learned from {profile.sampleCount} posts on{" "}
           {new Date(current.extractedAt).toLocaleDateString()}
