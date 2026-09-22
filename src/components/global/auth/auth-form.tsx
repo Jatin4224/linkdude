@@ -104,7 +104,7 @@ export function AuthForm({
   callbackURL = ROUTES.dashboard,
 }: AuthFormProps) {
   if (!EMAIL_AUTH_ENABLED)
-    return <GoogleOnlyForm mode={mode} callbackURL={callbackURL} />;
+    return <GoogleOnlyForm callbackURL={callbackURL} />;
 
   return mode === "sign-in" ? (
     <SignInForm callbackURL={callbackURL} />
@@ -398,7 +398,7 @@ function SignUpForm({ callbackURL }: { callbackURL: string }) {
  * SOURCE OF TRUTH KEYWORDS: GoogleOnlyForm
  *
  * WHAT:  The whole auth surface when NEXT_PUBLIC_EMAIL_AUTH_ENABLED=false —
- *        heading, error slot, one button, and the assurance lines.
+ *        an error slot and ONE button. Nothing else.
  * WHY:   This is the screen the design was drawn for: one saturated element on
  *        the whole page, so its states carry the entire interaction. With one
  *        method there is nothing to "continue with", so the divider is dropped
@@ -408,32 +408,31 @@ function SignUpForm({ callbackURL }: { callbackURL: string }) {
  *        which is why the label is "Continue with", and why the sign-in ↔
  *        sign-up cross-link footer is omitted rather than pointing at an
  *        identical page.
+ *
+ *        The kicker, title, description and the ruled assurance list are GONE
+ *        from this surface. They were a second pitch stacked on top of the one
+ *        already running down the panel beside it — the reader met the argument
+ *        twice and the button third. The facts themselves did not go anywhere:
+ *        they are the trust panel in auth-shell.tsx, where they answer the
+ *        question the button raises instead of delaying it. What is left here
+ *        is the control, which is all this column ever needed to be.
  * WHERE: Returned by AuthForm when EMAIL_AUTH_ENABLED is false.
  */
-function GoogleOnlyForm({
-  mode,
-  callbackURL,
-}: {
-  mode: AuthFormMode;
-  callbackURL: string;
-}) {
+function GoogleOnlyForm({ callbackURL }: { callbackURL: string }) {
   const { error, setError, google } = useAuthEffects();
 
+  /* No `mode`: with the copy gone there is nothing left for it to switch, and
+   * sign-in and sign-up now render byte-identical surfaces. */
   return (
-    <div className="flex flex-col gap-[30px]">
-      <AuthHeading mode={mode} method="google" />
-
-      <div className="flex flex-col gap-[18px]">
-        <AuthError error={error} />
-        <GoogleButton
-          label="Continue with Google"
-          onClick={() => google.run(callbackURL, setError)}
-          isPending={google.isPending}
-          isBusy={google.isPending}
-          withDivider={false}
-        />
-        <AuthAssurances mode={mode} />
-      </div>
+    <div className="flex flex-col gap-[18px]">
+      <AuthError error={error} />
+      <GoogleButton
+        label="Continue with Google"
+        onClick={() => google.run(callbackURL, setError)}
+        isPending={google.isPending}
+        isBusy={google.isPending}
+        withDivider={false}
+      />
     </div>
   );
 }
