@@ -386,6 +386,111 @@ export const MARKETING_CALENDAR = {
 } as const;
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: MarketingFeature, MARKETING_FEATURES, feature rows,
+ *   studio, voice, carousel, ideas, content plan, technical metadata
+ *
+ * WHAT:  The four surfaces the landing page explains in full — what each one is,
+ *        and the hard numbers that prove it exists.
+ * WHY:   The page used to describe a composer, a calendar and a profile score,
+ *        which was the whole product when it was written and is now about a
+ *        third of it. Everything else reached the page only as a name scrolling
+ *        past in the capability ticker, which tells a reader a feature EXISTS
+ *        and nothing about what it does.
+ *
+ *        EVERY META VALUE IS A REAL NUMBER FROM THE APP, not a marketing round
+ *        figure: the banner size is the one the renderer draws
+ *        (DESIGN_CANVAS_PRESETS.linkedinBanner), the page size is the one the
+ *        carousel rasterises (CAROUSEL_PAGE_PRESETS.portrait), and the 30-day
+ *        calendar is a real section of a generated plan. They are repeated here
+ *        as COPY rather than imported, because a marketing claim that changes
+ *        silently when a default moves is worse than one that goes stale loudly
+ *        — but if any of them drifts, this comment is the place that says which
+ *        source of truth to check.
+ *
+ *        One boxed word per title, alternating PAPER and blue. Not ink: these
+ *        rows live on the dark band now, and an ink box on ink is a word that
+ *        disappears. Paper is the same inversion the steps above them already
+ *        use for the same reason.
+ *
+ *        NO ORDINALS, and that is the point of the shape. These four are a SET,
+ *        not a sequence — nobody does studio before voice. Numbering them made
+ *        them look like a second run of the how-it-works steps, which are a
+ *        genuine order (write, queue, fix the profile) and are numbered for that
+ *        reason. A name is the marker here; a number would be a claim about
+ *        order that is not true.
+ * WHERE: src/app/(marketing)/_components/feature-rows.tsx.
+ */
+export interface MarketingFeature {
+  /** The surface's own name, and the row's only marker. */
+  label: string;
+  /**
+   * Which diagram the row draws. A closed union rather than a free string, so a
+   * feature added here without a drawing is a compile error in the renderer
+   * instead of a blank column on the page.
+   */
+  artifact: "studio" | "voice" | "carousel" | "ideas";
+  title: PaperDisplayLine;
+  body: string;
+  /** Checkable facts — see the note above about where each one comes from. */
+  meta: readonly { label: string; value: string }[];
+}
+
+export const MARKETING_FEATURES: readonly MarketingFeature[] = [
+  {
+    label: "Studio",
+    artifact: "studio",
+    title: [
+      { text: "Your profile,", variant: "plain" },
+      { text: "designed", variant: "paper" },
+    ],
+    body: "Banner, headshot and featured cover, drawn at the sizes LinkedIn actually uses and exported ready to upload.",
+    meta: [
+      { label: "Banner", value: "1584 × 396" },
+      { label: "Export", value: "PNG" },
+    ],
+  },
+  {
+    label: "Voice",
+    artifact: "voice",
+    title: [
+      { text: "Drafts that sound", variant: "plain" },
+      { text: "like you", variant: "blue" },
+    ],
+    body: "Paste posts you have already written. The voice profile learns how you build a sentence, and every draft after that follows it.",
+    meta: [
+      { label: "Learns from", value: "Your own posts" },
+      { label: "Applies to", value: "Every draft" },
+    ],
+  },
+  {
+    label: "Carousel",
+    artifact: "carousel",
+    title: [
+      { text: "Decks people", variant: "plain" },
+      { text: "swipe", variant: "paper" },
+    ],
+    body: "Draft a multi-slide deck, edit every slide, then render a PDF and publish it as a LinkedIn document post.",
+    meta: [
+      { label: "Page", value: "1080 × 1350" },
+      { label: "Output", value: "PDF" },
+    ],
+  },
+  {
+    label: "Ideas & plan",
+    artifact: "ideas",
+    title: [
+      { text: "Ideas become a", variant: "plain" },
+      { text: "plan", variant: "blue" },
+    ],
+    body: "Catch the thought the moment it lands, then turn a pile of them into a month you can draft straight from.",
+    meta: [
+      { label: "Capture", value: "One line" },
+      { label: "Plan", value: "30-day calendar" },
+    ],
+  },
+];
+
+/**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_CLOSING, final CTA copy
  *
  * WHAT:  The closing band's lead-in, display line and reassurance.

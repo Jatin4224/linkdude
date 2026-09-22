@@ -46,6 +46,7 @@ import {
   PaperReveal,
 } from "@/components/global/paper";
 import { cn } from "@/lib/utils";
+import { FeatureRows } from "./feature-rows";
 
 export function HowItWorks() {
   return (
@@ -58,12 +59,19 @@ export function HowItWorks() {
           each other on a tall viewport that shows two rows at once. */}
       <PaperReveal
         distance={40}
-        className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(56px,8vw,110px)]"
+        className="mx-auto flex w-full max-w-[1180px] flex-col"
       >
-        {MARKETING_STEPS.map((step, index) => (
+        {MARKETING_STEPS.map((step) => (
           <div
             key={step.marker}
-            className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] items-center gap-[clamp(24px,4vw,56px)]"
+            /* A hairline between steps rather than a gap alone — the same rule
+               the feature rows and the dashboard's bands use, so the whole page
+               separates things one way. The first row has nothing above it to be
+               separated from. */
+            /* items-START, not center. Centred, a short body left a hole under
+               the copy while the artifact floated alongside it; on one top edge
+               the two columns begin together and the row reads as deliberate. */
+            className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-start gap-[clamp(24px,4vw,56px)] border-t border-ink-foreground/12 py-[clamp(40px,6vw,76px)] first:border-t-0 first:pt-0 last:pb-0"
           >
             <div className="flex min-w-0 flex-col gap-4">
               <div className="flex flex-wrap items-baseline gap-3">
@@ -75,7 +83,7 @@ export function HowItWorks() {
                 >
                   {step.marker}
                 </PaperLabel>
-                <span className="text-[clamp(15px,1.7vw,22px)] tracking-[-0.02em] text-ink-foreground/50">
+                <span className="text-[clamp(14px,1.3vw,18px)] tracking-[-0.02em] text-ink-foreground/50">
                   {step.lead}
                 </span>
               </div>
@@ -83,27 +91,36 @@ export function HowItWorks() {
               <PaperDisplay
                 as="h3"
                 words={step.headline}
-                className="text-[clamp(34px,6.4vw,96px)] leading-[0.86] tracking-[-0.045em]"
+                /* Smaller than it was. At 96px the headline ran to three lines
+                   in a column beside an artifact, which is a headline that has
+                   stopped being one. */
+                className="text-[clamp(30px,4.4vw,64px)] leading-[0.88] tracking-[-0.045em]"
               />
 
-              <p className="m-0 max-w-[30em] text-[clamp(14px,1.4vw,17px)] leading-relaxed text-pretty text-ink-foreground/60">
+              {/* 70%, not 60%: this is the sentence doing the explaining, and
+                  at 60 on near-black it gave up too much on a bright screen. */}
+              <p className="m-0 max-w-[28em] text-[clamp(14px,1.4vw,17px)] leading-relaxed text-pretty text-ink-foreground/70">
                 {step.body}
               </p>
             </div>
 
-            <div
-              className={cn(
-                "w-[min(100%,420px)] min-w-0",
-                /* Flush to the section edge and cropped by it, alternating. */
-                index % 2 === 0
-                  ? "justify-self-end -mr-(--gutter)"
-                  : "justify-self-start -ml-(--gutter)",
-              )}
-            >
+            {/* Inside the band, on ONE edge. These used to hang off the section
+                with a negative gutter margin and alternate sides, so the first
+                and third artifacts were cropped by the viewport while the second
+                sat pulled toward the copy — three cards, three different
+                relationships to the edge. Aligning them all to the same right
+                edge is what lets the eye read the column as a column. */}
+            <div className="w-[min(100%,400px)] min-w-0 justify-self-end">
               <StepArtifact artifact={step.artifact} />
             </div>
           </div>
         ))}
+
+        {/* The rest of the kit, on the SAME ground. It used to be a cream
+            section directly below this one, which made the reader cross a hard
+            colour boundary in the middle of a single answer — the steps and
+            these rows together are what the product is made of. */}
+        <FeatureRows />
       </PaperReveal>
     </section>
   );
