@@ -463,13 +463,19 @@ export const MARKETING_FOOTER_GROUPS: readonly MarketingFooterGroup[] = [
  *        src/components/global/auth/auth-form.tsx (kicker, title, assurances).
  */
 export const MARKETING_AUTH_PANEL = {
-  badge: "Free forever · no card",
+  /* The old heading promised the OUTCOME — "one post away from becoming a
+   * LinkedIn influencer" — which this product cannot deliver and no reader
+   * believes. What it can do is draft the post, so that is what the heading
+   * now says. The claim shrank; the credibility is the trade. */
   heading: [
-    { text: "You're one post away from becoming a", variant: "plain" },
-    { text: "LinkedIn influencer", variant: "blue" },
+    { text: "Your next LinkedIn post,", variant: "plain" },
+    { text: "drafted for you", variant: "blue" },
   ] as PaperDisplayLine,
-  body: `Thought leadership, minus the three hours staring at an empty box. ${APP_NAME} writes the hook. You take the credit.`,
-  footnote: "Ten posts a month, free",
+  /* One line, not two. The line that opened this ("the three hours staring at
+   * an empty box") described a struggle only people who already post
+   * regularly recognise — everyone else read a complaint about a problem they
+   * have never had, on the screen where they decide whether to sign up. */
+  body: `${APP_NAME} writes the hook. You take the credit.`,
 } as const;
 
 /**
@@ -499,6 +505,47 @@ export const MARKETING_AUTH_COPY = {
     emailDescription: "Enter your details below to create your account.",
   },
 } as const;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_AUTH_TRUST, MarketingAuthTrustPoint,
+ *   Google sign-in trust, what Google shares, no password, auth panel
+ *
+ * WHAT:  What someone deciding whether to press "Continue with Google" needs to
+ *        know, beside the button.
+ * WHY:   The button asks for a Google account before the product has shown
+ *        anything, and the two questions that stops people on are always the
+ *        same: what does Google hand over, and what will this thing do to my
+ *        LinkedIn. So the first point answers the first question and the second
+ *        answers the second; the third removes the last reason to defer.
+ *
+ *        EVERY LINE IS CHECKABLE. The data line is the literal default Google
+ *        grant (openid, email, profile) that src/lib/better-auth/auth.ts asks
+ *        for — it requests no extra scopes — so if a scope is ever added, this
+ *        line becomes false and must change with it. Nothing here promises a
+ *        result; the panel beside it already learned that lesson.
+ * WHERE: The brand panel in src/components/global/auth/auth-shell.tsx.
+ */
+export interface MarketingAuthTrustPoint {
+  /** The claim, in three or four words. */
+  title: string;
+  /** The detail that makes the claim checkable. */
+  body: string;
+}
+
+export const MARKETING_AUTH_TRUST: readonly MarketingAuthTrustPoint[] = [
+  {
+    title: "Google shares your name, email and picture",
+    body: "That is the whole handover. We never see your password, your contacts or your inbox.",
+  },
+  {
+    title: "Nothing posts until you approve it",
+    body: `${APP_NAME} writes drafts. Publishing is a separate button you press yourself.`,
+  },
+  {
+    title: "No card, no trial timer",
+    body: "The free plan stays free. Connect your LinkedIn account later, or never.",
+  },
+];
 
 export const MARKETING_AUTH_ASSURANCES: Readonly<
   Record<"sign-in" | "sign-up", readonly string[]>

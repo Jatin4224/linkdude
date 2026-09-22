@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function SignInPage() {
   return (
-    <AuthShell>
+    <AuthShell variant="action">
       <AuthForm mode="sign-in" />
     </AuthShell>
   );
