@@ -97,52 +97,83 @@ export const MARKETING_REASSURANCE = "Free forever · no card";
 export const MARKETING_DISCLAIMER = "Not affiliated with LinkedIn Corporation.";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: MarketingHeroBeat, MARKETING_HERO_BEATS, hero beats,
- *   sticky hero, scroll beat, punch line
+ * SOURCE OF TRUTH KEYWORDS: MarketingHeroIntroBeat, MARKETING_HERO_INTRO,
+ *   MARKETING_HERO_SIGNOFF, MARKETING_HERO_BEAT_COUNT, hero beats, sticky hero,
+ *   scroll beat, call and response
  *
- * WHAT:  The hero's beats. Scroll progress through the sticky stage maps to an
- *        index in this array; each beat swaps all three fields at once.
- * WHY:   TWO beats, not four. The hero is 280svh of scroll that shows one idea
- *        at a time, and every extra beat is another screen-height a reader has
- *        to travel before reaching the product. The first sets up the problem
- *        and the second lands it, which is also why the CTA only appears on the
- *        LAST beat — the ask is not earned until the setup has paid off, and the
- *        component derives that from the array length rather than a flag, so
- *        adding a third beat moves the CTA automatically.
+ * WHAT:  The hero's introduction, as three call-and-response pairs and the line
+ *        that closes them. Scroll progress through the sticky stage maps to an
+ *        index here; each beat ADDS a pair rather than replacing the last.
+ * WHY:   A CALL AND A RESPONSE, which is why the shape is a pair rather than a
+ *        sentence. The reader's half states what they already do; the product's
+ *        half is what it adds. Split across the stage — calls left of the
+ *        character, responses right of it — the layout carries the argument
+ *        before a word is read.
  *
- *        `punch` is the heavy Archivo Black line that crosses the mascot's body.
- *        At most one word may be `blue` across the whole hero (rule 4), which is
- *        why beat one boxes its last word in ink instead.
- * WHERE: src/app/(marketing)/_components/sticky-hero.tsx.
+ *        THEY ACCUMULATE. Each pair stays on screen, receding as the next
+ *        arrives, so the sign-off lands on top of everything it has just
+ *        claimed. Swapping them one at a time was the other option and it leaves
+ *        the last line standing alone, with the promise it summarises already
+ *        gone from the screen.
+ *
+ *        ONE BLUE, AND IT IS THE NAME. Every response boxes its last word in
+ *        INK, because accumulation puts all three on screen at once and three
+ *        blue boxes would break rule 4 outright. The accent is spent on the
+ *        sign-off, so the one saturated thing in the hero is the product's name,
+ *        arriving last.
+ *
+ *        This replaced a two-beat problem story ("Before an idea becomes a
+ *        post" / "It died in your notes app"). That framing did not disappear —
+ *        MARKETING_STATEMENT's body still tells it, one section down.
+ * WHERE: src/app/(marketing)/_components/sticky-hero.tsx, and the beat count is
+ *        read by the navbar to know when the hero has been passed.
  */
-export interface MarketingHeroBeat {
-  /** Light copy, top-left of the stage. */
-  lead: string;
-  /** Light copy, top-right — the turn of the sentence. */
-  aside: string;
-  /** The display line across the bottom band. */
-  punch: PaperDisplayLine;
+export interface MarketingHeroIntroBeat {
+  /** The reader's half, left of the mascot. */
+  call: string;
+  /** The product's half, right of it. */
+  response: PaperDisplayLine;
 }
 
-export const MARKETING_HERO_BEATS: readonly MarketingHeroBeat[] = [
+export const MARKETING_HERO_INTRO: readonly MarketingHeroIntroBeat[] = [
   {
-    lead: "Before an idea becomes a post",
-    aside: "it is usually",
-    punch: [
-      { text: "Something", variant: "plain" },
-      { text: "you", variant: "plain" },
-      { text: "noticed", variant: "ink" },
+    call: "You build.",
+    response: [
+      { text: "We'll help you", variant: "plain" },
+      { text: "get seen", variant: "ink" },
     ],
   },
   {
-    lead: "You had the thought on Tuesday",
-    aside: "and by Friday",
-    punch: [
-      { text: "It died in your", variant: "plain" },
-      { text: "notes app", variant: "blue" },
+    call: "You create.",
+    /* Split after "you", like the other two, rather than after "stay". The
+     * side column is about 370px wide, and "WE'LL HELP YOU STAY" set in
+     * Archivo Black needs roughly 450 — so that grouping wrapped to three lines
+     * and left STAY orphaned on its own. Boxing the whole verb phrase fixes the
+     * wrap AND makes all three responses the same shape: a plain opener and one
+     * boxed promise. */
+    response: [
+      { text: "We'll help you", variant: "plain" },
+      { text: "stay consistent", variant: "ink" },
+    ],
+  },
+  {
+    call: "You want opportunities.",
+    response: [
+      { text: "We'll help you", variant: "plain" },
+      { text: "get there", variant: "ink" },
     ],
   },
 ];
+
+/* The last beat, and the hero's only blue. */
+export const MARKETING_HERO_SIGNOFF: PaperDisplayLine = [
+  { text: "This is", variant: "plain" },
+  { text: APP_NAME, variant: "blue" },
+];
+
+/* The pairs plus the sign-off. Derived rather than written down, because the
+ * hero and the navbar both need it and a second literal is how they drift. */
+export const MARKETING_HERO_BEAT_COUNT = MARKETING_HERO_INTRO.length + 1;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_ORBIT, PaperOrbitMark, sphere,
@@ -200,10 +231,14 @@ export const MARKETING_AUTH_SCATTER: readonly PaperScatterMark[] = [
  *        on the site selling a product that no longer goes by that name.
  */
 export const MARKETING_STATEMENT = {
-  intro: "That's why we're",
+  /* NOT a second introduction. The hero now closes on "This is LinkDude", and
+   * this band used to open "That's why we're building LinkDude" immediately
+   * below it — the name revealed twice, a screen apart. It states the job
+   * instead, which is what the body underneath was already describing. */
+  intro: "The whole job, in one line",
   heading: [
-    { text: "Building", variant: "plain" },
-    { text: APP_NAME, variant: "paper" },
+    { text: "Say it", variant: "plain" },
+    { text: "once", variant: "paper" },
   ] as PaperDisplayLine,
   body: "Type the thing you already know. It comes back written in your voice, queued for the morning it should go out.",
 } as const;
