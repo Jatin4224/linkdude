@@ -9,7 +9,7 @@
  *   MARKETING_HERO_BEATS, MarketingHeroBeat, MARKETING_HERO_ORBIT,
  *   MARKETING_STATEMENT, MARKETING_FREE_CAPS, MARKETING_COMPOSER,
  *   MARKETING_COMPOSER_TONES, MARKETING_POST_LINES, MARKETING_COMPOSER_QUEUE,
- *   MarketingComposerQueueItem, MARKETING_STEPS, MarketingStep,
+ *   MarketingComposerRecentItem, MARKETING_STEPS, MarketingStep,
  *   MarketingStepArtifact, MARKETING_PROFILE_ROWS, MarketingProfileRow,
  *   MARKETING_CALENDAR, MARKETING_CLOSING, MARKETING_FOOTER_GROUPS,
  *   MarketingFooterGroup, MarketingNavItem, GET_STARTED_HREF,
@@ -43,7 +43,7 @@ import type {
   PaperOrbitMark,
   PaperScatterMark,
 } from "@/lib/types/paper";
-import { APP_DOMAIN, APP_NAME } from "./branding";
+import { APP_NAME } from "./branding";
 import { AUTH_ROUTES } from "./auth-routes";
 import { REGISTRATION_OPEN } from "./registration";
 
@@ -235,7 +235,7 @@ export const MARKETING_FREE_CAPS = {
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_COMPOSER, MARKETING_COMPOSER_TONES,
- *   MARKETING_POST_LINES, MARKETING_COMPOSER_QUEUE, MarketingComposerQueueItem,
+ *   MARKETING_POST_LINES, MARKETING_COMPOSER_RECENT, MarketingComposerRecentItem,
  *   composer screenshot, product shot
  *
  * WHAT:  The composer screenshot's heading and everything drawn inside it — the
@@ -244,9 +244,9 @@ export const MARKETING_FREE_CAPS = {
  *        and it has to survive being read closely. The topic and the post are a
  *        matched pair — the panel shows this post generated from that topic —
  *        so editing one without the other breaks the illusion the section is
- *        built on. The address bar is composed from APP_DOMAIN so a rebrand
- *        moves it, and the generations counter is NOT here: it is derived from
- *        the free plan's real aiGeneration cap in the component.
+ *        built on. The generations counter is NOT here: it is derived from the
+ *        free plan's real aiGeneration cap in the component, as is the draft's
+ *        character count, which is measured off the post below.
  * WHERE: src/app/(marketing)/_components/composer-showcase.tsx.
  */
 export const MARKETING_COMPOSER = {
@@ -255,25 +255,55 @@ export const MARKETING_COMPOSER = {
     { text: "The", variant: "plain" },
     { text: "composer", variant: "blue" },
   ] as PaperDisplayLine,
-  addressBar: `app.${APP_DOMAIN} / create`,
+  /* The screen's own header, not a browser bar. The panel used to be topped by
+   * `app.<domain> / create`, which on a developer's machine reads as
+   * "app.localhost" — a URL nobody will ever visit, on the one section whose
+   * lead line promises this is not a mockup. */
+  title: "Create post",
+  subtitle: "Generate a draft, edit it in place, publish or schedule",
+  /* The two sources the composer really accepts. Blog URL is a genuine reason
+   * to sign up and appeared nowhere on this page before. */
+  sourceTabs: ["Topic", "Blog URL"] as const,
+  topicLabel: "What's the post about?",
   topic: "what I learned pricing our first ten customers",
+  generateLabel: "Generate post",
+  /* The line that ties this panel to the voice row further down the band. */
+  voiceNote: "Drafts are written in your voice.",
+  voiceAction: "Manage",
   authorName: "Priya Raman",
   authorInitials: "PR",
-  authorRole: "Draft · in your voice",
-  scheduleLabel: "Tue 9:00 AM",
-  savedLabel: "Draft saved",
-  publishLabel: "Publish",
-  queueLabel: "Queue",
-  queueRange: "Next 7 days",
+  /* What LinkedIn itself prints under the name on an unposted draft. */
+  postedMeta: "Now",
+  /* Caption for the draft artifact in the how-it-works band, where there is no
+   * room for the whole composer — it says the two things that panel proves. */
+  draftLabel: "Draft · in your voice",
+  /* The post as the network will show it. Drawn, never interactive. */
+  postActions: ["Like", "Comment", "Repost", "Send"] as const,
+  charactersLabel: "characters",
+  saveLabel: "Save as draft",
+  publishLabel: "Post to LinkedIn",
+  recentLabel: "Recent posts",
 } as const;
 
-/* The first chip is the selected one — the design gives exactly one of them the
- * blue fill, which is this section's single use of rule 4's one blue. */
-export const MARKETING_COMPOSER_TONES: readonly string[] = [
-  "Founder voice",
-  "Contrarian",
-  "Story",
-  "Teardown",
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_COMPOSER_CONTROLS, goal, tone, length
+ *
+ * WHAT:  The three choices the composer actually offers, with a plausible
+ *        setting for each.
+ * WHY:   Replaces four invented chips — "Founder voice", "Contrarian", "Story",
+ *        "Teardown" — which were a tone vocabulary the product does not have.
+ *        Every value below is a real option: the goals are POST_GOAL_LABELS, the
+ *        tones POST_TONE_LABELS and the lengths POST_LENGTH_LABELS. Copied as
+ *        strings rather than imported so the panel is a fixed picture, but if a
+ *        vocabulary changes, those three records are what to check against.
+ */
+export const MARKETING_COMPOSER_CONTROLS: readonly {
+  label: string;
+  value: string;
+}[] = [
+  { label: "Goal", value: "Comments" },
+  { label: "Tone", value: "Contrarian" },
+  { label: "Length", value: "Medium" },
 ];
 
 export const MARKETING_POST_LINES: readonly string[] = [
@@ -283,18 +313,30 @@ export const MARKETING_POST_LINES: readonly string[] = [
   "Price the outcome. Let the features be free.",
 ];
 
-export interface MarketingComposerQueueItem {
+/**
+ * SOURCE OF TRUTH KEYWORDS: MarketingComposerRecentItem, recent posts
+ *
+ * WHAT:  One row of the composer's right rail — when it went out, and what it
+ *        said.
+ * WHY:   Named for RECENT rather than a queue, which is what the rail became
+ *        when the panel stopped inventing a schedule the app does not keep on
+ *        this screen. `live` went with it: nothing in a list of published posts
+ *        is "next out".
+ */
+export interface MarketingComposerRecentItem {
   when: string;
   title: string;
-  /** The next one out. Exactly one entry may set this. */
-  live?: boolean;
 }
 
-export const MARKETING_COMPOSER_QUEUE: readonly MarketingComposerQueueItem[] = [
-  { when: "TUE 9:00", title: "Pricing our first ten customers", live: true },
-  { when: "THU 8:30", title: "Why we killed the free trial" },
-  { when: "FRI 9:00", title: "Carousel · 7 slides · hiring" },
-  { when: "MON 9:00", title: "What the first 90 days should look like" },
+/* What the composer's right rail really lists: posts that have already gone
+ * out. The panel used to show a "Queue · next 7 days" that exists nowhere in the
+ * app — scheduling lives in the calendar, which the step above this section
+ * already draws, so the page was illustrating the same idea twice and putting it
+ * on the wrong screen. Relative dates rather than invented ones. */
+export const MARKETING_COMPOSER_RECENT: readonly MarketingComposerRecentItem[] = [
+  { when: "Published · 2 days ago", title: "Why we killed the free trial" },
+  { when: "Published · last week", title: "What the first 90 days should look like" },
+  { when: "Published · 12 days ago", title: "Carousel · 7 slides · hiring" },
 ];
 
 /**

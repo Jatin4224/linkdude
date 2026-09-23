@@ -144,7 +144,7 @@ function StepArtifact({ artifact }: { artifact: MarketingStepArtifact }) {
     return (
       <div className={shell}>
         <PaperLabel size="micro" tone="grey" className="tracking-[0.12em]">
-          {MARKETING_COMPOSER.authorRole}
+          {MARKETING_COMPOSER.draftLabel}
         </PaperLabel>
         {MARKETING_POST_LINES.map((line) => (
           <p key={line} className="m-0 text-[13px] leading-normal">
