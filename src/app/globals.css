@@ -791,6 +791,53 @@
       animation: none;
     }
   }
+
+  /*
+   * SOURCE OF TRUTH KEYWORDS: paper-underline, link hover, underline wipe,
+   *   footer link, focus-visible, background-size, --ease-out
+   * WHAT:  A 1px rule that grows from the left edge of a link on hover or
+   *        keyboard focus, in the link's own colour.
+   * WHY:   The paper surfaces' links had a colour change and nothing else,
+   *        which on a page of hard edges and flat fills is the weakest
+   *        affordance available — the reader finds out what is a link by
+   *        guessing. A rule that WIPES says "this is a target" while it is
+   *        still arriving, and a growing edge is the one gesture this system
+   *        already makes everywhere else.
+   *
+   *        Drawn as a background gradient rather than text-decoration or a
+   *        pseudo-element: background-size animates on the compositor, is not
+   *        affected by descenders, and adds nothing to the box, so a link can
+   *        gain one without moving the line it sits on. currentColor means it
+   *        follows the link's own hover colour rather than needing a second
+   *        token kept in step.
+   *
+   *        Focus-visible gets the same treatment as hover. A keyboard reader
+   *        already has the focus ring, but a ring around a word in a list of
+   *        words does not say which of them is the link.
+   * WHERE: MarketingFooter's link lists. Any paper-surface text link.
+   */
+  .paper-underline {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0 1px;
+    transition:
+      background-size 220ms var(--ease-out),
+      color 200ms var(--ease-out);
+  }
+
+  .paper-underline:hover,
+  .paper-underline:focus-visible {
+    background-size: 100% 1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* The rule still appears — it is the affordance, not the decoration. Only
+       the wipe goes. */
+    .paper-underline {
+      transition: none;
+    }
+  }
 }
 
 /*

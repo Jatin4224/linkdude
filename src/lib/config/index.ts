@@ -139,6 +139,7 @@ export type {
   MarketingComposerRecentItem,
   MarketingStep,
   MarketingStepArtifact,
+  MarketingPanelArtifact,
   MarketingProfileRow,
   MarketingFooterGroup,
 } from "./marketing";

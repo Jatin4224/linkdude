@@ -570,6 +570,22 @@ export const MARKETING_FEATURES: readonly MarketingFeature[] = [
 ];
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: MarketingPanelArtifact, DemoPanel, panel artifact,
+ *   step artifact, feature preview
+ *
+ * WHAT:  Every panel the dark band can draw — the three steps' artifacts and
+ *        the four feature previews, as one union.
+ * WHY:   One renderer draws all seven, so it needs one union to switch on. It
+ *        is DERIVED from the two lists rather than retyped, which is what makes
+ *        adding a step or a feature a compile error in the renderer instead of
+ *        a panel that silently falls through to whichever branch is last.
+ * WHERE: src/app/(marketing)/_components/demo-panel.tsx.
+ */
+export type MarketingPanelArtifact =
+  | MarketingStepArtifact
+  | MarketingFeature["artifact"];
+
+/**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_FEATURE_PREVIEWS, feature preview,
  *   studio preview, voice preview, carousel preview, ideas preview,
  *   FeaturePreview, glimpse card, feature rows, landing page copy
@@ -606,25 +622,39 @@ export const MARKETING_FEATURE_PREVIEWS = {
   voice: {
     label: "Voice profile",
     sourceLabel: "Trained on",
-    sourceValue: "12 posts",
+    /** Counted up rather than printed, so the figure registers as a quantity. */
+    sourceCount: 12,
+    sourceUnit: "posts",
     traits: ["Short sentences", "No emoji", "Ends on a question"],
     appliedLabel: "Applied to every draft",
   },
   carousel: {
     label: "Carousel",
+    /** The deck's real length — the counter's denominator and the dot count. */
     pages: 7,
-    coverLine: "What I learned shipping v1",
+    /** The three pages the panel shows of it. The demo swipes between them. */
+    slides: [
+      "What I learned shipping v1",
+      "The three mistakes",
+      "What we do now",
+    ],
     outputLabel: "Document post",
   },
   ideas: {
     label: "Idea inbox",
+    /* Every idea carries the slot it WOULD get. Which of them have one is the
+       demo's business, not the copy's — an idea with a hardcoded "planned" flag
+       would be a plan that cannot be watched happening. */
     items: [
-      { text: "Why the redesign shipped late", status: "Tue 09:00", planned: true },
-      { text: "The brief I wish I had asked for", status: "Captured", planned: false },
-      { text: "Three questions before a rebuild", status: "Captured", planned: false },
+      { text: "Why the redesign shipped late", slot: "Tue 09:00" },
+      { text: "The brief I wish I had asked for", slot: "Thu 09:00" },
+      { text: "Three questions before a rebuild", slot: "Mon 09:00" },
     ],
+    capturedLabel: "Captured",
     planLabel: "This month",
-    planValue: "12 of 30 slots",
+    /** Slots already filled before these ideas are placed, and the month's size. */
+    filledSlots: 12,
+    totalSlots: 30,
   },
 } as const;
 

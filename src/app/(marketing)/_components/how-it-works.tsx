@@ -5,10 +5,9 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: HowItWorks, MARKETING_STEPS, MarketingStepArtifact,
- *   MARKETING_POST_LINES, MARKETING_CALENDAR, MARKETING_PROFILE_ROWS,
- *   StepArtifact, PaperDisplay, PaperLabel, dark band, ink section,
- *   alternating bleed, draft calendar score
+ * SOURCE OF TRUTH KEYWORDS: HowItWorks, MARKETING_STEPS, DemoPanel,
+ *   FeatureRows, PaperDisplay, PaperLabel, PaperReveal, dark band, ink
+ *   section, step row, draft calendar score
  *
  * WHAT:  The dark band — three steps, each pairing a display headline with the
  *        artifact that step produces: a draft, a month of calendar, a profile
@@ -25,27 +24,21 @@
  *        window onto something larger. The bleed is computed FROM --gutter, so
  *        it stays flush at every width without a second copy of the clamp.
  *
- *        `artifact` is switched on exhaustively, so a fourth step cannot ship
- *        without someone deciding what it shows.
+ *        The panels themselves live in DemoPanel, which draws all seven in
+ *        this band — the three steps' and the four features' — from one shell
+ *        and one in-view trigger. `artifact` is switched on exhaustively
+ *        there, so a fourth step cannot ship without someone deciding what it
+ *        shows.
  * WHERE: src/app/(marketing)/page.tsx, after ComposerShowcase.
  */
 
-import {
-  MARKETING_CALENDAR,
-  MARKETING_COMPOSER,
-  MARKETING_POST_LINES,
-  MARKETING_PROFILE_ROWS,
-  MARKETING_PROFILE_SCORE,
-  MARKETING_SECTION_IDS,
-  MARKETING_STEPS,
-  type MarketingStepArtifact,
-} from "@/lib/config";
+import { MARKETING_SECTION_IDS, MARKETING_STEPS } from "@/lib/config";
 import {
   PaperLabel,
   PaperDisplay,
   PaperReveal,
 } from "@/components/global/paper";
-import { cn } from "@/lib/utils";
+import { DemoPanel } from "./demo-panel";
 import { FeatureRows } from "./feature-rows";
 
 export function HowItWorks() {
@@ -111,7 +104,7 @@ export function HowItWorks() {
                 relationships to the edge. Aligning them all to the same right
                 edge is what lets the eye read the column as a column. */}
             <div className="w-[min(100%,400px)] min-w-0 justify-self-end">
-              <StepArtifact artifact={step.artifact} />
+              <DemoPanel artifact={step.artifact} />
             </div>
           </div>
         ))}
@@ -123,121 +116,5 @@ export function HowItWorks() {
         <FeatureRows />
       </PaperReveal>
     </section>
-  );
-}
-
-/**
- * SOURCE OF TRUTH KEYWORDS: StepArtifact, MarketingStepArtifact, draft artifact,
- *   calendar artifact, score artifact
- *
- * WHAT:  The white panel beside a step. One component with an exhaustive switch
- *        rather than three exported siblings.
- * WHY:   The three share their entire outer treatment — white ground, ink text,
- *        18px padding, 12px stack — and differ only in contents. Keeping the
- *        shell in one place is what stops the second and third from drifting a
- *        pixel off the first, which on a page built from hard edges is visible.
- */
-function StepArtifact({ artifact }: { artifact: MarketingStepArtifact }) {
-  const shell = "flex flex-col gap-3 bg-paper-raised p-[18px] text-ink";
-
-  if (artifact === "draft") {
-    return (
-      <div className={shell}>
-        <PaperLabel size="micro" tone="grey" className="tracking-[0.12em]">
-          {MARKETING_COMPOSER.draftLabel}
-        </PaperLabel>
-        {MARKETING_POST_LINES.map((line) => (
-          <p key={line} className="m-0 text-[13px] leading-normal">
-            {line}
-          </p>
-        ))}
-        <PaperLabel
-          as="span"
-          size="micro"
-          tone="inherit"
-          className="self-start bg-blue px-3 py-[7px] tracking-[0.09em] text-blue-foreground"
-        >
-          {MARKETING_COMPOSER.publishLabel}
-        </PaperLabel>
-      </div>
-    );
-  }
-
-  if (artifact === "calendar") {
-    return (
-      <div className={shell}>
-        <div className="flex items-center justify-between gap-2.5">
-          <PaperLabel size="micro" className="tracking-[0.12em]">
-            {MARKETING_CALENDAR.month}
-          </PaperLabel>
-          <PaperLabel size="micro" tone="grey">
-            {MARKETING_CALENDAR.scheduledLabel}
-          </PaperLabel>
-        </div>
-        <div className="grid grid-cols-7 gap-[5px]">
-          {Array.from({ length: MARKETING_CALENDAR.days }, (_, i) => i + 1).map(
-            (day) => (
-              <span
-                key={day}
-                className={cn(
-                  "flex h-[26px] items-center justify-center text-[10px] tabular-nums",
-                  /* Three states, in the order the real calendar draws them:
-                     already out, going out, and nothing planned. */
-                  MARKETING_CALENDAR.published.includes(day)
-                    ? "bg-ink text-ink-foreground"
-                    : MARKETING_CALENDAR.scheduled.includes(day)
-                      ? "bg-blue text-blue-foreground"
-                      : "bg-ink/5 text-grey",
-                )}
-              >
-                {day}
-              </span>
-            ),
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={shell}>
-      <PaperLabel size="micro" tone="grey" className="tracking-[0.12em]">
-        {MARKETING_PROFILE_SCORE.label}
-      </PaperLabel>
-      <p className="m-0 flex items-baseline gap-[7px]">
-        <span className="font-paper-display text-[56px] leading-[0.84] tracking-[-0.05em]">
-          {MARKETING_PROFILE_SCORE.value}
-        </span>
-        <span className="text-[11px] text-grey">
-          / {MARKETING_PROFILE_SCORE.outOf}
-        </span>
-      </p>
-      {/* A bar, not a ring: a square meter is the only shape this system has.
-          Its width is computed from the same value the numeral prints, so the
-          two cannot drift apart. */}
-      <div className="h-1.5 bg-ink/10">
-        <div
-          className="h-full bg-blue"
-          style={{
-            width: `${(MARKETING_PROFILE_SCORE.value / MARKETING_PROFILE_SCORE.outOf) * 100}%`,
-          }}
-        />
-      </div>
-      {MARKETING_PROFILE_ROWS.map((row) => (
-        <div
-          key={row.section}
-          className="flex items-center justify-between gap-2.5 border-t border-ink/10 pt-2"
-        >
-          <span className="text-[12.5px]">{row.section}</span>
-          <PaperLabel
-            as="span"
-            size="micro"
-            tone={row.good ? "grey" : "blue"}
-          >
-            {row.verdict}
-          </PaperLabel>
-        </div>
-      ))}
-    </div>
   );
 }

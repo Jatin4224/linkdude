@@ -51,9 +51,14 @@ export function MarketingFooter() {
               <ul className="flex list-none flex-col gap-2.5 p-0">
                 {group.items.map((item) => (
                   <li key={`${group.label}-${item.label}`}>
+                    {/* The underline is the affordance; the colour change alone
+                        left the reader guessing which words were links.
+                        `.paper-underline` owns both transitions, so no
+                        `transition-colors` here — a utility declaring the
+                        property again would drop the wipe. */}
                     <Link
                       href={item.href}
-                      className="text-sm text-grey transition-colors hover:text-ink"
+                      className="paper-underline inline-block text-sm text-grey hover:text-ink"
                     >
                       {item.label}
                     </Link>
