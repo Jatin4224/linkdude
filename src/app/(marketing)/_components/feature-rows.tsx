@@ -55,6 +55,8 @@
 
 import { MARKETING_FEATURES, MARKETING_STEPS } from "@/lib/config";
 import { PaperDisplay, PaperLabel } from "@/components/global/paper";
+import { cn } from "@/lib/utils";
+import { BAND_ROW } from "./band-row";
 import { DemoPanel } from "./demo-panel";
 
 export function FeatureRows() {
@@ -63,11 +65,11 @@ export function FeatureRows() {
       {MARKETING_FEATURES.map((feature, index) => (
         <article
           key={feature.label}
-          /* The step row's className, minus its `first:` rules — a feature row
-             is never first, there are always three steps above it, so every one
-             of them carries the hairline that separates it from what came
+          /* The band's shared row, minus the steps' `first:` rules — a feature
+             row is never first, there are always three steps above it, so every
+             one of them carries the hairline that separates it from what came
              before. */
-          className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-start gap-[clamp(24px,4vw,56px)] border-t border-ink-foreground/12 py-[clamp(40px,6vw,76px)] last:pb-0"
+          className={cn(BAND_ROW.row, "last:pb-0")}
         >
           <div className="flex min-w-0 flex-col gap-4">
             {/* The number and the surface's name, in the slot where a step puts
@@ -79,7 +81,7 @@ export function FeatureRows() {
                 as="span"
                 size="band"
                 tone="inherit"
-                className="bg-blue px-2 py-1 text-[12px] tracking-[0.1em] text-blue-foreground"
+                className={BAND_ROW.marker}
               >
                 {`[${String(MARKETING_STEPS.length + index + 1)}]`}
               </PaperLabel>

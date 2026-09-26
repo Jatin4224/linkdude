@@ -30,7 +30,6 @@
  * WHERE: src/app/(marketing)/page.tsx, immediately after StickyHero.
  */
 
-import { ArrowRightIcon } from "lucide-react";
 
 import {
   GET_STARTED_HREF,
@@ -65,9 +64,8 @@ export function BlueStatement() {
           {MARKETING_STATEMENT.body}
         </p>
 
-        <PaperButton href={GET_STARTED_HREF} variant="paper" size="lg">
+        <PaperButton href={GET_STARTED_HREF} variant="paper" size="lg" arrow>
           {GET_STARTED_LABEL}
-          <ArrowRightIcon className="size-4" />
         </PaperButton>
       </PaperReveal>
     </section>

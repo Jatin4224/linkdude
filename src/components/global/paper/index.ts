@@ -8,7 +8,9 @@
  * SOURCE OF TRUTH KEYWORDS: PaperButton, PaperButtonProps, paperButtonVariants,
  *   PaperDisplay, PaperDisplayProps, PaperLabel, PaperLabelProps,
  *   paperLabelVariants, PaperScatter, PaperScatterProps, PaperMascot,
- *   PaperMascotProps, PaperLockup, PaperLockupProps, PAPER_MASCOT_SRC,
+ *   PaperMascotProps, PaperMascotEyes, PaperMascotEyesProps,
+ *   PAPER_MASCOT_EYES, PAPER_MASCOT_PUPILS, PaperLockup, PaperLockupProps,
+ *   PAPER_MASCOT_SRC,
  *   PaperReveal, PaperRevealProps, PaperRevealEffect, PaperOrbit,
  *   PaperOrbitProps, PAPER_ICONS,
  *   paper design system, public surfaces
@@ -31,8 +33,19 @@ export { PaperLabel, paperLabelVariants } from "./paper-label";
 export type { PaperLabelProps } from "./paper-label";
 export { PaperScatter } from "./paper-scatter";
 export type { PaperScatterProps } from "./paper-scatter";
-export { PaperMascot, PaperLockup, PAPER_MASCOT_SRC } from "./paper-mascot";
-export type { PaperMascotProps, PaperLockupProps } from "./paper-mascot";
+export {
+  PaperMascot,
+  PaperMascotEyes,
+  PaperLockup,
+  PAPER_MASCOT_SRC,
+  PAPER_MASCOT_EYES,
+  PAPER_MASCOT_PUPILS,
+} from "./paper-mascot";
+export type {
+  PaperMascotProps,
+  PaperMascotEyesProps,
+  PaperLockupProps,
+} from "./paper-mascot";
 export { PaperReveal } from "./paper-reveal";
 export type { PaperRevealProps, PaperRevealEffect } from "./paper-reveal";
 export { PaperOrbit } from "./paper-orbit";

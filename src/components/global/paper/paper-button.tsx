@@ -26,6 +26,12 @@
  *        because with shadows forbidden the drop is the only affordance left
  *        that says the surface moved. `pending` is a prop, not a variant, so a
  *        caller cannot dim the button without also making it inert.
+ *
+ *        `arrow` is opt-in rather than automatic on the blue variant. Every
+ *        primary on the landing page should carry it, but the Google button is
+ *        blue too and already has a glyph, and an arrow on a form submit points
+ *        at nothing. Opting in is one word at four call sites; opting out would
+ *        be a negation at the ones that matter least.
  * WHERE: The landing hero and closing CTA, the blue statement band, and the
  *        Continue-with-Google button in
  *        src/components/global/auth/auth-form.tsx.
@@ -33,6 +39,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { ArrowRightIcon } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
@@ -43,7 +50,7 @@ const paperButtonVariants = cva(
      inherited Archivo — no family is declared, because .paper-scope already sets
      one for the whole subtree and a second declaration is a second thing to keep
      in step. */
-  "inline-flex shrink-0 items-center justify-center gap-2.5 whitespace-nowrap rounded-none border text-[12px] font-medium uppercase tracking-[0.08em] transition-[background-color,color,transform,border-color] duration-150 ease-out select-none disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "group/paper-button inline-flex shrink-0 items-center justify-center gap-2.5 whitespace-nowrap rounded-none border text-[12px] font-medium uppercase tracking-[0.08em] transition-[background-color,color,transform,border-color] duration-150 ease-out select-none disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -85,6 +92,12 @@ export interface PaperButtonProps
    * form is in flight" — that one greys out without claiming to be working.
    */
   pending?: boolean;
+  /**
+   * Appends the arrow that steps right on hover. For the GO action only — the
+   * page's one primary CTA — never on a secondary or a form submit, where a
+   * second arrow would make two things look equally like the way forward.
+   */
+  arrow?: boolean;
 }
 
 export function PaperButton({
@@ -95,6 +108,7 @@ export function PaperButton({
   href,
   pending = false,
   disabled = false,
+  arrow = false,
   type = "button",
   children,
   ...props
@@ -106,12 +120,28 @@ export function PaperButton({
     className,
   );
 
+  /* The label and, on the primary action, the one moving part this system
+     allows itself: a square-cut arrow that steps forward under the cursor.
+     With shadows and rounding out, and colour already spent on the fill, a
+     4px move is the only "yes, this one" a button has left to say. */
+  const content = (
+    <>
+      {children}
+      {arrow ? (
+        <ArrowRightIcon
+          aria-hidden="true"
+          className="size-3.5 transition-transform duration-150 ease-out group-hover/paper-button:translate-x-1 motion-reduce:transition-none"
+        />
+      ) : null}
+    </>
+  );
+
   if (href) {
     /* A link has no disabled state, so the flags only reach it as the dimmed
        treatment — pointer-events-none above is what makes it inert. */
     return (
       <Link href={href} className={classes} aria-busy={pending || undefined}>
-        {children}
+        {content}
       </Link>
     );
   }
@@ -124,7 +154,7 @@ export function PaperButton({
       aria-busy={pending || undefined}
       {...props}
     >
-      {children}
+      {content}
     </button>
   );
 }
