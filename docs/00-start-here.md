@@ -25,6 +25,7 @@ These docs explain how this boilerplate is shaped and why. The README tells you 
 19. `19-idea-inbox.md` — a tenth: the smallest CRUD feature, a limit that counts things held rather than model spend, and three entry points sharing one quick-add
 20. `20-studio.md` — an eleventh: templates as data rather than code, so one renderer serves every canvas, a new design costs a config entry, and the four failures worth reading about before you touch it
 21. `21-animated-mascot.md` — not a feature but a procedure: making a flat PNG character track the cursor by measuring the artwork rather than guessing at it, and why a screenshot cannot tell you whether it worked
+22. `22-design-system.md` — the two visual languages the app renders from one component library, the scope-don't-fork rule that makes that possible, and the layer-order trap that will otherwise cost you an afternoon
 
 ## If you only have five minutes
 
