@@ -767,6 +767,18 @@
     animation: marquee-scroll 42s linear infinite;
   }
 
+  /* IT STOPS WHEN YOU REACH FOR IT. Content that moves on its own for more than
+     five seconds needs a way to pause it (WCAG 2.2.2), and a band that slides a
+     capability out from under the eye that just found it is a usability problem
+     before it is a compliance one. Hover covers a pointer; :focus-within covers
+     a keyboard, because the band itself takes focus — see CapabilityTicker.
+     Pausing the play state rather than cancelling the animation means it
+     resumes from where it stopped instead of snapping back to the start. */
+  .paper-ticker:hover .animate-paper-ticker,
+  .paper-ticker:focus-within .animate-paper-ticker {
+    animation-play-state: paused;
+  }
+
   /* The scroll cue under the hero. Nudges rather than bounces: the hero IS a
      scroll mechanic, and the cue only has to say which direction. */
   @keyframes paper-cue-drop {

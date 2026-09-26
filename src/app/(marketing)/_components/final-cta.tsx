@@ -23,7 +23,6 @@
  * WHERE: src/app/(marketing)/page.tsx, last before the footer.
  */
 
-import { ArrowRightIcon } from "lucide-react";
 
 import {
   AUTH_ROUTES,
@@ -75,9 +74,8 @@ export function FinalCta() {
       />
 
       <div className="flex flex-wrap items-center justify-center gap-3 pt-1.5">
-        <PaperButton href={GET_STARTED_HREF} size="lg">
+        <PaperButton href={GET_STARTED_HREF} size="lg" arrow>
           {GET_STARTED_LABEL}
-          <ArrowRightIcon className="size-4" />
         </PaperButton>
         <PaperButton href={AUTH_ROUTES.signIn} variant="outline" size="lg">
           {MARKETING_CLOSING.secondaryLabel}

@@ -23,6 +23,11 @@
  *        The second is aria-hidden so the list is not announced twice, and the
  *        rules above and below it are white at 25% rather than a second colour,
  *        because the band is part of the blue section, not a divider between two.
+ *
+ *        IT PAUSES ON HOVER AND ON FOCUS. See the `.paper-ticker` rules in
+ *        globals.css and the note on the section below: the band is its own
+ *        pause control, which is what makes the moving content stoppable
+ *        without putting a button in a band that holds nothing but words.
  * WHERE: src/app/(marketing)/page.tsx, directly under BlueStatement.
  */
 
@@ -68,7 +73,19 @@ function TickerTrack({ hidden }: { hidden: boolean }) {
 
 export function CapabilityTicker() {
   return (
-    <section className="relative z-6 overflow-hidden border-y border-blue-foreground/25 bg-blue py-3.5">
+    <section
+      /* THE BAND ITSELF IS THE PAUSE CONTROL. `.paper-ticker` is what the
+         hover and focus-within rules in globals.css hang off; the tabIndex is
+         what makes it work without a mouse, since nothing inside this band is
+         focusable on its own and a pause a keyboard cannot reach is not a
+         mechanism. One tab stop, no added chrome — the alternative was a
+         visible pause button in a 42px band built to hold nothing but words.
+         The focus ring is drawn here rather than inherited: the scope's ring
+         is blue, and this band is blue. */
+      tabIndex={0}
+      aria-label={`${CAPABILITIES.length} workspace capabilities, scrolling. Pauses while focused.`}
+      className="paper-ticker relative z-6 overflow-hidden border-y border-blue-foreground/25 bg-blue py-3.5 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-blue-foreground"
+    >
       <div className="animate-paper-ticker flex w-max">
         <TickerTrack hidden={false} />
         <TickerTrack hidden />

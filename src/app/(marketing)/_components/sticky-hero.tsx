@@ -9,7 +9,8 @@
 /**
  * SOURCE OF TRUTH KEYWORDS: StickyHero, MARKETING_HERO_INTRO,
  *   MARKETING_HERO_SIGNOFF, MARKETING_HERO_BEAT_COUNT, useHeroScroll, gsap,
- *   ScrollTrigger, SCRUB, PaperOrbit, PaperMascot, sticky stage, call and
+ *   ScrollTrigger, SCRUB, quickTo, MASCOT_LEAN, pointer lean, PaperOrbit,
+ *   PaperMascot, PaperMascotEyes, sticky stage, call and
  *   response, accumulate
  *
  * WHAT:  The first screen — a sticky stage where the product introduces itself
@@ -52,7 +53,7 @@
  */
 
 import * as React from "react";
-import { ArrowRightIcon, ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon } from "lucide-react";
 
 import {
   GET_STARTED_HREF,
@@ -69,9 +70,12 @@ import {
   PaperButton,
   PaperDisplay,
   PaperMascot,
+  PaperMascotEyes,
   PaperOrbit,
+  PAPER_MASCOT_EYES,
+  PAPER_MASCOT_PUPILS,
 } from "@/components/global/paper";
-import { SCRUB, gsap, useGSAP } from "@/lib/gsap";
+import { PAPER_EASE, SCRUB, gsap, useGSAP } from "@/lib/gsap";
 import { useHeroScroll } from "@/hooks/use-hero-scroll";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +93,46 @@ const LINE_STATE = {
      still letting the live pair win the eye. */
   past: "translate-y-0 opacity-[0.62]",
 } as const;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MASCOT_LEAN, pointer lean, cursor tracking, quickTo,
+ *   mascot sway, micro interaction
+ *
+ * WHAT:  How far the mascot leans toward the pointer, and how long it takes to
+ *        get there.
+ * WHY:   SMALL ENOUGH TO BE FELT RATHER THAN WATCHED. The figure is the fixed
+ *        point the whole hero assembles around — the swell above already moves
+ *        it less than anything else on the stage for that reason — so the lean
+ *        has to stay under the threshold where it becomes the thing you are
+ *        looking at. A 1.2° sway pivoting at the feet moves the head about
+ *        12px at hero size, which reads as attention rather than animation.
+ *
+ *        The duration is the damping. Tracking the pointer with no lag makes
+ *        the character feel welded to the cursor; six tenths of a second on
+ *        the page's own curve makes it feel like it noticed.
+ */
+const MASCOT_LEAN = {
+  /** Horizontal drift at the edge of the viewport, in px. */
+  shift: 5,
+  /** Vertical drift, smaller: the figure is standing, not floating. */
+  rise: 4,
+  /** Sway in degrees, pivoting at the feet — see `origin-bottom` below. */
+  tilt: 1.2,
+  /** Seconds to catch up. */
+  duration: 0.6,
+  /* THE EYES GO FURTHER AND GET THERE FIRST. The body is a lean the reader
+     should feel without noticing; the eyes are the part that is supposed to
+     read as looking, and an eye that drifts at the body's pace looks sleepy.
+     The distance is in artwork units and is capped by PAPER_MASCOT_EYES —
+     see the measurement note there before raising it. */
+  gaze: PAPER_MASCOT_EYES.travel,
+  gazeDuration: 0.35,
+} as const;
+
+/** Keeps a pointer beyond the viewport's midpoint from over-driving the lean. */
+function clampUnit(value: number): number {
+  return Math.min(1, Math.max(-1, value));
+}
 
 function lineState(index: number, beat: number): string {
   if (beat < index) return LINE_STATE.waiting;
@@ -127,7 +171,9 @@ export function StickyHero() {
   );
 
   const stage = React.useRef<HTMLDivElement | null>(null);
-  const mascot = React.useRef<HTMLImageElement | null>(null);
+  /* The WRAPPER, not the image: it is the box gsap transforms, the box the
+   * orbit centres on, and the box the eye overlay fills. */
+  const mascot = React.useRef<HTMLDivElement | null>(null);
 
   /* Reduced motion reads the hero as ONE composition: every pair present, the
    * sign-off with them, nothing waiting on a scroll position. */
@@ -150,14 +196,34 @@ export function StickyHero() {
         const track = document.getElementById(MARKETING_SECTION_IDS.top);
         if (!track) return;
 
+        const mascotEl = mascot.current;
+        if (!mascotEl) return;
+
         /* The mascot swells slightly through the section. It is the fixed point
            the lines assemble around, so it moves least — a subject that moves as
-           much as the copy flattens the whole stage. */
+           much as the copy flattens the whole stage.
+
+           WRITTEN AS GSAP PROPERTIES, NOT A `transform` STRING. It used to
+           tween `transform: "translateX(-50%) scale(…)"`, which hands gsap one
+           opaque value and makes every scroll tick overwrite the whole matrix —
+           including whatever the pointer lean below had just put in it. As
+           separate channels in gsap's transform cache, the swell and the lean
+           can share the element without either erasing the other.
+
+           The centring is SET, not tweened. In a fromTo, a property given a
+           start but no end tweens back to whatever the element currently has,
+           so an `xPercent: -50` in the from-vars alone would have walked the
+           figure off centre as the section scrolled. It is `xPercent` here and
+           `-translate-x-1/2` in the markup: the class centres the server HTML,
+           and gsap zeroes the CSS translate when it takes the element over on
+           mount. */
+        gsap.set(mascotEl, { xPercent: -50 });
+
         gsap.fromTo(
-          mascot.current,
-          { transform: "translateX(-50%) scale(1)" },
+          mascotEl,
+          { scale: 1 },
           {
-            transform: "translateX(-50%) scale(1.06)",
+            scale: 1.06,
             ease: "none",
             scrollTrigger: {
               trigger: track,
@@ -167,6 +233,102 @@ export function StickyHero() {
             },
           },
         );
+
+        /* IT LOOKS AT YOU. The one piece of motion on this page a reader drives
+           with something other than the scrollbar — a character that ignores
+           the cursor entirely is a picture, and this one is the brand.
+
+           quickTo rather than a tween per event: it keeps one interpolator per
+           property alive and re-aims it, which is the difference between
+           retargeting a value and allocating a tween sixty times a second.
+           Registered inside the no-preference branch, so a reduced-motion
+           reader never even gets the listener, and matchMedia's revert takes
+           the cleanup below with it. */
+        const leanX = gsap.quickTo(mascotEl, "x", {
+          duration: MASCOT_LEAN.duration,
+          ease: PAPER_EASE,
+        });
+        const leanY = gsap.quickTo(mascotEl, "y", {
+          duration: MASCOT_LEAN.duration,
+          ease: PAPER_EASE,
+        });
+        const leanTilt = gsap.quickTo(mascotEl, "rotation", {
+          duration: MASCOT_LEAN.duration,
+          ease: PAPER_EASE,
+        });
+
+        /* The pupils, as ONE group — see PAPER_MASCOT_EYES. Queried rather
+           than passed as a ref because the overlay is the mascot component's
+           business, not this file's; all this file needs is something to aim. */
+        const pupils = mascotEl.querySelector(`[${PAPER_MASCOT_PUPILS}]`);
+        const gazeX = pupils
+          ? gsap.quickTo(pupils, "x", {
+              duration: MASCOT_LEAN.gazeDuration,
+              ease: PAPER_EASE,
+            })
+          : null;
+        const gazeY = pupils
+          ? gsap.quickTo(pupils, "y", {
+              duration: MASCOT_LEAN.gazeDuration,
+              ease: PAPER_EASE,
+            })
+          : null;
+
+        /* One rect read per FRAME, not per event. The pointer fires faster than
+           the screen refreshes, and the rect is a forced layout — on a sticky
+           stage it also changes with the scroll, so it cannot simply be cached
+           at mount. */
+        let frame = 0;
+        let pointer: { x: number; y: number } | null = null;
+
+        const applyLean = () => {
+          frame = 0;
+          if (!pointer) return;
+          const rect = mascotEl.getBoundingClientRect();
+          const fromCentreX = clampUnit(
+            (pointer.x - (rect.left + rect.width / 2)) / (window.innerWidth / 2),
+          );
+          const fromCentreY = clampUnit(
+            (pointer.y - (rect.top + rect.height / 2)) / (window.innerHeight / 2),
+          );
+          leanX(fromCentreX * MASCOT_LEAN.shift);
+          leanY(fromCentreY * MASCOT_LEAN.rise);
+          leanTilt(fromCentreX * MASCOT_LEAN.tilt);
+          gazeX?.(fromCentreX * MASCOT_LEAN.gaze);
+          gazeY?.(fromCentreY * MASCOT_LEAN.gaze);
+        };
+
+        const handleMove = (event: PointerEvent) => {
+          /* A finger is not a cursor: on touch there is nothing to follow, and
+             a tap would leave the figure leaning at whatever angle the last
+             contact happened to be. */
+          if (event.pointerType !== "mouse") return;
+          pointer = { x: event.clientX, y: event.clientY };
+          if (!frame) frame = requestAnimationFrame(applyLean);
+        };
+
+        /* Stands back up when the pointer leaves the document entirely —
+           otherwise it holds a lean toward a cursor that is no longer there. */
+        const handleLeave = () => {
+          pointer = null;
+          leanX(0);
+          leanY(0);
+          leanTilt(0);
+          gazeX?.(0);
+          gazeY?.(0);
+        };
+
+        window.addEventListener("pointermove", handleMove, { passive: true });
+        document.documentElement.addEventListener("pointerleave", handleLeave);
+
+        return () => {
+          if (frame) cancelAnimationFrame(frame);
+          window.removeEventListener("pointermove", handleMove);
+          document.documentElement.removeEventListener(
+            "pointerleave",
+            handleLeave,
+          );
+        };
 
         /* The decorative marks are NOT driven from here — PaperOrbit projects
            them onto a sphere centred on this same mascot and spins it against
@@ -193,11 +355,13 @@ export function StickyHero() {
             390×844 a height-only clamp resolved to a 726px-wide character on a
             390px viewport. A viewport-WIDTH term makes the narrow case bind on
             width and the wide case still bind on height. */}
-        <PaperMascot
+        {/* A WRAPPER, not the bare image. It carries every class the image
+            used to and is the element gsap transforms, so the eye overlay —
+            which fills this box — travels with the figure through the swell
+            and the lean instead of sliding off its face. The image is the only
+            thing in it, so the box is still exactly the artwork's. */}
+        <div
           ref={mascot}
-          width={780}
-          height={780}
-          priority
           /* Lifted off the floor from the breakpoint up, and standing on the
               closing block rather than behind it. Anchored at -5% the character
               was cropped by the stage AND had the sign-off and the ask laid
@@ -220,7 +384,15 @@ export function StickyHero() {
               copy on a wide, short screen — exactly the collision the reserved
               column exists to prevent. */
           className="absolute bottom-[-5%] left-1/2 z-[1] h-[min(58svh,520px,84vw)] w-auto -translate-x-1/2 origin-bottom min-[900px]:bottom-[clamp(200px,33svh,330px)] min-[900px]:h-[min(52svh,480px,38vw)]"
-        />
+        >
+          <PaperMascot
+            width={780}
+            height={780}
+            priority
+            className="h-full w-auto"
+          />
+          <PaperMascotEyes />
+        </div>
 
         {/* The pairs. Above the decorative marks, which sort themselves to
             z-index 3 when their sphere brings them to the front — at the same
@@ -335,9 +507,8 @@ export function StickyHero() {
                   : "pointer-events-none translate-y-2.5 opacity-0",
               )}
             >
-              <PaperButton href={GET_STARTED_HREF}>
+              <PaperButton href={GET_STARTED_HREF} arrow>
                 {GET_STARTED_LABEL}
-                <ArrowRightIcon className="size-[15px]" />
               </PaperButton>
               <PaperLabel tone="ink" as="span">
                 {MARKETING_REASSURANCE}

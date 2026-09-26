@@ -76,6 +76,7 @@ export function MarketingNavbar() {
       <PaperButton
         href={GET_STARTED_HREF}
         size="sm"
+        arrow
         variant={isPastHero ? "blue" : "outline"}
         className={cn(
           !isPastHero &&

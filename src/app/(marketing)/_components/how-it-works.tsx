@@ -38,6 +38,8 @@ import {
   PaperDisplay,
   PaperReveal,
 } from "@/components/global/paper";
+import { cn } from "@/lib/utils";
+import { BAND_ROW } from "./band-row";
 import { DemoPanel } from "./demo-panel";
 import { FeatureRows } from "./feature-rows";
 
@@ -60,11 +62,12 @@ export function HowItWorks() {
             /* A hairline between steps rather than a gap alone — the same rule
                the feature rows and the dashboard's bands use, so the whole page
                separates things one way. The first row has nothing above it to be
-               separated from. */
+               separated from. The row itself is the hover target; see
+               BAND_ROW. */
             /* items-START, not center. Centred, a short body left a hole under
                the copy while the artifact floated alongside it; on one top edge
                the two columns begin together and the row reads as deliberate. */
-            className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-start gap-[clamp(24px,4vw,56px)] border-t border-ink-foreground/12 py-[clamp(40px,6vw,76px)] first:border-t-0 first:pt-0 last:pb-0"
+            className={cn(BAND_ROW.row, "first:border-t-0 first:pt-0 last:pb-0")}
           >
             <div className="flex min-w-0 flex-col gap-4">
               <div className="flex flex-wrap items-baseline gap-3">
@@ -72,7 +75,7 @@ export function HowItWorks() {
                   as="span"
                   size="band"
                   tone="inherit"
-                  className="bg-blue px-2 py-1 text-[12px] tracking-[0.1em] text-blue-foreground"
+                  className={BAND_ROW.marker}
                 >
                   {step.marker}
                 </PaperLabel>
