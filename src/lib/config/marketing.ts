@@ -11,7 +11,8 @@
  *   MARKETING_COMPOSER_TONES, MARKETING_POST_LINES, MARKETING_COMPOSER_QUEUE,
  *   MarketingComposerRecentItem, MARKETING_STEPS, MarketingStep,
  *   MarketingStepArtifact, MARKETING_PROFILE_ROWS, MarketingProfileRow,
- *   MARKETING_CALENDAR, MARKETING_CLOSING, MARKETING_FOOTER_GROUPS,
+ *   MARKETING_CALENDAR, MARKETING_FEATURE_PREVIEWS, MARKETING_CLOSING,
+ *   MARKETING_FOOTER_GROUPS,
  *   MarketingFooterGroup, MarketingNavItem, GET_STARTED_HREF,
  *   GET_STARTED_LABEL, MARKETING_DISCLAIMER, landing page copy, paper design
  *
@@ -489,16 +490,17 @@ export const MARKETING_CALENDAR = {
  *        disappears. Paper is the same inversion the steps above them already
  *        use for the same reason.
  *
- *        NO ORDINALS, and that is the point of the shape. These four are a SET,
- *        not a sequence — nobody does studio before voice. Numbering them made
- *        them look like a second run of the how-it-works steps, which are a
- *        genuine order (write, queue, fix the profile) and are numbered for that
- *        reason. A name is the marker here; a number would be a claim about
- *        order that is not true.
+ *        NUMBERED, continuing the steps rather than restarting. These four are
+ *        a set rather than a sequence — nobody does studio before voice — and
+ *        an earlier pass dropped the ordinals for exactly that reason. The
+ *        counter-argument won: names on one half of the band and numbers on the
+ *        other made the two halves read as two sections, which defeats the
+ *        merge. The numbers are reading order, not workflow, and the renderer
+ *        derives them from the step count so they cannot collide.
  * WHERE: src/app/(marketing)/_components/feature-rows.tsx.
  */
 export interface MarketingFeature {
-  /** The surface's own name, and the row's only marker. */
+  /** The surface's own name, shown beside its number. */
   label: string;
   /**
    * Which diagram the row draws. A closed union rather than a free string, so a
@@ -566,6 +568,95 @@ export const MARKETING_FEATURES: readonly MarketingFeature[] = [
     ],
   },
 ];
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MarketingPanelArtifact, DemoPanel, panel artifact,
+ *   step artifact, feature preview
+ *
+ * WHAT:  Every panel the dark band can draw — the three steps' artifacts and
+ *        the four feature previews, as one union.
+ * WHY:   One renderer draws all seven, so it needs one union to switch on. It
+ *        is DERIVED from the two lists rather than retyped, which is what makes
+ *        adding a step or a feature a compile error in the renderer instead of
+ *        a panel that silently falls through to whichever branch is last.
+ * WHERE: src/app/(marketing)/_components/demo-panel.tsx.
+ */
+export type MarketingPanelArtifact =
+  | MarketingStepArtifact
+  | MarketingFeature["artifact"];
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_FEATURE_PREVIEWS, feature preview,
+ *   studio preview, voice preview, carousel preview, ideas preview,
+ *   FeaturePreview, glimpse card, feature rows, landing page copy
+ *
+ * WHAT:  What each of the four preview panels beside a feature row says — one
+ *        entry per MarketingFeature["artifact"].
+ * WHY:   COPY LIVES HERE, THE DRAWING LIVES IN THE RENDERER. The same split
+ *        MARKETING_CALENDAR and MARKETING_PROFILE_SCORE already use for the
+ *        steps' artifacts, so rewording a panel never means opening a
+ *        component — and the two halves of the dark band stay editable the
+ *        same way.
+ *
+ *        Each panel shows the SMALLEST true thing its surface produces: a
+ *        banner with the avatar hole LinkedIn punches in it, the traits a voice
+ *        profile records, a deck you can swipe, an idea that has been given a
+ *        slot. Nothing here is a capability the app does not have.
+ *
+ *        `planned` on an idea is a plain boolean rather than an optional flag
+ *        so every row states its case: the inbox's one visible distinction is
+ *        which lines have a date, and an absent field would let a new row join
+ *        the list without anyone deciding.
+ * WHERE: src/app/(marketing)/_components/feature-rows.tsx.
+ */
+export const MARKETING_FEATURE_PREVIEWS = {
+  studio: {
+    label: "Studio canvas",
+    presets: ["Banner", "Headshot", "Featured"],
+    /** The preset on the canvas — the one the panel draws. */
+    activePreset: "Banner",
+    bannerLine: "Design that gets read",
+    name: "Your name",
+    role: "Your headline, set to fit",
+  },
+  voice: {
+    label: "Voice profile",
+    sourceLabel: "Trained on",
+    /** Counted up rather than printed, so the figure registers as a quantity. */
+    sourceCount: 12,
+    sourceUnit: "posts",
+    traits: ["Short sentences", "No emoji", "Ends on a question"],
+    appliedLabel: "Applied to every draft",
+  },
+  carousel: {
+    label: "Carousel",
+    /** The deck's real length — the counter's denominator and the dot count. */
+    pages: 7,
+    /** The three pages the panel shows of it. The demo swipes between them. */
+    slides: [
+      "What I learned shipping v1",
+      "The three mistakes",
+      "What we do now",
+    ],
+    outputLabel: "Document post",
+  },
+  ideas: {
+    label: "Idea inbox",
+    /* Every idea carries the slot it WOULD get. Which of them have one is the
+       demo's business, not the copy's — an idea with a hardcoded "planned" flag
+       would be a plan that cannot be watched happening. */
+    items: [
+      { text: "Why the redesign shipped late", slot: "Tue 09:00" },
+      { text: "The brief I wish I had asked for", slot: "Thu 09:00" },
+      { text: "Three questions before a rebuild", slot: "Mon 09:00" },
+    ],
+    capturedLabel: "Captured",
+    planLabel: "This month",
+    /** Slots already filled before these ideas are placed, and the month's size. */
+    filledSlots: 12,
+    totalSlots: 30,
+  },
+} as const;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_CLOSING, final CTA copy
