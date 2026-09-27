@@ -31,7 +31,9 @@ import { trpc } from "@/trpc/react-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   CAROUSEL_PAGE_PRESETS,
-  type CarouselSlides,
+  carouselPagePresetSchema,
+  carouselTemplateSchema,
+  type CarouselDraftValues,
   type CarouselStatus,
   type GenerateCarouselValues,
 } from "@/lib/types";
@@ -78,17 +80,26 @@ export function CarouselWorkspace() {
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [isPublishOpen, setIsPublishOpen] = React.useState(false);
 
-  /* The editing buffer. Held here rather than inside SlideEditor so switching
-   * decks cannot carry one deck's unsaved edits into another. */
-  const [draftSlides, setDraftSlides] = React.useState<CarouselSlides | null>(
-    null,
-  );
+  /* The editing buffer. Held here rather than inside SlideEditor so switching decks
+   * cannot carry one deck's unsaved edits into another.
+   *
+   * It carries the LOOK as well as the slides. When it was the slide array alone,
+   * `isDirty` could not see a template change: Save stayed disabled while Render
+   * stayed enabled, so one click produced a PDF of the old template. */
+  const [draft, setDraft] = React.useState<CarouselDraftValues | null>(null);
 
   const enabled = organizationId !== undefined;
   const orgInput = { organizationId: organizationId ?? "" };
 
   const listQuery = trpc.carousel.list.useQuery(
-    { ...orgInput, page, pageSize: PAGE_SIZE },
+    {
+      ...orgInput,
+      page,
+      pageSize: PAGE_SIZE,
+      /* Conditional spread: exactOptionalPropertyTypes rejects an explicit
+         undefined against the schema's optional `search`. */
+      ...(search.trim() ? { search: search.trim() } : {}),
+    },
     { enabled, retry: false },
   );
 
@@ -108,8 +119,21 @@ export function CarouselWorkspace() {
   const [syncedId, setSyncedId] = React.useState<string | null>(null);
   if (openQuery.data && openQuery.data.id !== syncedId) {
     setSyncedId(openQuery.data.id);
-    /* No cast: carousel.get returns slides already parsed into CarouselSlides. */
-    setDraftSlides(openQuery.data.slides);
+    setDraft({
+      /* No cast: carousel.get returns slides already parsed into CarouselSlides. */
+      slides: openQuery.data.slides,
+      /* templateId and pagePreset ARE bare Prisma Strings, so they are parsed with a
+       * fallback rather than asserted. This is the client-side twin of the
+       * never-throw contract getCarouselPalette documents: a row written by an older
+       * vocabulary opens in the default look, where a cast would put an unknown
+       * string into a <Select value> and render an empty trigger. */
+      templateId: carouselTemplateSchema
+        .catch("minimal")
+        .parse(openQuery.data.templateId),
+      page: carouselPagePresetSchema
+        .catch("portrait")
+        .parse(openQuery.data.pagePreset),
+    });
   }
 
   /* Returns the promise rather than firing and forgetting. A mutation's onSuccess
@@ -167,21 +191,25 @@ export function CarouselWorkspace() {
   if (!organizationId) return null;
 
   const rows = listQuery.data?.items ?? [];
-  /* Filtered client-side because the router exposes no search input and the page
-   * is small; the empty-state copy distinguishes "no matches" from "nothing
-   * here" so a filtered view never reads as an empty workspace. */
-  const visibleRows = search
-    ? rows.filter((row) =>
-        row.topic.toLowerCase().includes(search.toLowerCase()),
-      )
-    : rows;
 
   const columns: ReadonlyArray<DataTableColumn<CarouselListRow>> = [
     {
       id: "topic",
-      header: "Topic",
+      header: "Deck",
+      /* The document's title first, the topic only as a fallback. A topic is the
+       * PROMPT the author typed, so a list of topics reads like a list of
+       * instructions; once a deck has rendered it has a real public name. */
       render: (row) => (
-        <span className="line-clamp-1 font-medium">{row.topic}</span>
+        <div className="flex flex-col">
+          <span className="line-clamp-1 font-medium">
+            {row.document?.title ?? row.topic}
+          </span>
+          {row.document?.title ? (
+            <span className="line-clamp-1 text-xs text-muted-foreground">
+              {row.topic}
+            </span>
+          ) : null}
+        </div>
       ),
     },
     {
@@ -219,12 +247,21 @@ export function CarouselWorkspace() {
   const openCarousel = openQuery.data;
 
   /* Compared against the loaded row, not tracked with a flag: a flag drifts the
-   * moment a save resolves, and "dirty" must mean the buffer differs from what
-   * is stored — that is what makes Render safe to gate on. */
+   * moment a save resolves, and "dirty" must mean the buffer differs from what is
+   * stored — that is what makes Render safe to gate on.
+   *
+   * ONE comparison over the whole draft, so a template or shape change is dirty
+   * too. Comparing only slides is what previously left Save disabled and Render
+   * enabled after switching template. */
   const isDirty =
-    draftSlides !== null &&
+    draft !== null &&
     openCarousel !== undefined &&
-    JSON.stringify(draftSlides) !== JSON.stringify(openCarousel.slides);
+    JSON.stringify(draft) !==
+      JSON.stringify({
+        slides: openCarousel.slides,
+        templateId: openCarousel.templateId,
+        page: openCarousel.pagePreset,
+      });
 
   return (
     <ContentLayout
@@ -250,21 +287,32 @@ export function CarouselWorkspace() {
           feature, one wearing the treatment and one not, reads as an unfinished
           port rather than as a design — the same reason studio scopes both. */}
       <TechSurface>
-      {openId && openCarousel && draftSlides ? (
+      {openId && openCarousel && draft ? (
         <SlideEditor
-          slides={draftSlides}
-          onChange={setDraftSlides}
+          /* Keyed by deck: one attribute resets selection, drag state, card keys and
+             the live region at exactly the boundary where syncedId resets the
+             buffer. Without it those survive a deck switch. */
+          key={openId}
+          draft={draft}
+          onChange={setDraft}
           onSave={() =>
             updateMutation.mutate({
               ...orgInput,
               id: openId,
-              slides: draftSlides,
+              slides: draft.slides,
+              /* The look travels with the save. updateCarouselSchema and
+                 updateCarouselRecord already accepted both — nothing was sending
+                 them, which is why the editor could not change either. */
+              templateId: draft.templateId,
+              page: draft.page,
             })
           }
           onRender={() => renderMutation.mutate({ ...orgInput, id: openId })}
           isSaving={updateMutation.isPending}
           isRendering={renderMutation.isPending}
           isDirty={isDirty}
+          status={openCarousel.status}
+          deckTitle={openCarousel.document?.title ?? openCarousel.topic}
           documentUrl={openCarousel.document?.url}
           documentFileName={openCarousel.document?.fileName}
           documentId={openCarousel.document?.id}
@@ -273,7 +321,7 @@ export function CarouselWorkspace() {
         />
       ) : (
         <DataTable
-          rows={visibleRows}
+          rows={rows}
           columns={columns}
           rowKey={(row) => row.id}
           isLoading={listQuery.isLoading}
@@ -283,7 +331,13 @@ export function CarouselWorkspace() {
           empty="No carousels yet. Generate your first one."
           search={{
             value: search,
-            onChange: setSearch,
+            /* Page 1 on every new term: staying on page three of a result set that
+               now has one page renders an empty table. Same reason the post library
+               resets here. */
+            onChange: (value) => {
+              setSearch(value);
+              setPage(1);
+            },
             placeholder: "Search by topic…",
           }}
           pagination={{

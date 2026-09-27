@@ -265,6 +265,10 @@ export const carouselRouter = createTRPCRouter({
     .query(async ({ ctx, input }) =>
       carouselService.listCarousels(
         input.organizationId,
+        /* Conditional spread, not `search: input.search` — under
+         * exactOptionalPropertyTypes an explicit `undefined` is not assignable to
+         * an optional property. */
+        { ...(input.search ? { search: input.search } : {}) },
         ctx.pagination,
         ctx.db,
       ),

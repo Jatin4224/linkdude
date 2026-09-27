@@ -11,6 +11,7 @@ import "server-only";
  *   CarouselSlideView, RenderedCarousel, listCarousels, getCarousel,
  *   createCarouselRecord, updateCarouselRecord, attachCarouselDocument,
  *   markCarouselFailed, discardCarousel, parseCarouselSlides,
+ *   renderCarouselSlidePreview, RenderedCarouselSlide, resolveSlideRenderContext,
  *   CAROUSEL_SAFE_SELECT, CAROUSEL_LIST_SELECT
  *
  * WHAT:  The carousel render pipeline — React slide → PNG (satori/resvg via
@@ -56,10 +57,12 @@ import {
   type CarouselTypeScale,
 } from "@/lib/config";
 import {
+  carouselPagePresetSchema,
   carouselSlidesSchema,
-  type CarouselPagePreset,
   type CarouselSlide,
+  type CarouselSlidePreviewValues,
   type CarouselSlides,
+  type ListCarouselsValues,
 } from "@/lib/types";
 
 /* The font buffers moved to their own service once the studio renderer needed
@@ -249,6 +252,97 @@ export interface RenderedCarousel {
   pageCount: number;
 }
 
+/* Declared here beside RenderedCarousel rather than in lib/types, matching
+ * RenderedDesign in design-render.service: a render RESULT is the shape of what
+ * this service produces, not a contract anything else authors. Both existing
+ * render results live with their renderer; keep it that way. */
+export interface RenderedCarouselSlide {
+  base64: string;
+  byteSize: number;
+  width: number;
+  height: number;
+}
+
+interface SlideRenderContext {
+  preset: (typeof CAROUSEL_PAGE_PRESETS)[keyof typeof CAROUSEL_PAGE_PRESETS];
+  palette: CarouselPalette;
+  scale: CarouselTypeScale;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: resolveSlideRenderContext, preset, palette, scale
+ *
+ * WHAT:  Turns a deck's stored templateId and pagePreset into the geometry,
+ *        palette and type scale a slide is drawn with.
+ * WHY:   Shared by the PDF export and the live preview, and that sharing is the
+ *        whole point: two independent resolutions would let the preview and the
+ *        downloaded file disagree, which is the one failure a design tool cannot
+ *        have. "The preview is the real render" is only true while exactly one
+ *        function decides what real means.
+ *
+ *        The page id is PARSED with a fallback rather than cast. Both values arrive
+ *        as bare Prisma Strings, and `.catch()` mirrors the never-throw contract
+ *        getCarouselPalette and getCarouselTypeScale already document — a row
+ *        written by an older vocabulary renders in the default shape instead of
+ *        throwing inside a rasterisation loop.
+ * WHERE: renderCarouselPdf and renderCarouselSlidePreview, and nothing else.
+ */
+function resolveSlideRenderContext(
+  templateId: string,
+  pagePreset: string,
+): SlideRenderContext {
+  const page = carouselPagePresetSchema.catch("portrait").parse(pagePreset);
+  return {
+    preset: CAROUSEL_PAGE_PRESETS[page],
+    palette: getCarouselPalette(templateId),
+    scale: getCarouselTypeScale(page),
+  };
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: renderCarouselSlidePreview, RenderedCarouselSlide
+ *
+ * WHAT:  Rasterises ONE slide, for the editor's live preview.
+ * WHY:   Exported while renderSlidePng and CarouselSlideView stay private, which
+ *        mirrors how renderDesignPng is exposed to the studio's preview route: the
+ *        transport layer hands over a parsed document and the SERVICE owns render
+ *        policy. Exporting the raw rasteriser instead would force the route to
+ *        assemble SlideViewProps — a private interface in a server-only file that
+ *        would then have to be promoted into lib/types purely so an HTTP handler
+ *        could construct render input.
+ *
+ *        Draws the same element tree as the PDF through the same context resolver,
+ *        so the preview cannot drift from the file the member downloads.
+ * WHERE: src/app/api/carousel/preview/route.ts.
+ */
+export async function renderCarouselSlidePreview(
+  input: CarouselSlidePreviewValues,
+): Promise<RenderedCarouselSlide> {
+  const { preset, palette, scale } = resolveSlideRenderContext(
+    input.templateId,
+    input.page,
+  );
+
+  const png = await renderSlidePng(
+    {
+      slide: input.slide,
+      index: input.index,
+      total: input.total,
+      palette,
+      scale,
+    },
+    preset.width,
+    preset.height,
+  );
+
+  return {
+    base64: png.toString("base64"),
+    byteSize: png.byteLength,
+    width: preset.width,
+    height: preset.height,
+  };
+}
+
 /**
  * SOURCE OF TRUTH KEYWORDS: renderCarouselPdf
  *
@@ -270,11 +364,12 @@ export async function renderCarouselPdf(
   templateId: string,
   pagePreset: string,
 ): Promise<RenderedCarousel> {
-  const preset =
-    CAROUSEL_PAGE_PRESETS[pagePreset as CarouselPagePreset] ??
-    CAROUSEL_PAGE_PRESETS.portrait;
-  const palette = getCarouselPalette(templateId);
-  const scale = getCarouselTypeScale(pagePreset);
+  /* Same resolver the live preview uses — see the note there on why that sharing
+   * is what keeps the two from disagreeing. */
+  const { preset, palette, scale } = resolveSlideRenderContext(
+    templateId,
+    pagePreset,
+  );
 
   const pdf = await PDFDocument.create();
 
@@ -346,7 +441,12 @@ const CAROUSEL_LIST_SELECT = {
   lastError: true,
   createdAt: true,
   updatedAt: true,
-  document: { select: { id: true, url: true, fileName: true } },
+  /* `title` rides along so the list can name a rendered deck by the title it
+   * actually published under, falling back to the topic. A row's topic is the
+   * PROMPT the author typed, which is why an unrendered deck reads like an
+   * instruction — the document's title is the name the deck gave itself. Cheap:
+   * one more column on a relation this select already loads. */
+  document: { select: { id: true, url: true, fileName: true, title: true } },
 } as const;
 
 /**
@@ -368,20 +468,45 @@ function parseCarouselSlides(value: Prisma.JsonValue): CarouselSlides {
   return carouselSlidesSchema.parse(value);
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: listCarousels, search, CarouselWhereInput
+ *
+ * WHAT:  A page of decks for the workspace list, optionally narrowed by topic.
+ * WHY:   ONE `where`, used by both the page query and the count, and that is the
+ *        actual fix rather than a tidiness point. Search used to happen in the
+ *        browser over the rows already fetched, so the rows shrank while the
+ *        server's `total` did not — a search could render an empty table beneath
+ *        "Page 1 of 4". A shared predicate makes that state unreachable.
+ *
+ *        `contains` with `mode: "insensitive"`, matching the post library and the
+ *        idea inbox. Carousel.topic carries no index, so this is a per-org scan
+ *        exactly as LinkedInPost.commentary is — acceptable at this table's size,
+ *        and the schema caps the term at 200 characters so it stays bounded.
+ * WHERE: carousel.list. Filters are separate from pagination because the factory
+ *        owns pagination and the router owns the filter.
+ */
 export async function listCarousels(
   organizationId: string,
+  filters: Pick<ListCarouselsValues, "search">,
   pagination: { skip: number; take: number },
   db: DbClient = prisma,
 ) {
+  const where: Prisma.CarouselWhereInput = {
+    organizationId,
+    ...(filters.search
+      ? { topic: { contains: filters.search, mode: "insensitive" } }
+      : {}),
+  };
+
   const [items, total] = await Promise.all([
     db.carousel.findMany({
-      where: { organizationId },
+      where,
       orderBy: { updatedAt: "desc" },
       select: CAROUSEL_LIST_SELECT,
       skip: pagination.skip,
       take: pagination.take,
     }),
-    db.carousel.count({ where: { organizationId } }),
+    db.carousel.count({ where }),
   ]);
   return { items, total };
 }

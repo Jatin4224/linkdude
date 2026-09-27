@@ -21,6 +21,13 @@ const nextConfig: NextConfig = {
      * file, so without this entry the tracer leaves it out of the deployed
      * bundle and the card silently renders every weight identically. */
     "/opengraph-image": ["./src/app/assets/fonts/**"],
+    /* The two live-preview route handlers rasterise with satori too, and they were
+     * the ones this list had missed: a preview drawn without the explicit buffers
+     * falls back to the single Regular face next/og bundles, so the previewed slide
+     * renders FLAT while the traced PDF path renders correctly. Nothing looks
+     * broken — the weights just stop meaning anything. */
+    "/api/carousel/preview": ["./src/app/assets/fonts/**"],
+    "/api/studio/preview": ["./src/app/assets/fonts/**"],
   },
 };
 

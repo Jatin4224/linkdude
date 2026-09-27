@@ -47,7 +47,11 @@
  *   DESIGN_IMAGE_SLOT_KEYS, DESIGN_COMPUTED_VALUES, designTextRefSchema,
  *   designBlockSchema, DesignBlock, designLeafBlockSchema,
  *   designLayoutOverrideSchema, designBackgroundSchema, designDocSchema,
- *   DesignDoc, DesignDocInput, DESIGN_MAX_BLOCKS, slotsUsedBy
+ *   DesignDoc, DesignDocInput, DESIGN_MAX_BLOCKS, slotsUsedBy,
+ *   carouselSlideSchema, carouselSlidesSchema, CarouselSlide, CarouselSlides,
+ *   carouselDraftSchema, CarouselDraftValues, carouselSlidePreviewSchema,
+ *   CarouselSlidePreviewValues, normalizeCarouselSlideKinds,
+ *   carouselSlideKindOptionsFor, CAROUSEL_TEMPLATES, CAROUSEL_PAGE_PRESETS
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
  *        for custom (non-Prisma) types and their backing zod schemas.
@@ -383,9 +387,13 @@ export {
   CAROUSEL_TOPIC_MAX,
   carouselSlideSchema,
   carouselSlidesSchema,
+  carouselSlideKindOptionsFor,
+  normalizeCarouselSlideKinds,
   generateCarouselSchema,
   updateCarouselSchema,
+  carouselDraftSchema,
   renderCarouselSchema,
+  carouselSlidePreviewSchema,
   getCarouselSchema,
   discardCarouselSchema,
   listCarouselsSchema,
@@ -402,7 +410,9 @@ export type {
   GenerateCarouselValues,
   GenerateCarouselInput,
   UpdateCarouselValues,
+  CarouselDraftValues,
   RenderCarouselValues,
+  CarouselSlidePreviewValues,
   GetCarouselValues,
   DiscardCarouselValues,
   ListCarouselsValues,
