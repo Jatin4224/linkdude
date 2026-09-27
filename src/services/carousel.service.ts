@@ -115,7 +115,7 @@ function carouselSlideToDesignDoc(
   canvas: DesignCanvasKey,
   palette: CarouselPalette,
 ): DesignDoc {
-  const isCta = slide.kind === "cta";
+  const layout = getCarouselLayout(templateId, slide.kind);
 
   const bulletSlots = ["pointA", "pointB", "pointC", "pointD", "pointE"] as const;
   const bulletContent = Object.fromEntries(
@@ -142,15 +142,14 @@ function carouselSlideToDesignDoc(
       border: palette.border,
       accent: palette.accent,
     },
-    /* The cta inverts to the accent field. Every other slide sits on the
-     * background — the behaviour CarouselSlideView had, expressed as data. */
-    background: {
-      kind: "solid",
-      color: { slot: isCta ? "accent" : "background" },
-    },
-    /* A cover is one statement on the baseline; everything else centres. */
-    justify: slide.kind === "cover" ? "end" : "center",
-    blocks: getCarouselLayout(templateId, slide.kind),
+    /* The field and the placement are the LAYOUT'S, not this function's. They
+     * were a hardcoded `isCta ? accent : background` branch here, which meant a
+     * template could not decide how its own closing slide inverted — and a
+     * template whose accent is a marker yellow has nothing readable to put on a
+     * full slide of it. */
+    background: { kind: "solid", color: { slot: layout.field } },
+    justify: layout.justify,
+    blocks: layout.blocks,
     content: {
       headline: slide.heading,
       body: slide.body,

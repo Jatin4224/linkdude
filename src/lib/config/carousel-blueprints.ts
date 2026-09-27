@@ -119,6 +119,89 @@ export const CAROUSEL_BLUEPRINTS: Record<CarouselTemplate, CarouselBlueprint> = 
       slots: ["heading", "body", "ctaLabel"],
     },
   },
+
+  /* A different ARC, not just a different voice. This one teaches: it opens on a
+   * shift, spends its middle on one named mechanism, and closes by handing the
+   * reader the mechanism to keep. The margin notes are part of the argument here,
+   * which is why nearly every step asks for one. */
+  notebook: {
+    label: "Teaching",
+    voice:
+      "Warm and explanatory, like someone thinking out loud on paper. Short paragraphs, plain words, and one aside per slide that says the quiet part — the thing you would scribble in a margin rather than put in the main text. Never lecture; show the reasoning and let the reader draw the conclusion.",
+    cover: {
+      job: "Name the shift in plain language — what used to work, and what changed. Mark the two or three words that carry the change with == ==.",
+      kind: "cover",
+      slots: ["eyebrow", "heading", "body", "note"],
+    },
+    middle: [
+      {
+        job: "Describe the situation the reader is actually in right now. Concrete enough that they recognise themselves in it.",
+        kind: "content",
+        slots: ["heading", "body", "note"],
+      },
+      {
+        job: "Name the real problem underneath the obvious one. This is the slide that earns the deck, so put the sharpest sentence in the callout.",
+        kind: "content",
+        slots: ["heading", "body", "callout"],
+      },
+      {
+        job: "Give the mechanism as ordered steps. Short lines, each a single action — this is the slide people screenshot.",
+        kind: "content",
+        slots: ["heading", "bullets"],
+      },
+      {
+        job: "Show what changes once the mechanism is in place. A before and after, or a specific outcome from the topic.",
+        kind: "content",
+        slots: ["heading", "body", "note"],
+      },
+    ],
+    cta: {
+      job: "Hand the reader the one thing to take away, then ask for one small concrete action.",
+      kind: "cta",
+      slots: ["heading", "body", "ctaLabel"],
+    },
+  },
+
+  /* The contrarian arc: reject the common goal, replace it with a better one,
+   * then show the chain that gets there. Built for the flow-list slide, which is
+   * why its mechanism step is bullets-only. */
+  linkdude: {
+    label: "Contrarian",
+    voice:
+      "Confident and plain-spoken, in the second person. Very short sentences. State the wrong belief, then the right one, with nothing hedged in between. No hype adjectives — the contrast does the work, and a claim that needs an intensifier was not sharp enough to begin with.",
+    cover: {
+      job: "Reject the goal everyone is chasing and name the real one. Mark the replacement with == == so the design can set it apart.",
+      kind: "cover",
+      slots: ["eyebrow", "heading"],
+    },
+    middle: [
+      {
+        job: "Say plainly why the common goal is the wrong target. One reason, stated as a verdict.",
+        kind: "content",
+        slots: ["heading", "body"],
+      },
+      {
+        job: "Give the chain that actually produces the outcome — each step leading to the next, three to five links.",
+        kind: "content",
+        slots: ["heading", "bullets"],
+      },
+      {
+        job: "Name the mistake this reframing prevents, and put the line worth quoting in the callout.",
+        kind: "content",
+        slots: ["heading", "body", "callout"],
+      },
+      {
+        job: "Make it practical: what the reader should do differently on their very next attempt.",
+        kind: "content",
+        slots: ["heading", "bullets"],
+      },
+    ],
+    cta: {
+      job: "One imperative ask tied to the reframing, plus a short aside telling them who to send it to.",
+      kind: "cta",
+      slots: ["heading", "ctaLabel", "note"],
+    },
+  },
 };
 
 /**

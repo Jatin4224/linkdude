@@ -77,7 +77,15 @@ export type CarouselSlideKind = (typeof CAROUSEL_SLIDE_KINDS)[number];
  *        adding a design is a config entry plus a renderer branch — never a
  *        migration.
  */
-export const CAROUSEL_TEMPLATES = ["minimal", "bold", "editorial"] as const;
+export const CAROUSEL_TEMPLATES = [
+  "minimal",
+  "bold",
+  "editorial",
+  /* The illustrated pair. Same engine, same slots — they differ in palette,
+   * typeface and which hand-drawn marks their layouts place. */
+  "notebook",
+  "linkdude",
+] as const;
 export const carouselTemplateSchema = z.enum(CAROUSEL_TEMPLATES);
 export type CarouselTemplate = (typeof CAROUSEL_TEMPLATES)[number];
 

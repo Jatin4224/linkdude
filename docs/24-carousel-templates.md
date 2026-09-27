@@ -205,3 +205,60 @@ it traces fonts: nothing imports these files, so the tracer cannot infer them.
   multi-mark headings.
 
 **Not machine-verified:** how any of it actually looks. That still needs a browser.
+
+---
+
+# Phase D — the illustrated templates
+
+Two new entries: **notebook** (warm paper, marker headlines, navy ink, yellow swash)
+and **linkdude** (blue on white, marker headlines, a pill flow list). Each is a
+palette, a blueprint and a layout option set. **No renderer change.**
+
+## A template that cannot choose its own field is not a template
+
+The slide background was a hardcoded `isCta ? accent : background` branch in the
+service. That works only while every template's accent is a colour text can sit on —
+and notebook's is a marker yellow, so a cta filled with it has nothing readable to
+put on top.
+
+`CarouselSlideLayout` therefore carries `{ blocks, field, justify }`, and the service
+reads all three. notebook inverts onto its ink; the classic three still invert onto
+the accent, exactly as before.
+
+## Built from options, not five hand-written triples
+
+The structure of a deck slide does not vary between templates — counter, headline,
+supporting copy, list, spine. What varies is the typeface, which colours pair for the
+swash, and which drawn marks appear. So those are the options, and a sixth template
+is one entry rather than three more arrays to keep in step.
+
+The rule for when to stop: the moment an option appears that only one template uses,
+that template should write its own object instead.
+
+## Three contrast bugs the measurements caught
+
+Contrast was computed for every pairing in all five palettes rather than eyeballed,
+and it found what eyeballing would not have:
+
+1. **notebook's eyebrow at 1.50:1** — `accent` on `background` is marker yellow on
+   cream. Invisible. `eyebrowInk` is now an option; notebook uses `muted` (5.50).
+2. **The cta pill drew an invisible label** — it filled with `accent` and labelled
+   with the field, which on any template whose cta field *is* the accent is accent on
+   accent. It now fills with the ink and labels with the field.
+3. **The progress spine vanished on the cta** — Phase B made it always `accent`,
+   losing the inversion `CarouselSlideView` had. It now takes its ink from the caller.
+
+Final state: **no pairing below 3:1, and both new templates are AA throughout.**
+`minimal` sits at 3.50 across its accent pairings, which is pre-existing — it is
+white and brand blue on a near-black field, and passes AA for large text, which is
+what a slide heading is.
+
+## Adding template six
+
+1. A palette in `CAROUSEL_PALETTES`
+2. An arc and a voice in `CAROUSEL_BLUEPRINTS`
+3. An option set in `CAROUSEL_LAYOUTS`
+4. A label in `CAROUSEL_TEMPLATE_LABELS`
+
+Adding the id to `CAROUSEL_TEMPLATES` makes the compiler name all four. Nothing else
+changes — no renderer, no migration, no UI.

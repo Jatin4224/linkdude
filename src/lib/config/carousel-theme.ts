@@ -103,6 +103,30 @@ export const CAROUSEL_PALETTES: Record<CarouselTemplate, CarouselPalette> = {
     border: "#E4E4E4", // :root --border     oklch(0.92 0 0)
     accent: CAROUSEL_BRAND_HEX,
   },
+
+  /* Warm paper with a marker highlight. The accent is YELLOW rather than the
+   * channel blue, because in this template the accent's main job is the swash
+   * behind a marked word — and a blue swash under navy text is unreadable where
+   * yellow carries it. The cta slide inverts onto the navy foreground instead of
+   * onto the accent, which is why its layout states its own field. */
+  notebook: {
+    background: "#FAF6EC", // warm paper; a flat white loses the notebook read
+    foreground: "#16233A", // deep navy ink
+    muted: "#5C6475",
+    border: "#E7DFCE",
+    accent: "#F5C542", // marker yellow
+  },
+
+  /* High-contrast blue on white, for decks that read as a product's own
+   * material. Near-black rather than pure black for the ink: pure black beside a
+   * saturated blue reads as a rendering error on a bright feed. */
+  linkdude: {
+    background: "#FFFFFF",
+    foreground: "#0B1220",
+    muted: "#5B6474",
+    border: "#DCE6F5",
+    accent: "#2D6BFF",
+  },
 };
 
 /**
