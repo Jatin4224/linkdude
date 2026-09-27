@@ -47,3 +47,4 @@ next-env.d.ts
 .agents/
 skills-lock.json
 /research
+/linkedin-carousel-generator-feature-specification.md
