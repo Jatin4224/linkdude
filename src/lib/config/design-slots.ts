@@ -185,6 +185,22 @@ export const DESIGN_TEXT_SLOTS: Record<
     maxChars: 44,
     multiline: false,
   },
+  /* Carousel flow lists only. The ceiling is wider than pointA–C because these
+   * hold a slide's list line, which has a full slide width to sit in rather than
+   * a banner's right two-thirds — the same "a slot's ceiling belongs to the
+   * visual role" rule that split these from proofA–C in the first place. */
+  pointD: {
+    label: "Point 4",
+    placeholder: "→ Turn attention into trust",
+    maxChars: 80,
+    multiline: false,
+  },
+  pointE: {
+    label: "Point 5",
+    placeholder: "→ Turn trust into clients",
+    maxChars: 80,
+    multiline: false,
+  },
 };
 
 /**

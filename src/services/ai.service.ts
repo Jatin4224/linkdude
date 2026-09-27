@@ -79,7 +79,16 @@ import {
 import type { FetchedProfile } from "@/lib/types/profile-lookup";
 import {
   carouselSlidesSchema,
+  expandCarouselBlueprint,
   CAROUSEL_PAGE_PRESETS,
+  CAROUSEL_BODY_MAX,
+  CAROUSEL_BULLET_MAX,
+  CAROUSEL_CALLOUT_MAX,
+  CAROUSEL_CTA_LABEL_MAX,
+  CAROUSEL_HEADING_MAX,
+  CAROUSEL_HIGHLIGHT_MARK,
+  CAROUSEL_MAX_BULLETS,
+  CAROUSEL_NOTE_MAX,
   type CarouselSlides,
   type GenerateCarouselValues,
 } from "@/lib/types/carousel";
@@ -87,6 +96,7 @@ import {
   CAROUSEL_GENERATION_MAX_TOKENS,
   CAROUSEL_GENERATION_TIMEOUT_MS,
 } from "@/lib/config/carousel";
+import { getCarouselBlueprint } from "@/lib/config/carousel-blueprints";
 import {
   contentPlanInsightsSchema,
   contentPlanResultSchema,
@@ -1143,15 +1153,69 @@ Structure:
 Hook rules for the cover heading:
 ${LINKEDIN_HOOK_RULES}
 
+Slots — fill only the ones a slide is asked for, and leave the rest empty:
+- heading: the slide's one line. Always required.
+- body: supporting sentence or two. May be empty.
+- eyebrow: a short label above the heading, like a category. Two or three words.
+- bullets: short steps or points, at most ${String(CAROUSEL_MAX_BULLETS)}, each under ${String(CAROUSEL_BULLET_MAX)} characters. A flow, not a paragraph chopped up.
+- callout: the one line worth quoting out of this slide, under ${String(CAROUSEL_CALLOUT_MAX)} characters. Never a restatement of the heading.
+- ctaLabel: the ask in two or three words, like a button. Under ${String(CAROUSEL_CTA_LABEL_MAX)} characters.
+- note: a short aside, as if scribbled in the margin. Under ${String(CAROUSEL_NOTE_MAX)} characters.
+
+Emphasis:
+- In a heading you may wrap the two or three words carrying the claim in ${CAROUSEL_HIGHLIGHT_MARK}like this${CAROUSEL_HIGHLIGHT_MARK}, and the design will mark them.
+- At most one emphasis per heading, and never the whole heading — marking everything marks nothing.
+
 Hard rules:
-- headings are HEADLINES, not sentences. No trailing period. Under 90 characters, and shorter is better.
-- body is at most 260 characters and may be empty. A cover usually needs no body.
-- Never use markdown. No **bold**, no #, no bullet characters: the renderer draws text literally.
+- headings are HEADLINES, not sentences. No trailing period. Under ${String(CAROUSEL_HEADING_MAX)} characters, and shorter is better.
+- body is at most ${String(CAROUSEL_BODY_MAX)} characters and may be empty. A cover usually needs no body.
+- Never use markdown. No **bold**, no #, no bullet characters: the renderer draws text literally. The ${CAROUSEL_HIGHLIGHT_MARK} emphasis above is the ONLY markup that exists.
 - No emoji.
 ${LINKEDIN_LANGUAGE_RULES}
 - Be concrete. A name or a specific example beats an abstract claim on every single slide. Never invent numbers, names or results that are not in the topic.
 - The deck must make one argument from start to finish. Slide 4 should depend on slide 3.
 - Write in first person as a practitioner sharing what they actually know.`;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: buildCarouselBlueprintPrompt, CAROUSEL_BLUEPRINTS,
+ *   expandCarouselBlueprint, narrative arc, slide job
+ *
+ * WHAT:  Turns the chosen template's blueprint into a slide-by-slide brief.
+ * WHY:   The deck used to be asked for as "N slides about X", which is why every
+ *        deck came back as N interchangeable paragraphs — the model had no reason
+ *        to make slide four depend on slide three. Stating each slide's JOB is what
+ *        turns a list into an argument.
+ *
+ *        Slots are named per slide so the model knows which fields to fill and
+ *        which to leave empty. Asking for every slot on every slide produces a deck
+ *        where each slide carries an eyebrow, a callout and a note whether or not
+ *        it has anything to put in them.
+ *
+ *        The arc is still GUIDANCE, not validation. Same reasoning as the slide
+ *        count below: a deck that drifts from its blueprint is one the user fixes
+ *        in the editor, where a rejected generation gives them nothing.
+ * WHERE: generateCarouselSlides.
+ */
+function buildCarouselBlueprintPrompt(
+  templateId: string,
+  slideCount: number,
+): string {
+  const blueprint = getCarouselBlueprint(templateId);
+  const steps = expandCarouselBlueprint(blueprint, slideCount);
+
+  const lines = steps.map(
+    (step, index) =>
+      `${String(index + 1)}. [${step.kind}] ${step.job} Fill: ${step.slots.join(", ")}.`,
+  );
+
+  return [
+    ``,
+    `Voice for this deck: ${blueprint.voice}`,
+    ``,
+    `Write these ${String(slideCount)} slides, in this order:`,
+    ...lines,
+  ].join("\n");
+}
 
 /**
  * SOURCE OF TRUTH KEYWORDS: generateCarouselSlides
@@ -1190,6 +1254,9 @@ export async function generateCarouselSlides(
        * so the same heading that breathes on portrait crowds on square. */
       `Slide shape: ${preset.label}. Keep headings short enough to sit comfortably in that shape.`,
       `Return exactly ${input.slideCount} slides: one "cover", ${input.slideCount - 2} "content", one "cta", in that order.`,
+      /* The template's arc and voice. Placed after the topic so the brief reads
+       * as "here is the subject, now here is how this deck argues it". */
+      buildCarouselBlueprintPrompt(input.templateId, input.slideCount),
     ].join("\n") + buildVoiceDirective(voice),
     /* A whole deck in one object. The 4096 global is sized for a single post and
      * truncates this mid-array, which the SDK reports as a schema mismatch rather

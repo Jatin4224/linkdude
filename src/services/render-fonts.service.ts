@@ -32,7 +32,7 @@ import "server-only";
  *        900 renders identically. A design that looks flat rather than broken is
  *        the hardest render bug to notice.
  * WHERE: src/services/design-render.service.tsx and
- *        src/services/carousel.service.tsx. Any new rasteriser should call this
+ *        src/services/carousel.service.ts. Any new rasteriser should call this
  *        rather than reading CAROUSEL_FONT_FILES itself.
  */
 

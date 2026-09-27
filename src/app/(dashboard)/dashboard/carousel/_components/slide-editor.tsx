@@ -53,6 +53,7 @@ import {
   carouselPagePresetSchema,
   carouselSlideKindOptionsFor,
   normalizeCarouselSlideKinds,
+  createEmptyCarouselSlide,
   type CarouselDraftValues,
   type CarouselPagePreset,
   type CarouselSlide,
@@ -239,7 +240,7 @@ export function SlideEditor({
      * Save stays blocked until it is written — which is correct. Seeding "New slide"
      * would make the deck saveable, renderable and publishable with a slide
      * literally titled that. */
-    applyInsert(at, { kind: "content", heading: "", body: "" });
+    applyInsert(at, createEmptyCarouselSlide("content"));
     setAnnouncement(`Added a slide at position ${String(at + 1)}.`);
   }
 

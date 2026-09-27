@@ -274,6 +274,11 @@ export const DESIGN_TEXT_SLOT_KEYS = [
   "pointA",
   "pointB",
   "pointC",
+  /* D and E exist for carousel slides, which carry a flow list — "attention →
+   * trust → authority → clients" is four steps, and three slots cannot hold it.
+   * No studio archetype references them, so they cost that feature nothing. */
+  "pointD",
+  "pointE",
 ] as const;
 export const designTextSlotSchema = z.enum(DESIGN_TEXT_SLOT_KEYS);
 export type DesignTextSlotKey = (typeof DESIGN_TEXT_SLOT_KEYS)[number];

@@ -7,8 +7,8 @@
 import "server-only";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: renderCarouselPdf, renderSlidePng, loadCarouselFonts,
- *   CarouselSlideView, RenderedCarousel, listCarousels, getCarousel,
+ * SOURCE OF TRUTH KEYWORDS: renderCarouselPdf, renderCarouselSlide,
+ *   carouselSlideToDesignDoc, RenderedCarousel, listCarousels, getCarousel,
  *   createCarouselRecord, updateCarouselRecord, attachCarouselDocument,
  *   markCarouselFailed, discardCarousel, parseCarouselSlides,
  *   renderCarouselSlidePreview, RenderedCarouselSlide, resolveSlideRenderContext,
@@ -42,14 +42,12 @@ import "server-only";
  *        by that router via imagekit.service.uploadFileBytes.
  */
 
-import { ImageResponse } from "next/og";
 import { PDFDocument } from "pdf-lib";
 
 import type { Prisma } from "@/generated/prisma";
 
 import { prisma, type DbClient } from "@/lib/config/prisma";
 import {
-  CAROUSEL_FONT_FAMILY,
   CAROUSEL_PAGE_PRESETS,
   getCarouselPalette,
   getCarouselTypeScale,
@@ -59,189 +57,110 @@ import {
 import {
   carouselPagePresetSchema,
   carouselSlidesSchema,
+  carouselTemplateSchema,
+  designDocSchema,
+  type CarouselPagePreset,
   type CarouselSlide,
   type CarouselSlidePreviewValues,
   type CarouselSlides,
+  type CarouselTemplate,
+  type DesignCanvasKey,
+  type DesignDoc,
   type ListCarouselsValues,
 } from "@/lib/types";
-
-/* The font buffers moved to their own service once the studio renderer needed
- * the same ones — see the note on loadCarouselFonts below. */
-import { loadRenderFonts, type LoadedFont } from "./render-fonts.service";
+import { getCarouselLayout } from "@/lib/config/carousel-layouts";
+import { renderDesignPng } from "./design-render.service";
 
 // ---------------------------------------------------------------------------
 // Fonts
 // ---------------------------------------------------------------------------
 
-/**
- * SOURCE OF TRUTH KEYWORDS: loadCarouselFonts
- *
- * WHAT:  The Geist faces satori draws with.
- * WHY:   Was a local cached-promise loader here until the studio renderer needed
- *        the same buffers. Now a thin alias over the shared one in
- *        render-fonts.service, so both rasterisers hit ONE per-process cache
- *        instead of each paying its own disk read.
- *
- *        The reason the fonts are passed explicitly at all has not changed:
- *        without them satori falls back to the single Regular face bundled in
- *        next/og and SILENTLY IGNORES fontWeight — every weight from 300 to 900
- *        rasterises identically, so a heading cannot outweigh its body. Invisible
- *        in code review, obvious in the output.
- *
- *        Kept as a named local rather than inlining `loadRenderFonts()` at the
- *        call site so this explanation stays attached to the carousel path.
- * WHERE: Called by renderSlidePng on every rasterisation (cached after the first).
- */
-async function loadCarouselFonts(): Promise<LoadedFont[]> {
-  return loadRenderFonts("geist");
-}
-
 // ---------------------------------------------------------------------------
 // Slide rendering
 // ---------------------------------------------------------------------------
 
-interface SlideViewProps {
-  slide: CarouselSlide;
-  index: number;
-  total: number;
-  palette: CarouselPalette;
-  scale: CarouselTypeScale;
-}
+/* CarouselSlideView, SlideViewProps, renderSlidePng and loadCarouselFonts all
+ * lived here until slides moved onto the shared design renderer — the migration
+ * docs/20-studio.md called phase 5. Their replacement is the pair below:
+ * carouselSlideToDesignDoc turns a slide into blocks, and renderCarouselSlide
+ * draws them with renderDesignPng, which loads the same Geist faces itself.
+ */
+
 
 /**
- * SOURCE OF TRUTH KEYWORDS: CarouselSlideView
+ * SOURCE OF TRUTH KEYWORDS: carouselSlideToDesignDoc, DesignDoc, slot mapping,
+ *   paletteOverrides, hideWhenEmpty, phase 5
  *
- * WHAT:  One slide, as the element tree satori rasterises.
- * WHY:   Every node carries an explicit `display: flex`. That is not stylistic —
- *        satori implements a flexbox subset and THROWS on a container with more
- *        than one child that has no display set. Omitting it is the single most
- *        common way this renderer breaks.
+ * WHAT:  Turns one stored slide into the DesignDoc the shared renderer draws.
+ * WHY:   The document is DERIVED PER RENDER and never stored. Carousel.slides
+ *        stays the source of truth, so this mapping can change without a
+ *        migration, and a deck is never two representations that can disagree.
  *
- *        Layout differs by slide kind rather than by template: a cover is one
- *        large statement, a cta inverts to the accent so the ask is unmissable,
- *        and content slides carry the counter. Templates vary the PALETTE, which
- *        is what keeps a deck coherent when the model writes an odd slide.
+ *        Colours come through `paletteOverrides` rather than by naming one of
+ *        DESIGN_PALETTES, and that is deliberate: CAROUSEL_PALETTES holds the
+ *        exact hexes these decks already render with, so overriding all five slots
+ *        reproduces the current output rather than approximating it with the
+ *        nearest studio palette. Existing decks keep their colours exactly.
+ *
+ *        Carousel slots map onto design slots by VISUAL ROLE, not by name —
+ *        `callout` is a quotable line so it takes `quote`, and `note` is an aside
+ *        so it takes `footnote`. Bullets spread across pointA–E; D and E exist for
+ *        this. Every one is drawn `hideWhenEmpty`, so a slide stored before those
+ *        slots existed simply collapses them.
+ * WHERE: renderCarouselSlide, which both the PDF and the live preview go through.
  */
-function CarouselSlideView({
-  slide,
-  index,
-  total,
-  palette,
-  scale,
-}: SlideViewProps) {
-  const isCover = slide.kind === "cover";
+function carouselSlideToDesignDoc(
+  slide: CarouselSlide,
+  templateId: CarouselTemplate,
+  canvas: DesignCanvasKey,
+  palette: CarouselPalette,
+): DesignDoc {
   const isCta = slide.kind === "cta";
 
-  /* The cta inverts: accent becomes the field, background becomes the ink. One
-   * slide in the deck reading opposite is what makes the ask register. */
-  const field = isCta ? palette.accent : palette.background;
-  const ink = isCta ? palette.background : palette.foreground;
-  const secondary = isCta ? palette.background : palette.muted;
-
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: isCover ? "flex-end" : "center",
-        backgroundColor: field,
-        padding: scale.padding,
-        fontFamily: CAROUSEL_FONT_FAMILY,
-      }}
-    >
-      {/* Counter. Hidden on the cover — a cover announcing "1/8" wastes the one
-          line people actually read in the feed. */}
-      {!isCover && (
-        <div
-          style={{
-            display: "flex",
-            fontSize: scale.meta,
-            fontWeight: 400,
-            color: secondary,
-            letterSpacing: 2,
-            marginBottom: scale.padding / 3,
-          }}
-        >
-          {`${String(index + 1).padStart(2, "0")} / ${String(total).padStart(2, "0")}`}
-        </div>
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <div
-          style={{
-            display: "flex",
-            fontSize: isCover ? scale.coverHeading : scale.heading,
-            fontWeight: 700,
-            color: ink,
-            lineHeight: 1.05,
-            letterSpacing: -1,
-          }}
-        >
-          {slide.heading}
-        </div>
-
-        {slide.body.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              fontSize: scale.body,
-              fontWeight: 400,
-              color: secondary,
-              lineHeight: 1.4,
-              marginTop: scale.padding / 3,
-            }}
-          >
-            {slide.body}
-          </div>
-        )}
-      </div>
-
-      {/* Progress rule. Gives the deck a spine and tells the reader how much is
-          left without spending a line of copy on it. */}
-      {!isCover && (
-        <div
-          style={{
-            display: "flex",
-            width: "100%",
-            height: 6,
-            backgroundColor: isCta ? palette.background : palette.border,
-            marginTop: scale.padding / 2,
-            opacity: isCta ? 0.35 : 1,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              width: `${Math.round(((index + 1) / total) * 100)}%`,
-              height: "100%",
-              backgroundColor: isCta ? palette.background : palette.accent,
-            }}
-          />
-        </div>
-      )}
-    </div>
+  const bulletSlots = ["pointA", "pointB", "pointC", "pointD", "pointE"] as const;
+  const bulletContent = Object.fromEntries(
+    slide.bullets
+      .slice(0, bulletSlots.length)
+      .map((text, index) => [bulletSlots[index], text]),
   );
-}
 
-/**
- * SOURCE OF TRUTH KEYWORDS: renderSlidePng
- *
- * WHAT:  Rasterises one slide to PNG bytes.
- * WHY:   ImageResponse is normally returned from a route handler; here it is
- *        constructed directly and drained with .arrayBuffer(), which is supported
- *        and is what lets the render live in a service instead of leaking an HTTP
- *        endpoint into the feature.
- * WHERE: Called once per slide by renderCarouselPdf.
- */
-async function renderSlidePng(props: SlideViewProps, width: number, height: number) {
-  const response = new ImageResponse(<CarouselSlideView {...props} />, {
-    width,
-    height,
-    fonts: await loadCarouselFonts(),
+  /* Parsed, not constructed: designDocSchema fills every default — block layout
+   * offsets, hideWhenEmpty, opacity — exactly once, which is the same reason
+   * DESIGN_ARCHETYPES are authored in the input shape and cloned. */
+  return designDocSchema.parse({
+    templateId,
+    archetypeId: `carousel-${slide.kind}`,
+    canvas,
+    /* Any valid id: every slot is overridden below, so this names nothing that
+     * survives. Stated rather than left to a default so the override is obviously
+     * total. */
+    paletteId: "midnight",
+    paletteOverrides: {
+      background: palette.background,
+      foreground: palette.foreground,
+      muted: palette.muted,
+      border: palette.border,
+      accent: palette.accent,
+    },
+    /* The cta inverts to the accent field. Every other slide sits on the
+     * background — the behaviour CarouselSlideView had, expressed as data. */
+    background: {
+      kind: "solid",
+      color: { slot: isCta ? "accent" : "background" },
+    },
+    /* A cover is one statement on the baseline; everything else centres. */
+    justify: slide.kind === "cover" ? "end" : "center",
+    blocks: getCarouselLayout(templateId, slide.kind),
+    content: {
+      headline: slide.heading,
+      body: slide.body,
+      eyebrow: slide.eyebrow,
+      quote: slide.callout,
+      ctaLabel: slide.ctaLabel,
+      footnote: slide.note,
+      ...bulletContent,
+    },
   });
-  return Buffer.from(await response.arrayBuffer());
 }
 
 export interface RenderedCarousel {
@@ -267,7 +186,17 @@ interface SlideRenderContext {
   preset: (typeof CAROUSEL_PAGE_PRESETS)[keyof typeof CAROUSEL_PAGE_PRESETS];
   palette: CarouselPalette;
   scale: CarouselTypeScale;
+  /* The shared renderer's name for the same geometry. DESIGN_CANVAS_PRESETS takes
+   * its carousel dimensions FROM CAROUSEL_PAGE_PRESETS, so these two are the same
+   * numbers under two vocabularies rather than a pair that could drift. */
+  canvas: DesignCanvasKey;
 }
+
+/* One place the two vocabularies meet. */
+const CAROUSEL_CANVAS_BY_PAGE: Record<CarouselPagePreset, DesignCanvasKey> = {
+  portrait: "carouselPortrait",
+  square: "carouselSquare",
+};
 
 /**
  * SOURCE OF TRUTH KEYWORDS: resolveSlideRenderContext, preset, palette, scale
@@ -296,20 +225,48 @@ function resolveSlideRenderContext(
     preset: CAROUSEL_PAGE_PRESETS[page],
     palette: getCarouselPalette(templateId),
     scale: getCarouselTypeScale(page),
+    canvas: CAROUSEL_CANVAS_BY_PAGE[page],
   };
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: renderCarouselSlide, renderDesignPng, phase 5
+ *
+ * WHAT:  Rasterises one slide through the SHARED design renderer.
+ * WHY:   The single place a carousel slide becomes pixels, used by both the PDF
+ *        and the live preview. Going through renderDesignPng rather than a
+ *        carousel-only component is what docs/20-studio.md phase 5 called for: one
+ *        renderer, one block language, and a new template that costs a config
+ *        entry instead of a JSX branch.
+ *
+ *        `index` and `total` are handed to the render context, not baked into the
+ *        document — that is exactly what DesignRenderContext documents them for,
+ *        and it is how the slideCounter and deckProgress blocks resolve.
+ */
+async function renderCarouselSlide(
+  slide: CarouselSlide,
+  templateId: CarouselTemplate,
+  context: SlideRenderContext,
+  index: number,
+  total: number,
+): Promise<Buffer> {
+  const doc = carouselSlideToDesignDoc(
+    slide,
+    templateId,
+    context.canvas,
+    context.palette,
+  );
+  const rendered = await renderDesignPng(doc, { index, total });
+  return Buffer.from(rendered.base64, "base64");
 }
 
 /**
  * SOURCE OF TRUTH KEYWORDS: renderCarouselSlidePreview, RenderedCarouselSlide
  *
  * WHAT:  Rasterises ONE slide, for the editor's live preview.
- * WHY:   Exported while renderSlidePng and CarouselSlideView stay private, which
- *        mirrors how renderDesignPng is exposed to the studio's preview route: the
- *        transport layer hands over a parsed document and the SERVICE owns render
- *        policy. Exporting the raw rasteriser instead would force the route to
- *        assemble SlideViewProps — a private interface in a server-only file that
- *        would then have to be promoted into lib/types purely so an HTTP handler
- *        could construct render input.
+ * WHY:   Exported while renderCarouselSlide stays private, which mirrors how
+ *        renderDesignPng is exposed to the studio preview route: the transport
+ *        layer hands over a parsed payload and the SERVICE owns render policy.
  *
  *        Draws the same element tree as the PDF through the same context resolver,
  *        so the preview cannot drift from the file the member downloads.
@@ -318,28 +275,21 @@ function resolveSlideRenderContext(
 export async function renderCarouselSlidePreview(
   input: CarouselSlidePreviewValues,
 ): Promise<RenderedCarouselSlide> {
-  const { preset, palette, scale } = resolveSlideRenderContext(
-    input.templateId,
-    input.page,
-  );
+  const context = resolveSlideRenderContext(input.templateId, input.page);
 
-  const png = await renderSlidePng(
-    {
-      slide: input.slide,
-      index: input.index,
-      total: input.total,
-      palette,
-      scale,
-    },
-    preset.width,
-    preset.height,
+  const png = await renderCarouselSlide(
+    input.slide,
+    input.templateId,
+    context,
+    input.index,
+    input.total,
   );
 
   return {
     base64: png.toString("base64"),
     byteSize: png.byteLength,
-    width: preset.width,
-    height: preset.height,
+    width: context.preset.width,
+    height: context.preset.height,
   };
 }
 
@@ -366,18 +316,19 @@ export async function renderCarouselPdf(
 ): Promise<RenderedCarousel> {
   /* Same resolver the live preview uses — see the note there on why that sharing
    * is what keeps the two from disagreeing. */
-  const { preset, palette, scale } = resolveSlideRenderContext(
-    templateId,
-    pagePreset,
-  );
+  const context = resolveSlideRenderContext(templateId, pagePreset);
+  const preset = context.preset;
+  const template = carouselTemplateSchema.catch("minimal").parse(templateId);
 
   const pdf = await PDFDocument.create();
 
   for (const [index, slide] of slides.entries()) {
-    const png = await renderSlidePng(
-      { slide, index, total: slides.length, palette, scale },
-      preset.width,
-      preset.height,
+    const png = await renderCarouselSlide(
+      slide,
+      template,
+      context,
+      index,
+      slides.length,
     );
     const embedded = await pdf.embedPng(png);
     const page = pdf.addPage([preset.width, preset.height]);
