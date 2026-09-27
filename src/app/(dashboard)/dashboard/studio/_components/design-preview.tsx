@@ -8,31 +8,20 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: DesignPreview, DesignPreviewProps, safe zone overlay,
- *   debounced server render, last good frame
+ *   SafeZoneDoodle, RenderPreview
  *
- * WHAT:  Shows what a design will actually export as, with LinkedIn's safe zones
- *        drawn over it.
- * WHY:   THE PREVIEW IS A REAL RENDER, debounced — not a DOM approximation of
- *        one. A hand-built twin would have to reproduce satori's flexbox subset
- *        and its font metrics, and the two would disagree the first time a
- *        headline wrapped at 59 characters in one and 61 in the other. That
- *        disagreement is invisible until someone downloads a file that does not
- *        match what they approved, which is the one failure a design tool cannot
- *        have.
+ * WHAT:  A design's live preview with LinkedIn's safe zones drawn over it.
+ * WHY:   The debounce, the abort, the last-good-frame rule and the blob lifetimes
+ *        all moved to the global RenderPreview when the carousel editor needed the
+ *        same machinery — the reasoning for each of those choices now lives in that
+ *        component's header. This file kept the part that is genuinely about
+ *        DESIGNS: which regions LinkedIn obscures, and saying so on the canvas.
  *
- *        THE LAST GOOD FRAME STAYS ON SCREEN. A render that is in flight, or that
- *        failed, never clears what is already drawn — the first build blanked the
- *        canvas and printed an error over it, so a single hiccup while typing
- *        made the whole editor look broken. A stale frame plus a quiet "updating"
- *        hint is a far more honest picture of the state than an empty box.
+ *        Its props did not change, so the studio workspace calls it exactly as
+ *        before.
  *
- *        In-flight requests are ABORTED when superseded, which is what stops a
- *        burst of typing piling up renders the user will never see — and what
- *        removed the "Failed to fetch" noise those aborted-by-navigation requests
- *        produced.
- *
- *        The DOM layer draws GUIDES ONLY — the avatar circle and the mobile crop
- *        — positioned from the same normalised coordinates the renderer reads. It
+ *        The DOM layer draws GUIDES ONLY — the avatar circle and the mobile crop —
+ *        positioned from the same normalised coordinates the renderer reads. It
  *        never tries to reproduce pixels.
  * WHERE: The studio editor, beside the content form.
  */
@@ -45,7 +34,7 @@ import {
   type DesignSafeZone,
 } from "@/lib/types";
 import { STUDIO_PREVIEW_DEBOUNCE_MS } from "@/lib/config";
-import { Skeleton } from "@/components/ui/skeleton";
+import { RenderPreview } from "@/components/global/render-preview";
 import { cn } from "@/lib/utils";
 
 export interface DesignPreviewProps {
@@ -59,15 +48,11 @@ export interface DesignPreviewProps {
 /**
  * SOURCE OF TRUTH KEYWORDS: SafeZoneDoodle
  *
- * WHAT:  A drawn arrow and note pointing at the avatar's footprint.
+ * WHAT:  A drawn note pointing at the avatar's footprint.
  * WHY:   The dashed circle alone says "something is here" without saying what or
- *        why. The single most expensive mistake on a LinkedIn banner is putting
- *        the thing you care about where your own face lands, and a label is the
+ *        why. The single most expensive mistake on a LinkedIn banner is putting the
+ *        thing you care about where your own face lands, and a label is the
  *        cheapest possible fix for it.
- *
- *        Drawn as an inline SVG path with a deliberately uneven curve rather than
- *        a straight line or an icon — the wobble is what makes it read as an
- *        annotation on the design rather than as part of it.
  *
  *        `currentColor` throughout, so it inherits whatever the caller sets and
  *        stays inside the no-hardcoded-colour rule.
@@ -97,98 +82,31 @@ export function DesignPreview({
 }: DesignPreviewProps) {
   const preset = DESIGN_CANVAS_PRESETS[doc.canvas];
 
-  const [dataUrl, setDataUrl] = React.useState<string | null>(null);
-  const [isRendering, setIsRendering] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  /* Serialised rather than watched by reference: the form hands us a new object
-   * on every keystroke, so an identity check would redraw constantly and a deep
-   * compare would cost more than the string. */
-  const serialized = JSON.stringify(doc);
-
-  React.useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
-
-    const timer = setTimeout(() => {
-      setIsRendering(true);
-
-      void (async () => {
-        try {
-          const result = await onRender(
-            JSON.parse(serialized) as DesignDoc,
-            controller.signal,
-          );
-          if (cancelled) {
-            URL.revokeObjectURL(result.dataUrl);
-            return;
-          }
-          setDataUrl((previous) => {
-            /* Release the frame this one replaces, or a render per keystroke
-             * leaks a blob per keystroke for as long as the editor is open. */
-            if (previous) URL.revokeObjectURL(previous);
-            return result.dataUrl;
-          });
-          setError(null);
-        } catch (cause) {
-          /* An abort is this component's own doing, not a failure — reporting it
-           * would flash an error every time someone types a second character. */
-          if (cancelled || controller.signal.aborted) return;
-          setError(cause instanceof Error ? cause.message : "Preview failed");
-        } finally {
-          if (!cancelled) setIsRendering(false);
-        }
-      })();
-    }, STUDIO_PREVIEW_DEBOUNCE_MS);
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [serialized, onRender]);
-
-  /* Release the final frame when the editor closes. */
-  React.useEffect(
-    () => () => {
-      setDataUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
-        return null;
-      });
-    },
-    [],
-  );
-
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      {/* The marks live on a wrapper rather than on the canvas: the canvas has to
-          clip the rendered PNG to its frame, and a clipping box would also clip
-          the overlay the moment it travels outward on hover. */}
-      <div className="tech-bracket relative">
-      <div
-        className="tech-panel relative w-full overflow-hidden"
-        /* Reserves the exact aspect before the first render lands, so the form
-         * beside it does not jump when the image arrives. */
-        style={{ aspectRatio: `${String(preset.width)} / ${String(preset.height)}` }}
-      >
-        {dataUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element -- an object URL
-             from our own renderer; next/image would only re-encode it. */
-          <img
-            src={dataUrl}
-            alt={`${preset.label} preview`}
-            className={cn(
-              "h-full w-full object-contain transition-opacity duration-150",
-              /* Dimmed, never blanked, while the next frame renders. */
-              isRendering && "opacity-60",
-            )}
-          />
-        ) : (
-          <Skeleton className="h-full w-full" />
-        )}
-
-        {showSafeZones
-          ? preset.safeZones.map((zone) => (
+    <RenderPreview
+      payload={doc}
+      onRender={onRender}
+      debounceMs={STUDIO_PREVIEW_DEBOUNCE_MS}
+      aspect={{ width: preset.width, height: preset.height }}
+      alt={`${preset.label} preview`}
+      {...(className ? { className } : {})}
+      caption={
+        <>
+          <span className="tech-label">{preset.label}</span>
+          <span className="font-mono text-[0.6875rem] text-foreground/80">
+            {preset.width}×{preset.height}
+          </span>
+          {showSafeZones && preset.safeZones.length > 0 ? (
+            <span className="text-muted-foreground">
+              Dashed regions are obscured on LinkedIn
+            </span>
+          ) : null}
+        </>
+      }
+      overlay={
+        showSafeZones ? (
+          <>
+            {preset.safeZones.map((zone) => (
               <div
                 key={zone.id}
                 aria-hidden
@@ -200,9 +118,9 @@ export function DesignPreview({
                 style={
                   zone.shape === "circle"
                     ? {
-                        /* x/y are the CENTRE for a circle, and width/height are
-                         * the same diameter expressed against each axis — the
-                         * canvas is 4:1, so one number could not do both. */
+                        /* x/y are the CENTRE for a circle, and width/height are the
+                         * same diameter expressed against each axis — the canvas is
+                         * 4:1, so one number could not do both. */
                         left: `${String((zone.x - zone.width / 2) * 100)}%`,
                         top: `${String((zone.y - zone.height / 2) * 100)}%`,
                         width: `${String(zone.width * 100)}%`,
@@ -216,51 +134,17 @@ export function DesignPreview({
                       }
                 }
               />
-            ))
-          : null}
+            ))}
 
-        {/* Only for the avatar. A note on every guide would be noise. */}
-        {showSafeZones
-          ? preset.safeZones
+            {/* Only for the avatar. A note on every guide would be noise. */}
+            {preset.safeZones
               .filter((zone) => zone.id === "avatar")
-              .map((zone) => <SafeZoneDoodle key={`note-${zone.id}`} zone={zone} />)
-          : null}
-      </div>
-      </div>
-
-      <p className="tech-label flex flex-wrap items-center gap-x-4 gap-y-1 normal-case tracking-normal">
-        <span className="tech-label">{preset.label}</span>
-        <span className="font-mono text-[0.6875rem] text-foreground/80">
-          {preset.width}×{preset.height}
-        </span>
-        {showSafeZones && preset.safeZones.length > 0 ? (
-          <span className="text-muted-foreground">
-            Dashed regions are obscured on LinkedIn
-          </span>
-        ) : null}
-        {isRendering ? (
-          <span className="ml-2 inline-flex items-center gap-1 align-middle">
-            {/* A stroke redrawing itself rather than a ring spinning — the
-                preview is being DRAWN, and the indicator should say so. */}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <circle
-                cx="12"
-                cy="12"
-                r="9"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="tech-label">Rendering</span>
-          </span>
-        ) : null}
-        {error && !isRendering ? (
-          /* Shown BESIDE the caption rather than over the canvas, because the
-           * last good frame is still the most useful thing on screen. */
-          <span className="ml-2 text-destructive">{error}</span>
-        ) : null}
-      </p>
-    </div>
+              .map((zone) => (
+                <SafeZoneDoodle key={`note-${zone.id}`} zone={zone} />
+              ))}
+          </>
+        ) : null
+      }
+    />
   );
 }

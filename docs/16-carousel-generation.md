@@ -6,6 +6,8 @@ It is written so someone who has never touched this codebase can follow along. E
 
 This feature builds on three earlier ones. Read [09 — LinkedIn post generation](./09-linkedin-post-generation.md) for the registry and the AI provider layer, [12 — Calendar and scheduled posts](./12-calendar-and-scheduled-posts.md) for ImageKit and the publish worker, and [15 — AI image editing](./15-ai-edit-image.md) for the server-side upload path. This document assumes all three.
 
+> **The editor described in Step 7 has since been rebuilt.** It now has a live server-rendered preview, drag-and-drop reordering, add/duplicate/kind controls, template and shape switching, and a PNG-sequence export — see [23 — Carousel editor](./23-carousel-editor.md). The generation, render and publish paths in this document are unchanged, and the limitations below are marked where that work resolved them.
+
 ---
 
 ## Table of contents
@@ -932,9 +934,9 @@ SELECT * FROM usage_metrics WHERE "organizationId" = '<your org id>';
 
 **The saved filename carries ImageKit's suffix.** Downloads land as `my-deck_Khebl6fUK.pdf`, because `Content-Disposition` comes from ImageKit and the cross-origin rule means we cannot override it client-side. A proxy route on our own origin would fix it.
 
-**No live preview.** The editor shows text fields, not rendered slides. You see the design only after Render. A preview would mean running satori in the browser or an on-demand PNG endpoint.
+**~~No live preview.~~ RESOLVED** by [23 — Carousel editor](./23-carousel-editor.md): `POST /api/carousel/preview` rasterises the selected slide through the same `CarouselSlideView` the PDF uses, and the editor draws it on a debounce. A route handler rather than a tRPC mutation, for the connection-pool reason the studio's equivalent documents.
 
-**Three templates, no customisation.** No custom colours, logo, or headshot. The palette is a config table, so adding a template is cheap; letting *users* define one is not.
+**Three templates, no customisation.** No custom colours, logo, or headshot. The palette is a config table, so adding a template is cheap; letting *users* define one is not. Since 23, the template and page shape *can* at least be changed after generation rather than only at creation.
 
 **No live LinkedIn preview.** The composer has `LinkedInPostPreview` for image posts; the publish dialog shows no deck preview.
 
@@ -948,7 +950,7 @@ SELECT * FROM usage_metrics WHERE "organizationId" = '<your org id>';
 
 | Not built | Why | When |
 |---|---|---|
-| **A live slide preview** | Needs satori in the browser or an image endpoint per slide | When the design story matters more than the copy story |
+| ~~**A live slide preview**~~ | ~~Needs satori in the browser or an image endpoint per slide~~ | **Built** — the image endpoint won; see [23](./23-carousel-editor.md) |
 | **Retro-fitting `DataTable` onto the three old tables** | Correct, but it would have made this diff unreviewable | A focused follow-up |
 | **A document picker in the post composer** | `post-composer.tsx` is already 22 KB and image-shaped throughout | If decks need to be posted outside the carousel page |
 | **Custom branding per organization** | Logo, colours, headshot — needs an asset pipeline and a settings surface | When someone asks |

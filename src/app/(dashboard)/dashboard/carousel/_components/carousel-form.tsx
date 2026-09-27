@@ -19,6 +19,7 @@
  * WHERE: Rendered inside the new-carousel dialog on the carousel workspace.
  */
 
+import * as React from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2Icon, SparklesIcon } from "lucide-react";
@@ -34,10 +35,14 @@ import {
   POST_TONES,
   type GenerateCarouselValues,
   type GenerateCarouselInput,
-  type CarouselTemplate,
   type CarouselPagePreset,
 } from "@/lib/types";
-import { POST_TONE_LABELS } from "@/lib/config";
+import {
+  CAROUSEL_GENERATION_PHASES,
+  CAROUSEL_SAMPLE_TOPICS,
+  CAROUSEL_TEMPLATE_LABELS,
+  POST_TONE_LABELS,
+} from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -57,14 +62,71 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-/* Derived from the schema's const tuple, so adding a template in lib/types
- * surfaces here as a type error rather than a silently missing option. Tone
- * labels are shared with the post composer, so they live in POST_TONE_LABELS. */
-const CAROUSEL_TEMPLATE_LABELS: Record<CarouselTemplate, string> = {
-  minimal: "Minimal — dark, quiet",
-  bold: "Bold — brand blue field",
-  editorial: "Editorial — light, document-like",
-};
+/* Template labels moved to lib/config/carousel when the editor's own template
+ * switcher became a second consumer — two copies of a label map drift the first
+ * time one is reworded. Tone labels are shared with the post composer for the same
+ * reason and live in POST_TONE_LABELS. */
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: useGenerationLabel, CAROUSEL_GENERATION_PHASES
+ *
+ * WHAT:  The label on the submit button while a deck is being written.
+ * WHY:   TIME-BASED, NOT PROGRESS-BASED — generation is one opaque model call that
+ *        knows nothing about its own phase, so there is no honest percentage to
+ *        report. The phases exist to show the wait is ordered and bounded, which is
+ *        all a truthful indicator can claim.
+ *
+ *        The clock is read ONLY inside the effect and its timer callback — never
+ *        during render, which has to stay pure, and never as a synchronous setState
+ *        in an effect body. Both are lint errors here and both rules are right: the
+ *        first makes a render's output depend on when it happened, the second
+ *        cascades a render every time the dialog opens.
+ *
+ *        Each generation is therefore STAMPED with a run id, and a reading left over
+ *        from an earlier run is ignored rather than cleared. That is what stops a
+ *        second attempt after a failure from opening on the previous run's last
+ *        label, without anything having to reset state at the wrong moment.
+ */
+function useGenerationLabel(isGenerating: boolean): string {
+  const [runId, setRunId] = React.useState(0);
+  const [wasGenerating, setWasGenerating] = React.useState(false);
+  const [reading, setReading] = React.useState<{
+    runId: number;
+    elapsedMs: number;
+  } | null>(null);
+
+  /* Previous-value marker adjusted during render, the pattern carousel-workspace
+   * uses to reset its buffer. Pure — an updater function, no clock. */
+  if (isGenerating !== wasGenerating) {
+    setWasGenerating(isGenerating);
+    if (isGenerating) setRunId((current) => current + 1);
+  }
+
+  React.useEffect(() => {
+    if (!isGenerating) return;
+    const startedAt = Date.now();
+    /* setState in a timer CALLBACK, not in the effect body — the distinction the
+     * lint rule draws, and the one it exists for. */
+    const timer = setInterval(() => {
+      setReading({ runId, elapsedMs: Date.now() - startedAt });
+    }, 400);
+    return () => clearInterval(timer);
+  }, [isGenerating, runId]);
+
+  /* A reading from a previous run is stale, so it reads as zero and the first phase
+   * wins — which is also the state on the very first frame, before any tick. */
+  const elapsedMs = reading?.runId === runId ? reading.elapsedMs : 0;
+
+  /* The last phase whose threshold has passed; reduced rather than found from the
+   * end so the first entry always wins at zero.
+   *
+   * Explicit accumulator type: without it the initial value's literal type narrows
+   * the result and the later labels are unassignable. */
+  return CAROUSEL_GENERATION_PHASES.reduce<string>(
+    (label, phase) => (elapsedMs >= phase.atMs ? phase.label : label),
+    CAROUSEL_GENERATION_PHASES[0].label,
+  );
+}
 
 /* Slide counts are offered as a list rather than a number input: the useful range
  * is small and bounded, and a spinner invites typing 40 only to be rejected. */
@@ -104,6 +166,7 @@ export function CarouselForm({
    * component. Same reasoning as the global image editor. Defaulted because
    * useWatch is typed as possibly-undefined before the first render settles. */
   const topic = useWatch({ control: form.control, name: "topic" }) ?? "";
+  const generatingLabel = useGenerationLabel(isGenerating);
 
   return (
     <Form {...form}>
@@ -129,6 +192,35 @@ export function CarouselForm({
                 {topic.length} / {CAROUSEL_TOPIC_MAX}
               </FormDescription>
               <FormMessage />
+
+              {/* Offered only while the box is empty. An empty prompt field is the
+                  hardest screen in the product — it asks for a format nobody has
+                  seen yet — and these double as instruction, showing that a
+                  concrete claim beats a broad subject. They vanish once there is
+                  something to lose. */}
+              {topic.length === 0 ? (
+                <div className="flex flex-col gap-1.5 pt-1">
+                  <span className="text-xs text-muted-foreground">
+                    Or start from one of these:
+                  </span>
+                  {CAROUSEL_SAMPLE_TOPICS.map((sample) => (
+                    <button
+                      key={sample}
+                      type="button"
+                      disabled={disabled || isGenerating}
+                      onClick={() =>
+                        form.setValue("topic", sample, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
+                      className="rounded-md border px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      {sample}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </FormItem>
           )}
         />
@@ -281,7 +373,7 @@ export function CarouselForm({
           ) : (
             <SparklesIcon className="size-4" />
           )}
-          {isGenerating ? "Writing slides…" : "Generate carousel"}
+          {isGenerating ? generatingLabel : "Generate carousel"}
         </Button>
       </form>
     </Form>

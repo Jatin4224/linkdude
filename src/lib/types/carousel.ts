@@ -11,7 +11,10 @@
  *   carouselSlidesSchema, CarouselSlide, CarouselSlides, generateCarouselSchema,
  *   updateCarouselSchema, renderCarouselSchema, discardCarouselSchema,
  *   listCarouselsSchema, getCarouselSchema, deleteDocumentSchema,
- *   listDocumentsSchema, CAROUSEL_MIN_SLIDES, CAROUSEL_MAX_SLIDES
+ *   listDocumentsSchema, CAROUSEL_MIN_SLIDES, CAROUSEL_MAX_SLIDES,
+ *   carouselDraftSchema, CarouselDraftValues, carouselSlidePreviewSchema,
+ *   CarouselSlidePreviewValues, normalizeCarouselSlideKinds,
+ *   carouselSlideKindOptionsFor
  *
  * WHAT:  The carousel vocabulary — slide shape, deck bounds, page geometry, and
  *        every router input for the carousel and documents resources.
@@ -159,6 +162,75 @@ export const carouselSlidesSchema = z
 export type CarouselSlides = z.infer<typeof carouselSlidesSchema>;
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: carouselSlideKindOptionsFor, CarouselSlideKind,
+ *   slide kind by position, cover, cta
+ *
+ * WHAT:  Which kinds a slide at this position is allowed to be.
+ * WHY:   Kind is a POSITION ROLE, not a free label. CarouselSlideView keys its
+ *        whole layout off it: a cover justifies to flex-end, drops the counter and
+ *        the progress rule, and draws at coverHeading size — so a cover at
+ *        position five is a mid-deck slide with no position indicator and a hole in
+ *        the deck's spine. A cta inverts to the accent field, so one mid-deck makes
+ *        the deck read as ending early.
+ *
+ *        cover is therefore offered ONLY at position one, because it is the one
+ *        kind whose layout assumes its position. cta mid-deck stays legal: a
+ *        mid-deck ask is a real editorial choice and it degrades into a styled
+ *        slide, not a broken one.
+ * WHERE: The slide editor's kind control, to scope its options per card.
+ */
+export function carouselSlideKindOptionsFor(
+  index: number,
+  total: number,
+): readonly CarouselSlideKind[] {
+  if (index === 0) return ["cover"];
+  if (index === total - 1) return ["cta"];
+  return ["content", "cta"];
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: normalizeCarouselSlideKinds, slide kind invariant,
+ *   reorder, cover, cta, auto-correct
+ *
+ * WHAT:  Forces the deck's endpoints back into their roles — first slide is the
+ *        cover, last is the cta, and no other slide is a cover.
+ * WHY:   Run after every structural change (drag, arrows, add, duplicate, delete),
+ *        because the alternative is a deck whose first slide renders "01 / 07"
+ *        where the hook belongs. It also keeps the POSITIONAL readers honest:
+ *        carouselDocumentTitle takes slides[0].heading as the deck's public name
+ *        and the publish dialog seeds its commentary from the same slide.
+ *
+ *        Deliberately NOT a refine on carouselSlidesSchema. That schema is the
+ *        READ path — parseCarouselSlides runs on every getCarousel — so a
+ *        positional rule there would make an older or hand-edited deck impossible
+ *        to OPEN, which is strictly worse than one that renders oddly. It is also
+ *        the model-output schema, so the same rule would turn a model slip into a
+ *        hard generation failure instead of this one-line correction.
+ * WHERE: The slide editor, after every reorder or insert. The correction is
+ *        announced in the editor's live region so it is never silent.
+ */
+export function normalizeCarouselSlideKinds(
+  slides: CarouselSlides,
+): CarouselSlides {
+  const lastIndex = slides.length - 1;
+
+  return slides.map((slide, index) => {
+    /* First wins the cover when a deck is somehow one slide long, so the two
+     * branches can never both claim the same card. */
+    const kind: CarouselSlideKind =
+      index === 0
+        ? "cover"
+        : index === lastIndex
+          ? "cta"
+          : slide.kind === "cover"
+            ? "content"
+            : slide.kind;
+
+    return kind === slide.kind ? slide : { ...slide, kind };
+  });
+}
+
+/**
  * SOURCE OF TRUTH KEYWORDS: generateCarouselSchema, GenerateCarouselValues
  *
  * WHAT:  Input to carousel.create — everything the model needs to draft a deck.
@@ -223,10 +295,75 @@ export const updateCarouselSchema = z.object({
 });
 export type UpdateCarouselValues = z.infer<typeof updateCarouselSchema>;
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: carouselDraftSchema, CarouselDraftValues,
+ *   editing buffer, isDirty, templateId, pagePreset
+ *
+ * WHAT:  Everything the editor holds as unsaved work — the slides AND the look.
+ * WHY:   The editing buffer used to be the slide array alone, which meant
+ *        `isDirty` could not see a template change: Save stayed disabled while
+ *        Render stayed enabled, so one click produced a PDF of the OLD template.
+ *        Making the buffer one object is what collapses the dirty check back to a
+ *        single comparison that cannot miss a field.
+ *
+ *        Declared here rather than derived as `updateCarouselSchema.omit({id})`,
+ *        and that is deliberate: update's templateId and page are `.optional()`
+ *        because a save may be slides-only, whereas a draft is ALWAYS fully
+ *        populated from the row. Under exactOptionalPropertyTypes an omit-derived
+ *        type would keep them optional and re-open exactly the hole above.
+ * WHERE: carousel-workspace holds one of these per open deck; slide-editor reads
+ *        it and the preview payload is built from it.
+ */
+export const carouselDraftSchema = z.object({
+  slides: carouselSlidesSchema,
+  templateId: carouselTemplateSchema,
+  page: carouselPagePresetSchema,
+});
+export type CarouselDraftValues = z.infer<typeof carouselDraftSchema>;
+
 export const renderCarouselSchema = z.object({
   id: z.string().min(1),
 });
 export type RenderCarouselValues = z.infer<typeof renderCarouselSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: carouselSlidePreviewSchema, CarouselSlidePreviewValues,
+ *   preview payload, debounce dependency, index, total
+ *
+ * WHAT:  The body POSTed to /api/carousel/preview — one slide, drawn in its deck's
+ *        context.
+ * WHY:   ONE SLIDE, not the whole deck. This payload is the preview's debounce
+ *        dependency, so a deck-shaped body would re-render slide one every time a
+ *        character lands in slide nine and throw the identical bytes away — a
+ *        wasted satori pass per keystroke. These fields are exactly the inputs that
+ *        change the drawn pixels: the slide itself, the deck length that feeds the
+ *        counter and the progress rule, and the template and shape.
+ *
+ *        `index < total` is the one invariant a per-slide payload loses, so the
+ *        refine buys it back. Without it a client could send index 8 of total 5 and
+ *        get a counter reading "09 / 05" over a progress bar past 100%.
+ *
+ *        The route draws UNTRUSTED input, and it runs outside the procedure
+ *        factory — no quota, no rate limit. These caps, inherited from
+ *        carouselSlideSchema, are therefore the real bound on the renderer.
+ * WHERE: Parsed by src/app/api/carousel/preview/route.ts; built by the carousel
+ *        slide preview component from the editing draft.
+ */
+export const carouselSlidePreviewSchema = z
+  .object({
+    slide: carouselSlideSchema,
+    index: z.number().int().min(0).max(CAROUSEL_MAX_SLIDES - 1),
+    total: z.number().int().min(CAROUSEL_MIN_SLIDES).max(CAROUSEL_MAX_SLIDES),
+    templateId: carouselTemplateSchema,
+    page: carouselPagePresetSchema,
+  })
+  .refine((value) => value.index < value.total, {
+    message: "A slide cannot sit past the end of its deck",
+    path: ["index"],
+  });
+export type CarouselSlidePreviewValues = z.infer<
+  typeof carouselSlidePreviewSchema
+>;
 
 export const getCarouselSchema = z.object({
   id: z.string().min(1),
@@ -247,6 +384,13 @@ export type DiscardCarouselValues = z.infer<typeof discardCarouselSchema>;
 export const listCarouselsSchema = z.object({
   page: z.number().int().positive().optional(),
   pageSize: z.number().int().positive().optional(),
+  /* Capped because it becomes a `contains` the database has to interpret, and an
+   * unbounded term is a free table scan — the bound listLibraryPostsSchema sets
+   * on the post library's search for the same reason. Filtering happens HERE
+   * rather than on the returned page: the client-side filter this replaced left
+   * the row count and the server's total disagreeing, so a search could render no
+   * rows under "Page 1 of 4". */
+  search: z.string().trim().max(200).optional(),
 });
 export type ListCarouselsValues = z.infer<typeof listCarouselsSchema>;
 
