@@ -240,6 +240,49 @@ export const DESIGN_TEXT_ROLES = [
 export const designTextRoleSchema = z.enum(DESIGN_TEXT_ROLES);
 export type DesignTextRole = (typeof DESIGN_TEXT_ROLES)[number];
 
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: DESIGN_FONT_KEYS, DesignFontKey, designFontSchema
+ *
+ * WHAT:  Which typeface a text block is drawn in.
+ * WHY:   A ROLE, not a font name — a layout asks for "marker" and
+ *        RENDER_FONT_FAMILIES decides which file that is, so swapping the marker
+ *        face is one entry in that registry and no layout changes.
+ *
+ *        Defaults to `sans` everywhere, which is what keeps every existing
+ *        archetype and every stored design rendering exactly as before: a document
+ *        written when this property did not exist parses with `sans` and draws in
+ *        the same Geist it always did.
+ */
+export const DESIGN_FONT_KEYS = ["sans", "marker", "hand"] as const;
+export const designFontSchema = z.enum(DESIGN_FONT_KEYS);
+export type DesignFontKey = (typeof DESIGN_FONT_KEYS)[number];
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: DESIGN_DECORATION_KEYS, DesignDecorationKey,
+ *   designDecorationSchema, doodle, hand-drawn marks
+ *
+ * WHAT:  The hand-drawn marks a template may place on a design.
+ * WHY:   A CLOSED VOCABULARY, and that is the point: decoration is template-owned
+ *        art, not user content, so it is named rather than uploaded. Keeping it
+ *        separate from the image slots is what stops a member's headshot and a
+ *        template's arrow sharing one mechanism — they have different lifecycles,
+ *        different trust and different storage.
+ *
+ *        Every file is authored with `currentColor` throughout, so the renderer
+ *        tints it from a palette slot and no decoration ever hardcodes a colour.
+ */
+export const DESIGN_DECORATION_KEYS = [
+  "underline",
+  "curvedArrow",
+  "circleScribble",
+  "starburst",
+  "cornerBracket",
+] as const;
+export const designDecorationSchema = z.enum(DESIGN_DECORATION_KEYS);
+export type DesignDecorationKey = (typeof DESIGN_DECORATION_KEYS)[number];
+
+
 /**
  * SOURCE OF TRUTH KEYWORDS: DESIGN_TEXT_SLOT_KEYS, DesignTextSlotKey
  *
@@ -373,6 +416,7 @@ const designTextBlockSchema = z.object({
   type: z.literal("text"),
   text: designTextRefSchema,
   role: designTextRoleSchema,
+  font: designFontSchema.default("sans"),
   weight: z.union([z.literal(400), z.literal(700)]).default(400),
   color: designColorRefSchema,
   align: z.enum(["left", "center", "right"]).default("left"),
@@ -389,6 +433,110 @@ const designTextBlockSchema = z.object({
    * the member overrode it and their choice must survive a canvas change. */
   fontSize: z.number().int().min(8).max(200).optional(),
   lineHeight: z.number().min(0.8).max(2.5).optional(),
+});
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: DESIGN_MARK_DELIMITER, DesignMarkedRun,
+ *   parseDesignMarkedRuns, highlight, marker, emphasis
+ *
+ * WHAT:  The markup a heading uses to ask for emphasis — `AI is ==changing==` —
+ *        and the split that turns it into drawable runs.
+ * WHY:   Marking the two or three words that carry a claim is most of what makes a
+ *        slide read as designed rather than typeset, and WHICH words carry it is an
+ *        editorial judgement. So it lives in the copy, where both the model and the
+ *        member can make it, rather than as a layout property nobody can reach.
+ *
+ *        Owned HERE rather than by the carousel, for a boring structural reason:
+ *        this file already supplies the carousel's canvas dimensions, so the
+ *        carousel cannot import back without a cycle. It is the block language's
+ *        text markup, and any document drawn by this renderer may use it.
+ *
+ *        Returns runs rather than indices because the renderer draws each one as
+ *        its own box — runs are already the shape it needs.
+ *
+ *        An unterminated marker stays literal rather than throwing. This parses
+ *        copy someone is typing, so `==chang` exists on the way to `==changing==`
+ *        and must not break a preview mid-keystroke.
+ */
+export const DESIGN_MARK_DELIMITER = "==";
+export interface DesignMarkedRun {
+  readonly text: string;
+  readonly marked: boolean;
+}
+
+export function parseDesignMarkedRuns(text: string): readonly DesignMarkedRun[] {
+  const parts = text.split(DESIGN_MARK_DELIMITER);
+
+  /* An even number of parts means an unclosed marker: "a ==b" splits into two. */
+  if (parts.length % 2 === 0) return [{ text, marked: false }];
+
+  return parts
+    .map((part, index) => ({ text: part, marked: index % 2 === 1 }))
+    .filter((run) => run.text.length > 0);
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: designMarkedTextBlockSchema, markedText, highlight swash
+ *
+ * WHAT:  A text block whose ==marked== runs are drawn on a coloured swash.
+ * WHY:   A separate block type rather than a flag on `text`, because the two
+ *        rasterise by completely different routes. `text` leans on
+ *        -webkit-line-clamp, which requires a -webkit-box and therefore forbids
+ *        the flex layout a run of boxes needs; the two cannot share one element.
+ *
+ *        Wrapping is per WORD, not per run, and that is the whole trick: satori
+ *        lays flex children out as boxes, so a single box holding a long phrase
+ *        would never break across lines. One box per word with `flexWrap` gives
+ *        natural wrapping and lets the swash follow the marked words across a line
+ *        break instead of pushing them onto their own.
+ */
+const designMarkedTextBlockSchema = z.object({
+  ...designBlockBase,
+  type: z.literal("markedText"),
+  text: designTextRefSchema,
+  role: designTextRoleSchema,
+  font: designFontSchema.default("sans"),
+  weight: z.union([z.literal(400), z.literal(700)]).default(700),
+  color: designColorRefSchema,
+  /* The swash behind a marked word, and the ink on top of it. Both are colour
+   * refs, so a palette drives them and no hex is ever written in a layout. */
+  highlight: designColorRefSchema,
+  highlightColor: designColorRefSchema,
+  align: z.enum(["left", "center", "right"]).default("left"),
+  transform: z.enum(["none", "uppercase"]).default("none"),
+  letterSpacing: z.number().min(-4).max(12).default(0),
+  fontSize: z.number().int().min(8).max(200).optional(),
+  lineHeight: z.number().min(0.8).max(2.5).optional(),
+  /* Padding around a marked word, in px. Small by default: a swash that clears
+   * the text by too much reads as a button rather than as a highlighter. */
+  highlightPaddingX: z.number().int().min(0).max(48).default(10),
+  highlightPaddingY: z.number().int().min(0).max(32).default(2),
+  highlightRadius: z.number().int().min(0).max(64).default(6),
+});
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: designDecorationBlockSchema, decoration, doodle
+ *
+ * WHAT:  A named hand-drawn mark, tinted from the palette.
+ * WHY:   Its own block type rather than an image slot, because the two differ in
+ *        every way that matters: this art ships with the app, is chosen by a
+ *        template, is tinted at render time and never leaves the server. An image
+ *        slot is a member's upload living on ImageKit. Sharing one mechanism would
+ *        mean a template's arrow and a member's headshot competing for the same
+ *        three slots.
+ *
+ *        Width is a FRACTION of the canvas, like every other length in this
+ *        language, so one layout holds across a 1080 slide and a 1584 banner. The
+ *        height follows the artwork's own aspect rather than being stated twice
+ *        and allowed to disagree.
+ */
+const designDecorationBlockSchema = z.object({
+  ...designBlockBase,
+  type: z.literal("decoration"),
+  art: designDecorationSchema,
+  color: designColorRefSchema,
+  width: z.number().min(0.02).max(1).default(0.25),
+  rotate: z.number().min(-180).max(180).default(0),
 });
 
 const designBadgeRowBlockSchema = z.object({
@@ -472,6 +620,8 @@ const designSpacerBlockSchema = z.object({
  * a new block type cannot be added to one and forgotten in the other. */
 const DESIGN_LEAF_VARIANTS = [
   designTextBlockSchema,
+  designMarkedTextBlockSchema,
+  designDecorationBlockSchema,
   designBadgeRowBlockSchema,
   designButtonPillBlockSchema,
   designLogoTextBlockSchema,

@@ -86,7 +86,6 @@ import {
   CAROUSEL_CALLOUT_MAX,
   CAROUSEL_CTA_LABEL_MAX,
   CAROUSEL_HEADING_MAX,
-  CAROUSEL_HIGHLIGHT_MARK,
   CAROUSEL_MAX_BULLETS,
   CAROUSEL_NOTE_MAX,
   type CarouselSlides,
@@ -97,6 +96,7 @@ import {
   CAROUSEL_GENERATION_TIMEOUT_MS,
 } from "@/lib/config/carousel";
 import { getCarouselBlueprint } from "@/lib/config/carousel-blueprints";
+import { DESIGN_MARK_DELIMITER } from "@/lib/types/design-block";
 import {
   contentPlanInsightsSchema,
   contentPlanResultSchema,
@@ -1163,13 +1163,13 @@ Slots — fill only the ones a slide is asked for, and leave the rest empty:
 - note: a short aside, as if scribbled in the margin. Under ${String(CAROUSEL_NOTE_MAX)} characters.
 
 Emphasis:
-- In a heading you may wrap the two or three words carrying the claim in ${CAROUSEL_HIGHLIGHT_MARK}like this${CAROUSEL_HIGHLIGHT_MARK}, and the design will mark them.
+- In a heading you may wrap the two or three words carrying the claim in ${DESIGN_MARK_DELIMITER}like this${DESIGN_MARK_DELIMITER}, and the design will mark them.
 - At most one emphasis per heading, and never the whole heading — marking everything marks nothing.
 
 Hard rules:
 - headings are HEADLINES, not sentences. No trailing period. Under ${String(CAROUSEL_HEADING_MAX)} characters, and shorter is better.
 - body is at most ${String(CAROUSEL_BODY_MAX)} characters and may be empty. A cover usually needs no body.
-- Never use markdown. No **bold**, no #, no bullet characters: the renderer draws text literally. The ${CAROUSEL_HIGHLIGHT_MARK} emphasis above is the ONLY markup that exists.
+- Never use markdown. No **bold**, no #, no bullet characters: the renderer draws text literally. The ${DESIGN_MARK_DELIMITER} emphasis above is the ONLY markup that exists.
 - No emoji.
 ${LINKEDIN_LANGUAGE_RULES}
 - Be concrete. A name or a specific example beats an abstract claim on every single slide. Never invent numbers, names or results that are not in the topic.

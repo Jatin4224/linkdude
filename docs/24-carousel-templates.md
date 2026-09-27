@@ -5,6 +5,10 @@
 > through the shared design engine rather than a carousel-only component. Not yet
 > built: the doodle/handwriting asset kit, the rich illustrated templates, AI
 > illustration per slide. Read `16-carousel-generation.md` and `20-studio.md` first.
+>
+> **Phase C added** the markedText primitive, a font role vocabulary with marker and
+> handwriting faces, a decoration block with a hand-drawn SVG kit, and editor fields
+> for the new slots.
 
 This is `20-studio.md` phase 5, plus the reason it was worth doing.
 
@@ -124,3 +128,80 @@ and the long note explaining the extension is gone with it.
 checked against the installed zod. **Visual fidelity was not machine-verified** — open
 a deck created before this work, render it, and confirm it still looks like itself.
 That is the gate the `paletteOverrides` and `hideWhenEmpty` decisions exist to pass.
+
+---
+
+# Phase C — the look
+
+## A defect Phase A shipped
+
+`parseCarouselHighlights` was written and **never called**, so `==changing==` would
+have rendered with the delimiters visible. Fixing it properly meant admitting the
+block language was missing a primitive — which is what `carousel-layouts` own header
+says to do — rather than special-casing it in the carousel.
+
+## `markedText`
+
+A separate block type, not a flag on `text`, because the two rasterise by
+incompatible routes: `text` leans on `-webkit-line-clamp`, which requires a
+`-webkit-box` and therefore forbids the flex layout a row of coloured boxes needs.
+
+**Wrapping is per word.** satori will not break a single flex child across lines, so
+one box per word is what lets a swash follow the text through a natural wrap. The
+tradeoff is visible and intended: `a ==b c== d` draws two separate marks, which is
+how a highlighter behaves anyway.
+
+The CTA slide inverts the pairing — background field, accent ink — because it already
+sits on the accent, and reusing the content slide's pairing would paint accent on
+accent.
+
+The delimiter lives in `design-block.ts`, not the carousel: that file already supplies
+the carousel's canvas dimensions, so the carousel cannot import back without a cycle.
+The carousel's duplicate parser was deleted rather than kept in sync.
+
+## Fonts are a role, not a name
+
+`DESIGN_FONT_KEYS = ["sans", "marker", "hand"]`. A layout asks for `marker`;
+`RENDER_FONT_FAMILIES` decides which file that is. Swapping the marker face is one
+registry entry and no layout changes.
+
+`loadAllRenderFonts()` hands every family to satori in one render, because
+`fontFamily` resolves per element against whatever the renderer was given — there is
+no per-element font loading to do instead. It is three cache hits after the first
+render.
+
+Everything defaults to `sans`, which is what keeps every existing studio archetype
+and every stored design rendering exactly as before.
+
+**Fonts are TTF now, beside Geist's WOFF.** satori reads both. It does not read
+WOFF2 — the one substitution that fails silently, falling back to a single Regular
+face so every weight rasterises identically. `src/app/assets/fonts/README.md` records
+this and the OFL licensing.
+
+## `decoration`
+
+Template-owned art, deliberately not an image slot. The two differ in every way that
+matters: decoration ships with the app, is chosen by a template, is tinted at render
+time and never leaves the server; an image slot is a member's upload on ImageKit.
+Sharing one mechanism would have a template's arrow competing with a headshot for
+three slots.
+
+Every file is authored in `currentColor` and tinted by string substitution before
+encoding, because satori does not inherit `color` into an `<img>` payload. Base64
+rather than percent-escaping: an SVG's `#`, `<` and quotes all need escaping in a
+data URI and getting one wrong yields a blank image rather than an error.
+
+Width is a fraction of the canvas like every other length here; height follows the
+artwork's own aspect rather than being stated twice and allowed to disagree.
+
+`next.config.ts` traces the doodles folder on every satori route, for the same reason
+it traces fonts: nothing imports these files, so the tracer cannot infer them.
+
+## Verified
+
+- Every registered font path resolves from `process.cwd()` (5/5).
+- Every doodle tints, base64 round-trips, and stays under 500 bytes (5/5).
+- Marked-run word splitting across normal, leading, absent, unterminated and
+  multi-mark headings.
+
+**Not machine-verified:** how any of it actually looks. That still needs a browser.

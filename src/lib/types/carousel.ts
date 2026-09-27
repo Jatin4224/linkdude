@@ -128,12 +128,6 @@ export const CAROUSEL_CALLOUT_MAX = 200;
 export const CAROUSEL_CTA_LABEL_MAX = 40;
 export const CAROUSEL_NOTE_MAX = 80;
 
-/* The marker a heading uses to ask for emphasis, as in `is ==changing==`. Inline
- * rather than a parallel spans array, because a span array and the string it
- * indexes into drift apart the moment someone edits the text — and this string is
- * edited in a plain <Input>. */
-export const CAROUSEL_HIGHLIGHT_MARK = "==";
-
 /**
  * SOURCE OF TRUTH KEYWORDS: carouselSlideSchema, CarouselSlide,
  *   carouselSlidesSchema, CarouselSlides
@@ -245,47 +239,6 @@ export const carouselSlidesSchema = z
   .min(CAROUSEL_MIN_SLIDES, `A carousel needs at least ${CAROUSEL_MIN_SLIDES} slides`)
   .max(CAROUSEL_MAX_SLIDES, `A carousel can hold at most ${CAROUSEL_MAX_SLIDES} slides`);
 export type CarouselSlides = z.infer<typeof carouselSlidesSchema>;
-
-/**
- * SOURCE OF TRUTH KEYWORDS: CarouselHighlightRun, parseCarouselHighlights,
- *   CAROUSEL_HIGHLIGHT_MARK, marker, emphasis
- *
- * WHAT:  Splits a heading into plain and emphasised runs — `AI is ==changing==`
- *        becomes two runs, the second marked.
- * WHY:   The marker swash behind two words is most of what makes a slide read as
- *        designed rather than typeset, and deciding WHICH words carry it is an
- *        editorial judgement — so it belongs in the copy, where both the model and
- *        the member can make it, rather than in the layout.
- *
- *        Returns runs rather than indices: satori draws a highlighted run as its
- *        own inline box with a background, so runs are already the shape the
- *        renderer needs and no consumer has to slice the string again.
- *
- *        Unterminated markers are left as literal text rather than throwing. This
- *        parses copy a person is typing, so `==chang` exists on the way to
- *        `==changing==` and must not blow up a preview mid-keystroke.
- * WHERE: The slide renderer, and the editor's preview of a heading.
- */
-export interface CarouselHighlightRun {
-  readonly text: string;
-  readonly highlighted: boolean;
-}
-
-export function parseCarouselHighlights(
-  heading: string,
-): readonly CarouselHighlightRun[] {
-  const parts = heading.split(CAROUSEL_HIGHLIGHT_MARK);
-
-  /* An even number of parts means an unclosed marker: "a ==b" splits into two.
-   * Hand back the raw string so the half-typed state renders as itself. */
-  if (parts.length % 2 === 0) {
-    return [{ text: heading, highlighted: false }];
-  }
-
-  return parts
-    .map((text, index) => ({ text, highlighted: index % 2 === 1 }))
-    .filter((run) => run.text.length > 0);
-}
 
 /**
  * SOURCE OF TRUTH KEYWORDS: carouselSlideKindOptionsFor, CarouselSlideKind,

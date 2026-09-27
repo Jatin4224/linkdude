@@ -113,6 +113,9 @@ const NOTE_BLOCK: DesignBlockInput = {
   type: "text",
   text: { source: "slot", slot: "footnote", hideWhenEmpty: true },
   role: "meta",
+  /* Handwriting, because an aside should read as though it were added after the
+   * slide was finished rather than typeset with it. */
+  font: "hand",
   weight: 400,
   color: { slot: "muted" },
   maxLines: 2,
@@ -120,19 +123,36 @@ const NOTE_BLOCK: DesignBlockInput = {
 
 /* A cover is one large statement sitting on the baseline — the doc's `justify`
  * puts it there, so the block list carries no spacer to fake it. */
+/* A drawn underline beneath the cover's claim. Only on the cover: a mark that
+ * appears on every slide stops being emphasis and becomes a rule. */
+const COVER_UNDERLINE: DesignBlockInput = {
+  id: "coverUnderline",
+  type: "decoration",
+  art: "underline",
+  color: { slot: "accent" },
+  width: 0.42,
+};
+
 const CLASSIC_COVER: readonly DesignBlockInput[] = [
   EYEBROW_BLOCK,
   {
     id: "headline",
-    type: "text",
+    /* markedText, not text: a cover heading is where the model puts its ==marked==
+     * claim, and a plain text block would draw the delimiters literally. */
+    type: "markedText",
+    /* Marker face: the headline is the one thing on a slide that should look
+     * drawn rather than set. */
+    font: "marker",
     text: { source: "slot", slot: "headline" },
     role: "display",
     weight: 700,
     color: { slot: "foreground" },
-    maxLines: 4,
+    highlight: { slot: "accent" },
+    highlightColor: { slot: "background" },
     letterSpacing: -1,
     lineHeight: 1.05,
   },
+  COVER_UNDERLINE,
   {
     id: "body",
     type: "text",
@@ -151,12 +171,16 @@ const CLASSIC_CONTENT: readonly DesignBlockInput[] = [
   EYEBROW_BLOCK,
   {
     id: "headline",
-    type: "text",
+    type: "markedText",
+    /* Marker face: the headline is the one thing on a slide that should look
+     * drawn rather than set. */
+    font: "marker",
     text: { source: "slot", slot: "headline" },
     role: "heading",
     weight: 700,
     color: { slot: "foreground" },
-    maxLines: 3,
+    highlight: { slot: "accent" },
+    highlightColor: { slot: "background" },
     letterSpacing: -1,
     lineHeight: 1.05,
   },
@@ -184,12 +208,19 @@ const CLASSIC_CTA: readonly DesignBlockInput[] = [
   COUNTER_BLOCK,
   {
     id: "headline",
-    type: "text",
+    type: "markedText",
+    /* Marker face: the headline is the one thing on a slide that should look
+     * drawn rather than set. */
+    font: "marker",
     text: { source: "slot", slot: "headline" },
     role: "heading",
     weight: 700,
+    /* The cta already sits on the accent, so the swash inverts the other way —
+     * a marked word takes the background as its field and the accent as its ink.
+     * Reusing the content slide's pairing here would paint accent on accent. */
     color: { slot: "background" },
-    maxLines: 3,
+    highlight: { slot: "background" },
+    highlightColor: { slot: "accent" },
     letterSpacing: -1,
     lineHeight: 1.05,
   },

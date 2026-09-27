@@ -106,10 +106,17 @@ import {
   type DesignPattern,
   type DesignLeafBlock,
   type DesignTextRef,
+  parseDesignMarkedRuns,
+  type DesignFontKey,
 } from "@/lib/types";
 
 import * as imagekitService from "./imagekit.service";
-import { loadRenderFonts } from "./render-fonts.service";
+import { loadAllRenderFonts, RENDER_FONT_FAMILIES } from "./render-fonts.service";
+import {
+  decorationDataUri,
+  loadDecorationSvgs,
+  type DecorationMarkup,
+} from "./render-decorations.service";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: DesignRenderContext
@@ -148,6 +155,10 @@ interface BlockContext {
   readonly width: number;
   readonly height: number;
   readonly ctx: DesignRenderContext;
+  /* Raw decoration markup, read once and tinted per block. Resolved up front for
+   * the same reason images are: a render must not touch the filesystem midway
+   * through building an element tree. */
+  readonly decorations: DecorationMarkup;
 }
 
 /* The one line that keeps this renderer alive. Every style object below spreads
@@ -225,6 +236,20 @@ function fontSizeFor(role: keyof DesignTypeScale, scale: DesignTypeScale): numbe
  *        until it is drawn. A new block type that silently rendered nothing
  *        would be found by a user, not by the compiler.
  */
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: fontFamilyFor, DesignFontKey, RENDER_FONT_FAMILIES
+ *
+ * WHAT:  The family NAME satori matches against, for a block's font role.
+ * WHY:   Every family is handed to the renderer at once, so choosing a typeface is
+ *        a matter of naming it on the element. This is the one place a role
+ *        ("marker") becomes a name ("Permanent Marker"), so swapping the face is
+ *        an entry in RENDER_FONT_FAMILIES and nothing else moves.
+ */
+function fontFamilyFor(font: DesignFontKey): string {
+  return RENDER_FONT_FAMILIES[font === "sans" ? "geist" : font].family;
+}
+
 function renderDesignBlock(
   block: DesignBlock,
   context: BlockContext,
@@ -240,6 +265,7 @@ function renderDesignBlock(
       if (value === null) return null;
 
       const base = {
+        fontFamily: fontFamilyFor(block.font),
         /* The member's override wins; otherwise the geometry decides. That is
          * what keeps one archetype legible on a 396px banner and a 1350px slide
          * without the override having to be restated per canvas. */
@@ -278,6 +304,118 @@ function renderDesignBlock(
       return (
         <div key={key} style={{ ...designFlex, ...base }}>
           {value}
+        </div>
+      );
+    }
+
+    /**
+     * SOURCE OF TRUTH KEYWORDS: markedText, parseDesignMarkedRuns, highlight swash
+     *
+     * WHAT:  A heading whose ==marked== words sit on a coloured swash.
+     * WHY:   ONE BOX PER WORD, in a wrapping flex row. satori lays flex children
+     *        out as boxes and will not break one across lines, so a run holding a
+     *        whole phrase would either overflow or take a line of its own — per
+     *        word, the swash follows the text through a natural wrap.
+     *
+     *        No line clamp here: clamping needs a -webkit-box, which cannot
+     *        contain the flex row this builds. A marked heading is bounded by its
+     *        slot's character ceiling instead, which is where that bound belongs.
+     */
+    case "markedText": {
+      const value = resolveTextRef(block.text, context);
+      if (value === null) return null;
+
+      const fontSize = block.fontSize ?? fontSizeFor(block.role, scale);
+      const runs = parseDesignMarkedRuns(value);
+
+      /* Word boxes carry the vertical rhythm, so the row's own line-height would
+       * double-count it. The gap does that job instead. */
+      const lineHeight = block.lineHeight ?? 1.05;
+
+      return (
+        <div
+          key={key}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent:
+              block.align === "center"
+                ? "center"
+                : block.align === "right"
+                  ? "flex-end"
+                  : "flex-start",
+            columnGap: Math.round(fontSize * 0.26),
+            rowGap: Math.round(fontSize * (lineHeight - 1)) + block.highlightPaddingY * 2,
+          }}
+        >
+          {runs.flatMap((run, runIndex) =>
+            run.text
+              .split(/\s+/)
+              .filter((word) => word.length > 0)
+              .map((word, wordIndex) => (
+                <div
+                  key={`${key}-${String(runIndex)}-${String(wordIndex)}`}
+                  style={{
+                    display: "flex",
+                    fontFamily: fontFamilyFor(block.font),
+                    fontSize,
+                    fontWeight: block.weight,
+                    letterSpacing: block.letterSpacing,
+                    textTransform: block.transform,
+                    color: run.marked
+                      ? color(block.highlightColor, context)
+                      : color(block.color, context),
+                    ...(run.marked
+                      ? {
+                          backgroundColor: color(block.highlight, context),
+                          paddingLeft: block.highlightPaddingX,
+                          paddingRight: block.highlightPaddingX,
+                          paddingTop: block.highlightPaddingY,
+                          paddingBottom: block.highlightPaddingY,
+                          borderRadius: block.highlightRadius,
+                        }
+                      : {}),
+                  }}
+                >
+                  {word}
+                </div>
+              )),
+          )}
+        </div>
+      );
+    }
+
+    /**
+     * SOURCE OF TRUTH KEYWORDS: decoration, decorationDataUri, doodle
+     *
+     * WHAT:  A named hand-drawn mark, tinted and drawn as an SVG image.
+     * WHY:   Width is a fraction of the canvas so one layout holds across every
+     *        geometry; `height: auto` lets the artwork's own aspect decide the
+     *        rest rather than stating it twice and letting the two disagree.
+     *
+     *        aria-hidden has no meaning in a PNG, but the mark is decoration and
+     *        saying so in the tree keeps that intent attached to it.
+     */
+    case "decoration": {
+      const markup = context.decorations[block.art];
+      const src = decorationDataUri(markup, color(block.color, context));
+
+      return (
+        <div key={key} style={{ ...designFlex }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a data URI
+              built in this process; next/image cannot reach it and satori draws
+              the img element directly. */}
+          <img
+            src={src}
+            alt=""
+            style={{
+              width: `${String(Math.round(block.width * context.width))}px`,
+              ...(block.rotate !== 0
+                ? { transform: `rotate(${String(block.rotate)}deg)` }
+                : {}),
+            }}
+          />
         </div>
       );
     }
@@ -742,12 +880,13 @@ export async function renderDesignPng(
     width: preset.width,
     height: preset.height,
     ctx: { ...ctx, images },
+    decorations: await loadDecorationSvgs(),
   };
 
   const response = new ImageResponse(<DesignCanvasView context={context} />, {
     width: preset.width,
     height: preset.height,
-    fonts: await loadRenderFonts("geist"),
+    fonts: await loadAllRenderFonts(),
   });
 
   const buffer = Buffer.from(await response.arrayBuffer());
