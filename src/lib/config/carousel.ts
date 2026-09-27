@@ -191,6 +191,8 @@ export const CAROUSEL_TEMPLATE_LABELS: Record<CarouselTemplate, string> = {
   minimal: "Minimal — dark, quiet",
   bold: "Bold — brand blue field",
   editorial: "Editorial — light, document-like",
+  notebook: "Notebook — paper, marker headlines",
+  linkdude: "LinkDude — blue on white, high contrast",
 };
 
 export const CAROUSEL_SLIDE_KIND_LABELS: Record<CarouselSlideKind, string> = {
