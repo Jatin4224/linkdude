@@ -34,6 +34,7 @@ import * as React from "react";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  ChevronDownIcon,
   CopyIcon,
   DownloadIcon,
   GripVerticalIcon,
@@ -46,6 +47,7 @@ import {
 import {
   CAROUSEL_BODY_MAX,
   CAROUSEL_HEADING_MAX,
+  CAROUSEL_MAX_BULLETS,
   CAROUSEL_MAX_SLIDES,
   CAROUSEL_MIN_SLIDES,
   CAROUSEL_PAGE_PRESETS,
@@ -53,6 +55,8 @@ import {
   carouselPagePresetSchema,
   carouselSlideKindOptionsFor,
   normalizeCarouselSlideKinds,
+  createEmptyCarouselSlide,
+  DESIGN_MARK_DELIMITER,
   type CarouselDraftValues,
   type CarouselPagePreset,
   type CarouselSlide,
@@ -69,6 +73,11 @@ import { Badge } from "@/components/ui/badge";
 import { TechButton, TechLabel, TechRule } from "@/components/global/tech";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -239,7 +248,7 @@ export function SlideEditor({
      * Save stays blocked until it is written — which is correct. Seeding "New slide"
      * would make the deck saveable, renderable and publishable with a slide
      * literally titled that. */
-    applyInsert(at, { kind: "content", heading: "", body: "" });
+    applyInsert(at, createEmptyCarouselSlide("content"));
     setAnnouncement(`Added a slide at position ${String(at + 1)}.`);
   }
 
@@ -405,6 +414,15 @@ export function SlideEditor({
           {slides.map((slide, index) => {
             const headingOver = slide.heading.length > CAROUSEL_HEADING_MAX;
             const bodyOver = slide.body.length > CAROUSEL_BODY_MAX;
+            /* How many optional slots carry something, so a filled extra is never
+             * hidden behind a collapsed section with no sign it is there. */
+            const extrasFilled = [
+              slide.eyebrow,
+              slide.callout,
+              slide.ctaLabel,
+              slide.note,
+            ].filter((value) => value.trim().length > 0).length +
+              (slide.bullets.length > 0 ? 1 : 0);
             const kindOptions = carouselSlideKindOptionsFor(
               index,
               slides.length,
@@ -569,6 +587,16 @@ export function SlideEditor({
                       )}
                     >
                       {slide.heading.length} / {CAROUSEL_HEADING_MAX}
+                      {/* Shown only on the focused card, and only while the
+                          heading has no mark yet: the syntax is worth teaching
+                          once, but repeating it on twelve cards is noise. */}
+                      {index === activeIndex &&
+                      !slide.heading.includes(DESIGN_MARK_DELIMITER) ? (
+                        <span className="ml-2">
+                          Wrap words in {DESIGN_MARK_DELIMITER}like this
+                          {DESIGN_MARK_DELIMITER} to highlight them
+                        </span>
+                      ) : null}
                     </span>
                   </div>
 
@@ -592,6 +620,113 @@ export function SlideEditor({
                       {slide.body.length} / {CAROUSEL_BODY_MAX}
                     </span>
                   </div>
+
+                  {/* The slots the blueprint asks the model to fill. Collapsed by
+                      default because most slides use two or three of them, and five
+                      always-open fields per card would bury the heading that
+                      actually matters. The count on the trigger is what stops a
+                      filled extra from hiding silently. */}
+                  <Collapsible>
+                    <CollapsibleTrigger
+                      className={cn(
+                        buttonVariants({ variant: "ghost", size: "sm" }),
+                        "self-start px-2 text-xs text-muted-foreground",
+                      )}
+                    >
+                      <ChevronDownIcon className="size-3.5" />
+                      Extras
+                      {extrasFilled > 0 ? ` (${String(extrasFilled)})` : null}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="flex flex-col gap-3 pt-3">
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor={`eyebrow-${keyFor(index)}`}>
+                          Eyebrow
+                        </Label>
+                        <Input
+                          id={`eyebrow-${keyFor(index)}`}
+                          value={slide.eyebrow}
+                          onChange={(event) =>
+                            updateSlide(index, { eyebrow: event.target.value })
+                          }
+                          onFocus={() => setSelectedIndex(index)}
+                          placeholder="Small label above the heading"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor={`bullets-${keyFor(index)}`}>
+                          Points — one per line
+                        </Label>
+                        <Textarea
+                          id={`bullets-${keyFor(index)}`}
+                          /* Joined and re-split rather than held as an array of
+                             inputs: a flow list is reordered and reworded far more
+                             often than it is appended to, and a textarea makes both
+                             a single edit instead of five controls. */
+                          value={slide.bullets.join("\n")}
+                          onChange={(event) =>
+                            updateSlide(index, {
+                              bullets: event.target.value
+                                .split("\n")
+                                .map((line) => line.trim())
+                                .filter((line) => line.length > 0)
+                                .slice(0, CAROUSEL_MAX_BULLETS),
+                            })
+                          }
+                          onFocus={() => setSelectedIndex(index)}
+                          rows={3}
+                          placeholder={`Up to ${String(CAROUSEL_MAX_BULLETS)} short steps`}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor={`callout-${keyFor(index)}`}>
+                          Callout
+                        </Label>
+                        <Textarea
+                          id={`callout-${keyFor(index)}`}
+                          value={slide.callout}
+                          onChange={(event) =>
+                            updateSlide(index, { callout: event.target.value })
+                          }
+                          onFocus={() => setSelectedIndex(index)}
+                          rows={2}
+                          placeholder="The one line worth quoting"
+                        />
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor={`cta-${keyFor(index)}`}>
+                            Button label
+                          </Label>
+                          <Input
+                            id={`cta-${keyFor(index)}`}
+                            value={slide.ctaLabel}
+                            onChange={(event) =>
+                              updateSlide(index, {
+                                ctaLabel: event.target.value,
+                              })
+                            }
+                            onFocus={() => setSelectedIndex(index)}
+                            placeholder="Save this"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor={`note-${keyFor(index)}`}>Note</Label>
+                          <Input
+                            id={`note-${keyFor(index)}`}
+                            value={slide.note}
+                            onChange={(event) =>
+                              updateSlide(index, { note: event.target.value })
+                            }
+                            onFocus={() => setSelectedIndex(index)}
+                            placeholder="A short aside"
+                          />
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </CardContent>
               </Card>
             );

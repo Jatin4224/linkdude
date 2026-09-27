@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
    * leave them out of the server bundle; the render would then fall back to the
    * single bundled face and every weight would rasterise identically. */
   outputFileTracingIncludes: {
-    "/api/trpc/[trpc]": ["./src/app/assets/fonts/**"],
+    "/api/trpc/[trpc]": ["./src/app/assets/fonts/**", "./src/app/assets/doodles/**"],
     /* Same reason, different consumer: the OG card reads Geist-700 off disk at
      * request time so satori has a bold face to draw with. Nothing imports the
      * file, so without this entry the tracer leaves it out of the deployed
@@ -26,8 +26,8 @@ const nextConfig: NextConfig = {
      * falls back to the single Regular face next/og bundles, so the previewed slide
      * renders FLAT while the traced PDF path renders correctly. Nothing looks
      * broken — the weights just stop meaning anything. */
-    "/api/carousel/preview": ["./src/app/assets/fonts/**"],
-    "/api/studio/preview": ["./src/app/assets/fonts/**"],
+    "/api/carousel/preview": ["./src/app/assets/fonts/**", "./src/app/assets/doodles/**"],
+    "/api/studio/preview": ["./src/app/assets/fonts/**", "./src/app/assets/doodles/**"],
   },
 };
 

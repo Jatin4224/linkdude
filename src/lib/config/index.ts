@@ -235,6 +235,7 @@ export {
   contentPlanSectionCopyText,
 } from "./content-plan-sections";
 export type { ContentPlanSectionDefinition } from "./content-plan-sections";
+export { CAROUSEL_BLUEPRINTS, getCarouselBlueprint } from "./carousel-blueprints";
 export {
   IMAGEKIT_DOCUMENT_FOLDER,
   CAROUSEL_PDF_MIME_TYPE,

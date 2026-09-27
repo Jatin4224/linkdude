@@ -117,6 +117,17 @@ export const CAROUSEL_BODY_MAX = 260;
 export const CAROUSEL_TOPIC_MAX = 1000;
 export const CAROUSEL_TOPIC_MIN = 10;
 
+/* Ceilings for the optional slots, set by the same rule as the two above: the
+ * point at which the block overflows its box rather than wrapping. A bullet is
+ * capped far shorter than a body because a flow list is read as a glance — five
+ * long bullets is a paragraph wearing a list's clothes. */
+export const CAROUSEL_EYEBROW_MAX = 60;
+export const CAROUSEL_BULLET_MAX = 80;
+export const CAROUSEL_MAX_BULLETS = 5;
+export const CAROUSEL_CALLOUT_MAX = 200;
+export const CAROUSEL_CTA_LABEL_MAX = 40;
+export const CAROUSEL_NOTE_MAX = 80;
+
 /**
  * SOURCE OF TRUTH KEYWORDS: carouselSlideSchema, CarouselSlide,
  *   carouselSlidesSchema, CarouselSlides
@@ -152,8 +163,76 @@ export const carouselSlideSchema = z.object({
       `Keep slide text under ${CAROUSEL_BODY_MAX} characters so it fits the slide`,
     )
     .default(""),
+
+  /* ---------------------------------------------------------------------
+   * Optional slots. EVERY ONE carries a default, and that is not a style
+   * choice — it is what keeps existing decks openable.
+   *
+   * parseCarouselSlides runs this schema on EVERY read. Every deck written
+   * before these slots existed holds only { kind, heading, body }, so a single
+   * required field here would make those decks fail to parse — which is not a
+   * deck that renders plainly, it is a deck the user can no longer OPEN.
+   * Defaults rather than `.optional()` for the reason already documented on
+   * `body`: the renderer and the editor never branch on nullish.
+   *
+   * A layout decides which of these it draws; a blueprint decides which the
+   * model is asked to fill. A slide carrying a slot its template ignores is
+   * harmless, which is what makes switching template safe.
+   * ------------------------------------------------------------------- */
+
+  /** Small label above the headline — the deck's category or promise. */
+  eyebrow: z.string().trim().max(CAROUSEL_EYEBROW_MAX).default(""),
+  /** Short steps or key points. A flow list, not a paragraph broken up. */
+  bullets: z
+    .array(z.string().trim().min(1).max(CAROUSEL_BULLET_MAX))
+    .max(CAROUSEL_MAX_BULLETS)
+    .default([]),
+  /** A boxed aside — the one line that would be quoted out of the slide. */
+  callout: z.string().trim().max(CAROUSEL_CALLOUT_MAX).default(""),
+  /** Pill text. The ask, in two or three words. */
+  ctaLabel: z.string().trim().max(CAROUSEL_CTA_LABEL_MAX).default(""),
+  /** A handwritten-looking margin annotation. */
+  note: z.string().trim().max(CAROUSEL_NOTE_MAX).default(""),
 });
 export type CarouselSlide = z.infer<typeof carouselSlideSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: CarouselSlideInput
+ *
+ * WHAT:  The authoring half of carouselSlideSchema, with the defaulted slots
+ *        still optional.
+ * WHY:   Same `.default()` input/output split that forced GenerateCarouselInput.
+ *        Anything CONSTRUCTING a slide — a layout seed, a test fixture, the
+ *        editor's "add slide" — should be typed on this half so it is not forced
+ *        to spell out five empty slots it does not care about.
+ */
+export type CarouselSlideInput = z.input<typeof carouselSlideSchema>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: createEmptyCarouselSlide, add slide, empty slot
+ *
+ * WHAT:  A blank slide of a given kind, with every slot present and empty.
+ * WHY:   The editor's "add slide" cannot go through carouselSlideSchema.parse to
+ *        pick up the defaults, because `heading` is `.min(1)` and a new slide is
+ *        deliberately headless — that is what blocks Save until someone writes one.
+ *        So the empty shape is declared ONCE, here beside the schema, rather than
+ *        spelled out at the call site where adding a slot would silently miss it.
+ * WHERE: slide-editor's add action. Duplicate spreads an existing slide instead.
+ */
+export function createEmptyCarouselSlide(
+  kind: CarouselSlideKind,
+): CarouselSlide {
+  return {
+    kind,
+    heading: "",
+    body: "",
+    eyebrow: "",
+    bullets: [],
+    callout: "",
+    ctaLabel: "",
+    note: "",
+  };
+}
 
 export const carouselSlidesSchema = z
   .array(carouselSlideSchema)
@@ -228,6 +307,84 @@ export function normalizeCarouselSlideKinds(
 
     return kind === slide.kind ? slide : { ...slide, kind };
   });
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: CAROUSEL_SLOT_KEYS, CarouselSlotKey,
+ *   CarouselBlueprintStep, CarouselBlueprint, expandCarouselBlueprint,
+ *   narrative arc, slide job
+ *
+ * WHAT:  The vocabulary a template uses to say what each slide is FOR and which
+ *        slots the model should fill on it.
+ * WHY:   A template used to vary only the palette, so every deck was seven
+ *        interchangeable paragraphs. A blueprint makes the template an argument
+ *        structure: slide three knows it is the mechanism slide, and asks for the
+ *        slots that carry a mechanism. That is the difference between a deck that
+ *        was generated and one that reads as though it was authored.
+ *
+ *        Slots are named rather than free-form so the blueprint, the layout and
+ *        the schema cannot disagree about what a slide can hold — adding a slot is
+ *        one entry in this tuple and a type error everywhere it must be handled.
+ *
+ *        The types live here and the DATA lives in lib/config/carousel-blueprints,
+ *        which is the split CLAUDE.md asks for. (StudioTemplate and DesignArchetype
+ *        keep their interfaces beside their data; that is the older convention and
+ *        this file does not extend it.)
+ * WHERE: CAROUSEL_BLUEPRINTS in lib/config; the generation prompt in ai.service;
+ *        the layouts in lib/config/carousel-layouts.
+ */
+export const CAROUSEL_SLOT_KEYS = [
+  "eyebrow",
+  "heading",
+  "body",
+  "bullets",
+  "callout",
+  "ctaLabel",
+  "note",
+] as const;
+export type CarouselSlotKey = (typeof CAROUSEL_SLOT_KEYS)[number];
+
+export interface CarouselBlueprintStep {
+  /** What this slide must accomplish, phrased as an instruction to the writer. */
+  readonly job: string;
+  readonly kind: CarouselSlideKind;
+  /** Which slots the model is asked to fill. A layout may still draw fewer. */
+  readonly slots: readonly CarouselSlotKey[];
+}
+
+export interface CarouselBlueprint {
+  readonly label: string;
+  /** A directive paragraph — how this template sounds, not what it looks like. */
+  readonly voice: string;
+  readonly cover: CarouselBlueprintStep;
+  /* Cycled to fill whatever deck length the user asked for. A blueprint states an
+   * ARC, not a length: pinning the step count would make slideCount a lie. */
+  readonly middle: readonly CarouselBlueprintStep[];
+  readonly cta: CarouselBlueprintStep;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: expandCarouselBlueprint
+ *
+ * WHAT:  Stretches an arc to the requested deck length.
+ * WHY:   Cycles the middle steps rather than truncating, so a 12-slide deck keeps
+ *        the whole argument instead of stopping after the arc runs out — and a
+ *        5-slide deck still opens and closes correctly, because the cover and cta
+ *        are never drawn from the cycle.
+ */
+export function expandCarouselBlueprint(
+  blueprint: CarouselBlueprint,
+  slideCount: number,
+): readonly CarouselBlueprintStep[] {
+  const middleCount = Math.max(slideCount - 2, 0);
+  const middle = Array.from({ length: middleCount }, (_, index) => {
+    const step = blueprint.middle[index % blueprint.middle.length];
+    /* noUncheckedIndexedAccess: middle is never empty by construction, but the
+     * fallback keeps that a local guarantee rather than an assertion. */
+    return step ?? blueprint.cover;
+  });
+
+  return [blueprint.cover, ...middle, blueprint.cta];
 }
 
 /**

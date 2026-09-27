@@ -32,7 +32,7 @@ import "server-only";
  *        900 renders identically. A design that looks flat rather than broken is
  *        the hardest render bug to notice.
  * WHERE: src/services/design-render.service.tsx and
- *        src/services/carousel.service.tsx. Any new rasteriser should call this
+ *        src/services/carousel.service.ts. Any new rasteriser should call this
  *        rather than reading CAROUSEL_FONT_FILES itself.
  */
 
@@ -66,12 +66,33 @@ export interface LoadedFont {
  *        ./src/app/assets/fonts/** wholesale, so adding a WOFF beside the
  *        existing ones needs no build-config change at all.
  *
- *        One family today. That is not an oversight — a second typeface is a
- *        design decision nobody has made yet, and shipping an unused abstraction
- *        would be worse than the entry it saves.
+ *        Three families now. The keys are the ones a design block names through
+ *        its `font` property, so a layout asks for "marker" and this decides which
+ *        file that is — a template never names a filename.
+ *
+ *        Permanent Marker ships ONE weight, and that is correct rather than
+ *        incomplete: it is already a heavy face, and satori falls back to the
+ *        nearest weight it holds, so a 700 request draws the 400 file at its
+ *        natural weight instead of a synthesised one.
+ *
+ *        Note the .ttf extensions beside Geist's .woff. satori reads both; it does
+ *        NOT read woff2, which is the one substitution that fails silently.
  */
 export const RENDER_FONT_FAMILIES = {
   geist: { family: CAROUSEL_FONT_FAMILY, files: CAROUSEL_FONT_FILES },
+  marker: {
+    family: "Permanent Marker",
+    files: [
+      { weight: 400, path: "src/app/assets/fonts/Marker-400.ttf" },
+    ],
+  },
+  hand: {
+    family: "Caveat",
+    files: [
+      { weight: 400, path: "src/app/assets/fonts/Caveat-400.ttf" },
+      { weight: 700, path: "src/app/assets/fonts/Caveat-700.ttf" },
+    ],
+  },
 } as const;
 
 export type RenderFontFamilyKey = keyof typeof RENDER_FONT_FAMILIES;
@@ -116,4 +137,25 @@ export async function loadRenderFonts(
 
   fontPromises.set(familyKey, pending);
   return pending;
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: loadAllRenderFonts, multiple families, fontFamily
+ *
+ * WHAT:  Every registered face, as one array.
+ * WHY:   satori resolves `fontFamily` per element against whatever it was handed,
+ *        so a document that mixes a marker headline with a sans body needs BOTH
+ *        families present in the same render. There is no per-element font
+ *        loading to do instead.
+ *
+ *        Cheap, despite loading everything: each family is memoised by
+ *        loadRenderFonts, so after the first render this is three cache hits and
+ *        an array concat. The buffers are held for the life of the process either
+ *        way — they are read from disk once, not per render.
+ * WHERE: renderDesignPng, which draws documents whose blocks may name any family.
+ */
+export async function loadAllRenderFonts(): Promise<LoadedFont[]> {
+  const families = Object.keys(RENDER_FONT_FAMILIES) as RenderFontFamilyKey[];
+  const loaded = await Promise.all(families.map((key) => loadRenderFonts(key)));
+  return loaded.flat();
 }

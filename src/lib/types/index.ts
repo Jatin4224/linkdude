@@ -48,9 +48,9 @@
  *   designBlockSchema, DesignBlock, designLeafBlockSchema,
  *   designLayoutOverrideSchema, designBackgroundSchema, designDocSchema,
  *   DesignDoc, DesignDocInput, DESIGN_MAX_BLOCKS, slotsUsedBy,
+ *   DESIGN_MARK_DELIMITER, parseDesignMarkedRuns, DesignMarkedRun, markedText,
  *   carouselSlideSchema, carouselSlidesSchema, CarouselSlide, CarouselSlides,
- *   carouselDraftSchema, CarouselDraftValues, carouselSlidePreviewSchema,
- *   CarouselSlidePreviewValues, normalizeCarouselSlideKinds,
+ *   carouselDraftSchema, CarouselDraftValues, carouselSlidePreviewSchema, CarouselSlidePreviewValues, normalizeCarouselSlideKinds,
  *   carouselSlideKindOptionsFor, CAROUSEL_TEMPLATES, CAROUSEL_PAGE_PRESETS
  *
  * WHAT:  Barrel re-export for `src/lib/types/*` — the single import surface
@@ -389,6 +389,15 @@ export {
   carouselSlidesSchema,
   carouselSlideKindOptionsFor,
   normalizeCarouselSlideKinds,
+  createEmptyCarouselSlide,
+  expandCarouselBlueprint,
+  CAROUSEL_SLOT_KEYS,
+  CAROUSEL_EYEBROW_MAX,
+  CAROUSEL_BULLET_MAX,
+  CAROUSEL_MAX_BULLETS,
+  CAROUSEL_CALLOUT_MAX,
+  CAROUSEL_CTA_LABEL_MAX,
+  CAROUSEL_NOTE_MAX,
   generateCarouselSchema,
   updateCarouselSchema,
   carouselDraftSchema,
@@ -407,6 +416,10 @@ export type {
   CarouselPagePreset,
   CarouselSlide,
   CarouselSlides,
+  CarouselSlideInput,
+  CarouselSlotKey,
+  CarouselBlueprint,
+  CarouselBlueprintStep,
   GenerateCarouselValues,
   GenerateCarouselInput,
   UpdateCarouselValues,
@@ -446,6 +459,12 @@ export {
   DESIGN_PATTERNS,
   designPatternSchema,
   DESIGN_MAX_BLOCKS,
+  DESIGN_MARK_DELIMITER,
+  DESIGN_FONT_KEYS,
+  designFontSchema,
+  DESIGN_DECORATION_KEYS,
+  designDecorationSchema,
+  parseDesignMarkedRuns,
   designDocSchema,
   slotsUsedBy,
 } from "./design-block";
@@ -467,6 +486,9 @@ export type {
   DesignPattern,
   DesignDoc,
   DesignDocInput,
+  DesignMarkedRun,
+  DesignFontKey,
+  DesignDecorationKey,
 } from "./design-block";
 /* Voice profile — a member's writing voice, learned from their own posts and
  * read by every generator. */
