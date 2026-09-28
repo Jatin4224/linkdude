@@ -417,7 +417,6 @@ export type {
   CarouselPagePreset,
   CarouselSlide,
   CarouselSlides,
-  CarouselSlideInput,
   CarouselSlotKey,
   CarouselBlueprint,
   CarouselBlueprintStep,

@@ -231,18 +231,6 @@ export const carouselSlideSchema = z.object({
 export type CarouselSlide = z.infer<typeof carouselSlideSchema>;
 
 /**
- * SOURCE OF TRUTH KEYWORDS: CarouselSlideInput
- *
- * WHAT:  The authoring half of carouselSlideSchema, with the defaulted slots
- *        still optional.
- * WHY:   Same `.default()` input/output split that forced GenerateCarouselInput.
- *        Anything CONSTRUCTING a slide — a layout seed, a test fixture, the
- *        editor's "add slide" — should be typed on this half so it is not forced
- *        to spell out five empty slots it does not care about.
- */
-export type CarouselSlideInput = z.input<typeof carouselSlideSchema>;
-
-/**
  * SOURCE OF TRUTH KEYWORDS: createEmptyCarouselSlide, add slide, empty slot
  *
  * WHAT:  A blank slide of a given kind, with every slot present and empty.

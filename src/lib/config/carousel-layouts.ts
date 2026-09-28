@@ -124,7 +124,7 @@ function buildSlideLayouts(
   };
 
   /* The spine. A shape whose width is computed — the exact case the block
-   * language own comment cites as why `computed` exists.
+   * language's own comment cites as why `computed` exists.
    *
    * Takes its ink from the caller because the closing slide is filled with a
    * different colour: a spine drawn in the same slot as the field it sits on is
