@@ -152,6 +152,26 @@ export const CAROUSEL_TOPIC_MAX = 12000;
 export const CAROUSEL_TOPIC_MIN = 10;
 export const CAROUSEL_SOURCE_THRESHOLD = 600;
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: CAROUSEL_REWRITE_CONTEXT_MAX, rewrite, context budget
+ *
+ * WHAT:  How much of a deck's topic a single-slide rewrite is shown.
+ * WHY:   A BUDGET, not a threshold, and it is its own constant because it answers
+ *        a different question from CAROUSEL_SOURCE_THRESHOLD. That one decides
+ *        whether text is a brief or source material; this one decides how much of
+ *        it a rewrite needs to stay faithful. They were briefly the same number,
+ *        which meant rewriting a slide in a deck built from a 12000-character
+ *        article showed the model the first 600 characters — often not even the
+ *        part the deck's argument came from.
+ *
+ *        Generous rather than tight, because the rewrite already receives every
+ *        other slide's heading: the deck itself carries the argument, and the
+ *        topic is here for the specifics — the names, numbers and examples — that
+ *        the headings had no room for.
+ * WHERE: rewriteCarouselSlide.
+ */
+export const CAROUSEL_REWRITE_CONTEXT_MAX = 2_000;
+
 /* Ceilings for the optional slots, set by the same rule as the two above: the
  * point at which the block overflows its box rather than wrapping. A bullet is
  * capped far shorter than a body because a flow list is read as a glance — five

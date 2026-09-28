@@ -386,6 +386,7 @@ export {
   CAROUSEL_TOPIC_MIN,
   CAROUSEL_TOPIC_MAX,
   CAROUSEL_SOURCE_THRESHOLD,
+  CAROUSEL_REWRITE_CONTEXT_MAX,
   carouselSlideSchema,
   carouselSlidesSchema,
   carouselSlideKindOptionsFor,

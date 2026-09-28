@@ -264,7 +264,12 @@ export const MARKETING_FREE_CAPS = {
   resources: [
     "linkedinPosts",
     "aiGeneration",
-    "carousels",
+    /* `carousel`, not the old `carousels`. This list existed to keep the
+     * marketing claim and the enforced cap in one place, and it was pointing at
+     * a limit-only entry the procedure factory never consulted — so raising the
+     * real allowance would have left the landing page advertising the old one.
+     * Both read 2 today, which is why nobody noticed. */
+    "carousel",
     "profileAnalysis",
   ] as const satisfies readonly LimitResourceKey[],
 } as const;

@@ -90,6 +90,7 @@ import {
   CAROUSEL_MAX_BULLETS,
   CAROUSEL_NOTE_MAX,
   CAROUSEL_SOURCE_THRESHOLD,
+  CAROUSEL_REWRITE_CONTEXT_MAX,
   type CarouselSlideCopy,
   type CarouselSlides,
   type GenerateCarouselValues,
@@ -1334,7 +1335,10 @@ export async function rewriteCarouselSlide(
       `Rewrite ONE slide of an existing LinkedIn carousel. Return only that slide's copy.`,
       ``,
       `The deck is about:`,
-      args.topic.slice(0, CAROUSEL_SOURCE_THRESHOLD),
+      /* A budget of its own, not the mode threshold: see the note on
+       * CAROUSEL_REWRITE_CONTEXT_MAX for why sharing that number quietly starved
+       * rewrites in decks built from a long paste. */
+      args.topic.slice(0, CAROUSEL_REWRITE_CONTEXT_MAX),
       ``,
       `Voice for this deck: ${blueprint.voice}`,
       ``,

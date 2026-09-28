@@ -536,3 +536,45 @@ still orphaned, because the endpoint returns a stored reference and nothing reco
 the intent to keep it. `studioBackdrop` has the identical gap by the same design.
 Closing it needs a reaper over unreferenced files in the folder, which is its own
 piece of work rather than a line in this one.
+
+---
+
+# Audit findings
+
+Two defects found by inspection, both in code written during this work or made
+conspicuous by it.
+
+## A constant used for a job it was not defined for
+
+`rewriteCarouselSlide` truncated the deck's topic with `CAROUSEL_SOURCE_THRESHOLD`.
+That constant decides whether pasted text is a *brief or source material*; it is not
+a context budget, and the two questions have no reason to share a number.
+
+The effect was real: a deck built from a 12000-character article, rewritten slide by
+slide, showed the model the first 600 characters — often not the part the deck's
+argument came from, so a rewrite could be worse than what it replaced.
+
+`CAROUSEL_REWRITE_CONTEXT_MAX` (2000) now answers that question on its own. It is
+generous rather than tight because the rewrite already receives every other slide's
+heading: the deck carries the argument, and the topic is there for the specifics the
+headings had no room for.
+
+## The marketing free-tier claim was wired to a key nothing enforced
+
+`MARKETING_FREE_CAPS` exists so that, in its own words, *"a cap edited in the
+registry updates the marketing claim in the same commit."* It listed `carousels` —
+a limit-only registry entry with no permissions, no nav and no router.
+
+The enforced key is `carousel`. So raising the real free allowance would have left
+the landing page advertising the old number, which is precisely the drift that list
+was built to prevent. Both read 2 today, which is why nobody noticed.
+
+The legacy entry is now removed and the marketing list points at `carousel`. Its own
+comment had already expired — it justified itself with *"this checkout has no
+carousel router, service or route"*, which stopped being true when the feature
+shipped. It also meant the public pricing table printed **two rows both named
+"Carousels"** with identical numbers, which adding Slide Rewrites and Slide
+Illustrations beside them made obvious.
+
+Carousel now contributes three honest rows to that table: Carousels, Slide Rewrites,
+Slide Illustrations.
