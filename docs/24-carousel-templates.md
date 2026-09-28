@@ -387,10 +387,12 @@ shaped this way rather than as `carousel.illustrate`.
 
 ## Two details that would have been bugs
 
-**The image block is appended, not part of the layout.** There is no `hideWhenEmpty`
-for images the way there is for text, so an image block living in the layout
-unconditionally would draw an empty frame on every slide nobody illustrated. The
-block is added only when the slide actually has one.
+**The illustration lives in the LAYOUT, not the service.** An earlier version
+appended it in `carouselSlideToDesignDoc` on the belief that an unfilled image block
+would draw an empty frame. That was wrong — the renderer returns null for an image
+whose slot is unresolved, so the block self-collapses. Correcting it moved the size
+and placement to where they belong: each template now states its own
+`illustrationWidth`, which a block appended by the service could never express.
 
 **`fit: "contain"`, not `cover`.** The illustration directive asks for a subject with
 generous empty space around it; cropping it to fill a box throws exactly that

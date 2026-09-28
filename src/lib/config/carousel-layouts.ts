@@ -91,6 +91,15 @@ interface SlideLayoutOptions {
    * contrast needs, and separate from `accent` for the same reason as above.
    */
   readonly lineInk: DesignColorSlot;
+  /**
+   * How much of the slide a generated illustration takes, as a fraction of the
+   * canvas width.
+   *
+   * A template decision rather than a fixed size in the service, because how
+   * large a picture should be IS the template's opinion: a quiet document style
+   * wants a small mark, an illustrated one wants the picture to carry the slide.
+   */
+  readonly illustrationWidth: number;
 }
 
 /**
@@ -237,6 +246,28 @@ function buildSlideLayouts(
     maxLines: 4,
   };
 
+  /* Always present in the block list. The renderer returns null for an image
+   * whose slot is unresolved, so a slide with no illustration draws one block
+   * fewer rather than an empty frame — which is what lets this live in the
+   * layout, where the size and placement belong, instead of being appended by
+   * the service at a size every template has to share.
+   *
+   * `contain`, not `cover`: the illustration directive asks for a subject with
+   * generous empty space around it, and cropping it to fill a box throws exactly
+   * that composition away. */
+  const illustration: DesignBlockInput = {
+    id: "illustration",
+    type: "image",
+    slot: "photo",
+    fit: "contain",
+    width: options.illustrationWidth,
+    /* Squarer than it is wide on a portrait slide: the height fraction is of the
+     * CANVAS, which is taller than it is wide, so matching the width fraction
+     * would reserve a band far deeper than the picture needs. */
+    height: options.illustrationWidth * 0.6,
+    radius: 16,
+  };
+
   const coverMark: readonly DesignBlockInput[] = options.coverMark
     ? [
         {
@@ -259,6 +290,7 @@ function buildSlideLayouts(
         eyebrow,
         headline("display", "foreground", markSwash, markInk),
         ...coverMark,
+        illustration,
         body("muted", 3),
         note("muted"),
       ],
@@ -272,6 +304,7 @@ function buildSlideLayouts(
         eyebrow,
         headline("heading", "foreground", markSwash, markInk),
         body("muted", 4),
+        illustration,
         ...points,
         callout,
         note("muted"),
@@ -324,6 +357,9 @@ const CLASSIC = buildSlideLayouts({
   ctaMark: ["background", "accent"],
   eyebrowInk: "accent",
   lineInk: "accent",
+  /* Modest: these templates are typographic, and a picture that competes with
+   * the headline is not what someone picked "Minimal" for. */
+  illustrationWidth: 0.4,
   points: "lines",
 });
 
@@ -350,6 +386,7 @@ export const CAROUSEL_LAYOUTS: Record<
     /* Not the accent: marker yellow on cream measures 1.5:1. */
     eyebrowInk: "muted",
     lineInk: "foreground",
+    illustrationWidth: 0.52,
     coverMark: "underline",
     points: "lines",
   }),
@@ -365,6 +402,8 @@ export const CAROUSEL_LAYOUTS: Record<
     ctaMark: ["accent", "background"],
     eyebrowInk: "accent",
     lineInk: "accent",
+    /* The illustrated templates let the picture carry more of the slide. */
+    illustrationWidth: 0.55,
     coverMark: "starburst",
     points: "pills",
   }),
