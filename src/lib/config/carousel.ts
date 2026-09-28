@@ -28,6 +28,7 @@
 
 import {
   CAROUSEL_PAGE_PRESETS,
+  type CarouselSlide,
   type CarouselSlideKind,
   type CarouselTemplate,
 } from "@/lib/types/carousel";
@@ -199,6 +200,34 @@ export const CAROUSEL_SLIDE_KIND_LABELS: Record<CarouselSlideKind, string> = {
   cover: "Cover",
   content: "Slide",
   cta: "Call to action",
+};
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: CAROUSEL_TEMPLATE_SAMPLE_SLIDE, template picker,
+ *   sample slide, thumbnail
+ *
+ * WHAT:  The slide every template thumbnail is drawn from.
+ * WHY:   ONE sample shared by all of them, not one per template. A picker exists
+ *        so someone can compare, and comparison only works when the words are held
+ *        constant — different copy per thumbnail would have people choosing on the
+ *        sample sentence rather than on the design.
+ *
+ *        A cover, because that is the slide a template's character shows on: the
+ *        largest type, the marked word, and whatever drawn mark the layout places.
+ *
+ *        It carries a ==marked== phrase deliberately, so the highlight pairing is
+ *        visible before anyone spends a generation finding out.
+ * WHERE: The template picker in the new-carousel dialog.
+ */
+export const CAROUSEL_TEMPLATE_SAMPLE_SLIDE: CarouselSlide = {
+  kind: "cover",
+  eyebrow: "How this looks",
+  heading: "Attention is ==earned==, never bought",
+  body: "A sample slide, so you can see the design before you spend a generation on it.",
+  bullets: [],
+  callout: "",
+  ctaLabel: "",
+  note: "",
 };
 
 /**

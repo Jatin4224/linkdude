@@ -8,6 +8,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: SlidePreview, SlidePreviewProps, CAROUSEL_PREVIEW_PATH,
+ *   renderSlidePreview (exported — the template picker draws through it too),
  *   renderSlidePreview, carousel live preview, RenderPreview
  *
  * WHAT:  One slide, drawn by the server, beside the editor.
@@ -54,7 +55,7 @@ export interface SlidePreviewProps {
  * effect lists this in its deps, and a callback rebuilt per render would re-arm the
  * timer on every keystroke so it never fired — the preview would never draw. It
  * closes over nothing, so module scope says that outright. */
-async function renderSlidePreview(
+export async function renderSlidePreview(
   payload: CarouselSlidePreviewValues,
   signal: AbortSignal,
 ): Promise<{ dataUrl: string }> {

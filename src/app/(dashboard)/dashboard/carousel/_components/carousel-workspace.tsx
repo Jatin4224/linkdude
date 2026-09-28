@@ -379,7 +379,7 @@ export function CarouselWorkspace() {
         {/* Scoped at its own root: a dialog is PORTALED to the body, so it is
             not a descendant of the surface above and would otherwise open as a
             rounded panel over a square page. */}
-        <DialogContent className="tech-scope sm:max-w-lg">
+        <DialogContent className="tech-scope sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>New carousel</DialogTitle>
             <DialogDescription>

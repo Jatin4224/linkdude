@@ -30,7 +30,6 @@ import {
   CAROUSEL_MAX_SLIDES,
   CAROUSEL_DEFAULT_SLIDES,
   CAROUSEL_TOPIC_MAX,
-  CAROUSEL_TEMPLATES,
   CAROUSEL_PAGE_PRESETS,
   POST_TONES,
   type GenerateCarouselValues,
@@ -40,10 +39,10 @@ import {
 import {
   CAROUSEL_GENERATION_PHASES,
   CAROUSEL_SAMPLE_TOPICS,
-  CAROUSEL_TEMPLATE_LABELS,
   POST_TONE_LABELS,
 } from "@/lib/config";
 import { Button } from "@/components/ui/button";
+import { TemplatePicker } from "./template-picker";
 import {
   Form,
   FormControl,
@@ -166,6 +165,9 @@ export function CarouselForm({
    * component. Same reasoning as the global image editor. Defaulted because
    * useWatch is typed as possibly-undefined before the first render settles. */
   const topic = useWatch({ control: form.control, name: "topic" }) ?? "";
+  /* Watched so the thumbnails redraw in the chosen shape. useWatch, not
+   * form.watch(), for the React Compiler reason noted on `topic`. */
+  const page = useWatch({ control: form.control, name: "page" }) ?? "portrait";
   const generatingLabel = useGenerationLabel(isGenerating);
 
   return (
@@ -290,38 +292,9 @@ export function CarouselForm({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="templateId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Template</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={disabled || isGenerating}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue>
-                        {field.value
-                          ? CAROUSEL_TEMPLATE_LABELS[field.value]
-                          : null}
-                      </SelectValue>
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {CAROUSEL_TEMPLATES.map((template) => (
-                      <SelectItem key={template} value={template}>
-                        {CAROUSEL_TEMPLATE_LABELS[template]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Template moved OUT of this two-column grid — it is a row of rendered
+              thumbnails now, and a picker squeezed into half a dialog shows five
+              slides too small to tell apart. */}
 
           <FormField
             control={form.control}
@@ -361,6 +334,32 @@ export function CarouselForm({
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="templateId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Template</FormLabel>
+              <FormControl>
+                <TemplatePicker
+                  value={field.value ?? "minimal"}
+                  onChange={field.onChange}
+                  /* Drawn in the shape the deck will be, so switching Shape
+                     redraws every thumbnail rather than showing five portraits
+                     for a square deck. */
+                  page={page}
+                  disabled={disabled || isGenerating}
+                />
+              </FormControl>
+              <FormDescription>
+                Each thumbnail is a real render — the same engine that draws your
+                deck.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <Button
           type="submit"
