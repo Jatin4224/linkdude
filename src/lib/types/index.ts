@@ -492,6 +492,7 @@ export type {
   DesignTextRef,
   DesignLayoutOverride,
   DesignLeafBlock,
+  DesignLeafBlockInput,
   DesignBlock,
   DesignBackground,
   DesignPattern,
