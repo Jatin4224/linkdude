@@ -749,6 +749,13 @@ export function SlideEditor({
                           })
                         }
                         fieldId={`rewrite-${keyFor(index)}`}
+                        /* Gated like every other action in this editor. Both AI
+                           controls change the DRAFT, and firing one while a save
+                           is in flight leaves the request writing slides the
+                           buffer has already moved past — the deck is not
+                           corrupted, but it silently goes dirty again the moment
+                           the save reports success. */
+                        disabled={isSaving || isRendering}
                       />
 
                       <SlideIllustration
@@ -758,6 +765,7 @@ export function SlideEditor({
                         }
                         suggestedBrief={slide.heading}
                         fieldId={`illustration-${keyFor(index)}`}
+                        disabled={isSaving || isRendering}
                       />
                     </CollapsibleContent>
                   </Collapsible>
