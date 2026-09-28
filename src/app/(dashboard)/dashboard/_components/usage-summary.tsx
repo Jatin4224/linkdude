@@ -38,6 +38,15 @@ const DASHBOARD_USAGE_RESOURCES = [
   "aiGeneration",
   "profileAnalysis",
   "contentPlan",
+  /* A deck is a day-to-day decision like a post is, so its cap belongs on the
+   * screen where someone decides what to make today.
+   *
+   * Its two AI sub-quotas — illustrations and rewrites — deliberately stay OFF
+   * this panel. They are spent inside the editor, on a slide, and a member
+   * standing on the home page is not choosing between them; showing every
+   * sub-meter here would turn a glance into an audit. They are surfaced in the
+   * editor instead, beside the controls that spend them. */
+  "carousel",
 ] as const satisfies readonly LimitResourceKey[];
 
 export function UsageSummary() {
@@ -46,7 +55,10 @@ export function UsageSummary() {
        this plan, this period — and giving each its own bracketed panel would
        spend the page's whole budget of marks on a single band. The resource
        names are labels above numbers, which is exactly what mono is for. */
-    <TechPanel className="grid gap-6 p-6 sm:grid-cols-2 lg:grid-cols-4">
+    /* Five columns at lg, not four: the list gained carousel, and four columns
+       would strand the fifth meter alone on a second row. The count here tracks
+       DASHBOARD_USAGE_RESOURCES — if that list grows again, this moves with it. */
+    <TechPanel className="grid gap-6 p-6 sm:grid-cols-2 lg:grid-cols-5">
       {DASHBOARD_USAGE_RESOURCES.map((resource) => (
         <div key={resource} className="flex flex-col gap-2">
           <TechLabel>{getResourceDefinition(resource).name}</TechLabel>

@@ -57,6 +57,7 @@ import {
   normalizeCarouselSlideKinds,
   createEmptyCarouselSlide,
   DESIGN_MARK_DELIMITER,
+  type CarouselBrandValues,
   type CarouselDraftValues,
   type CarouselPagePreset,
   type CarouselSlide,
@@ -71,6 +72,7 @@ import {
 } from "@/lib/config";
 import { Badge } from "@/components/ui/badge";
 import { TechButton, TechLabel, TechRule } from "@/components/global/tech";
+import { UsageMeter } from "@/components/global/usage-meter";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -91,8 +93,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { SlidePreview } from "./slide-preview";
 import { SlideImageExport } from "./slide-image-export";
+import { SlideIllustration } from "./slide-illustration";
+import { SlideRewrite } from "./slide-rewrite";
 
 export interface SlideEditorProps {
+  /** The open deck's id. The rewrite endpoint reads its topic and template. */
+  carouselId: string;
   draft: CarouselDraftValues;
   onChange: (draft: CarouselDraftValues) => void;
   onSave: () => void;
@@ -102,8 +108,10 @@ export interface SlideEditorProps {
   isDirty: boolean;
   /** The stored row's status. `ready` is the only value with a current file. */
   status: string;
-  /** Names the PNG archive — the deck's public title, or its topic. */
+  /** Names the PNG archive — the deck public title, or its topic. */
   deckTitle: string;
+  /** Wordmark and byline, drawn by templates that ask for them. */
+  brand: CarouselBrandValues;
   /** Present once a render has succeeded. */
   documentUrl?: string | undefined;
   documentFileName?: string | undefined;
@@ -114,6 +122,7 @@ export interface SlideEditorProps {
 }
 
 export function SlideEditor({
+  carouselId,
   draft,
   onChange,
   onSave,
@@ -123,6 +132,7 @@ export function SlideEditor({
   isDirty,
   status,
   deckTitle,
+  brand,
   documentUrl,
   documentFileName,
   documentId,
@@ -725,6 +735,42 @@ export function SlideEditor({
                           />
                         </div>
                       </div>
+
+                      <SlideRewrite
+                        carouselId={carouselId}
+                        index={index}
+                        slides={slides}
+                        /* Replaces the whole slide, because the server merged the
+                           new copy onto the old one — kind and illustration
+                           included. Patching only the text here would duplicate
+                           that merge in a second place. */
+                        onRewritten={(rewritten) =>
+                          onChange({
+                            ...draft,
+                            slides: slides.map((existing, i) =>
+                              i === index ? rewritten : existing,
+                            ),
+                          })
+                        }
+                        fieldId={`rewrite-${keyFor(index)}`}
+                        /* Gated like every other action in this editor. Both AI
+                           controls change the DRAFT, and firing one while a save
+                           is in flight leaves the request writing slides the
+                           buffer has already moved past — the deck is not
+                           corrupted, but it silently goes dirty again the moment
+                           the save reports success. */
+                        disabled={isSaving || isRendering}
+                      />
+
+                      <SlideIllustration
+                        value={slide.illustration}
+                        onChange={(illustration) =>
+                          updateSlide(index, { illustration })
+                        }
+                        suggestedBrief={slide.heading}
+                        fieldId={`illustration-${keyFor(index)}`}
+                        disabled={isSaving || isRendering}
+                      />
                     </CollapsibleContent>
                   </Collapsible>
                 </CardContent>
@@ -760,6 +806,7 @@ export function SlideEditor({
               total={slides.length}
               templateId={draft.templateId}
               page={draft.page}
+              brand={brand}
             />
           ) : null}
 
@@ -850,6 +897,27 @@ export function SlideEditor({
                 Changing either makes the last render stale — save, then render
                 again.
               </p>
+            </div>
+          </div>
+
+          {/* The two AI actions on a slide spend a slot per click, and both live
+              inside a collapsed disclosure on whichever card is open. Their caps
+              belong somewhere permanently visible, not next to twelve separate
+              buttons — the rule the dashboard's usage panel states: a cap should
+              be visible BEFORE the action, not discovered as a rejection. */}
+          <TechRule />
+
+          <div className="flex flex-col gap-3">
+            <TechLabel>Remaining this period</TechLabel>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Rewrites</span>
+              <UsageMeter resource="carouselSlideRewrite" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">
+                Illustrations
+              </span>
+              <UsageMeter resource="carouselIllustration" />
             </div>
           </div>
         </div>

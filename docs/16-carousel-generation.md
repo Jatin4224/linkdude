@@ -415,6 +415,11 @@ The cost of the chosen path is the whole of [Step 3](#step-3--config-and-the-two
 
 ### `src/services/carousel.service.tsx` — note the extension
 
+> **No longer true as of [24 — Carousel editor templates](./24-carousel-templates.md).**
+> `CarouselSlideView` was retired when slides moved onto the shared design renderer,
+> and with the JSX gone the file is `carousel.service.ts`. The reasoning below is
+> kept because it explains why the extension was right while the view existed.
+
 The **only** `.tsx` service in the folder. The file comment explains:
 
 > The slide view is JSX, and it lives HERE rather than in `components/` on purpose: it never mounts, never hydrates and never reaches a browser. It is **render input, not UI**, and putting it under `components/` would invite exactly the client import that `server-only` exists to prevent.

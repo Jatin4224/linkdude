@@ -28,6 +28,7 @@
 
 import {
   CAROUSEL_PAGE_PRESETS,
+  type CarouselSlide,
   type CarouselSlideKind,
   type CarouselTemplate,
 } from "@/lib/types/carousel";
@@ -78,6 +79,36 @@ export const CAROUSEL_RENDER_TIMEOUT_MS = 60_000;
  */
 export const CAROUSEL_PREVIEW_PATH = "/api/carousel/preview";
 export const CAROUSEL_PREVIEW_DEBOUNCE_MS = 300;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: IMAGEKIT_CAROUSEL_FOLDER,
+ *   CAROUSEL_ILLUSTRATION_TIMEOUT_MS, carouselIllustrationFileName
+ *
+ * WHAT:  Where slide illustrations are stored, how long a generation may take,
+ *        and what the stored file is called.
+ * WHY:   Its own folder rather than /documents, which holds rendered PDFs: the two
+ *        have different lifecycles — a document is deleted through documents.delete
+ *        with a scheduled-post guard, while an illustration is owned by the slide
+ *        that references it. Mixing them would make either one's cleanup rule
+ *        wrong for the other.
+ *
+ *        The timeout matches the studio backdrop's, because it bounds the same
+ *        thing: one image round trip to the same provider.
+ * WHERE: carouselIllustration.create.
+ */
+export const IMAGEKIT_CAROUSEL_FOLDER = "/carousel";
+export const CAROUSEL_ILLUSTRATION_TIMEOUT_MS = 90_000;
+
+export function carouselIllustrationFileName(brief: string): string {
+  const slug = brief
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 50);
+  /* Stamped, because a member regenerating the same brief must not overwrite the
+   * image a slide is already pointing at — the old slide would silently change. */
+  return `${slug || "illustration"}-${String(Date.now())}.png`;
+}
 
 /**
  * SOURCE OF TRUTH KEYWORDS: CAROUSEL_FONT_FAMILY, CAROUSEL_FONT_FILES
@@ -199,6 +230,34 @@ export const CAROUSEL_SLIDE_KIND_LABELS: Record<CarouselSlideKind, string> = {
   cover: "Cover",
   content: "Slide",
   cta: "Call to action",
+};
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: CAROUSEL_TEMPLATE_SAMPLE_SLIDE, template picker,
+ *   sample slide, thumbnail
+ *
+ * WHAT:  The slide every template thumbnail is drawn from.
+ * WHY:   ONE sample shared by all of them, not one per template. A picker exists
+ *        so someone can compare, and comparison only works when the words are held
+ *        constant — different copy per thumbnail would have people choosing on the
+ *        sample sentence rather than on the design.
+ *
+ *        A cover, because that is the slide a template's character shows on: the
+ *        largest type, the marked word, and whatever drawn mark the layout places.
+ *
+ *        It carries a ==marked== phrase deliberately, so the highlight pairing is
+ *        visible before anyone spends a generation finding out.
+ * WHERE: The template picker in the new-carousel dialog.
+ */
+export const CAROUSEL_TEMPLATE_SAMPLE_SLIDE: CarouselSlide = {
+  kind: "cover",
+  eyebrow: "How this looks",
+  heading: "Attention is ==earned==, never bought",
+  body: "A sample slide, so you can see the design before you spend a generation on it.",
+  bullets: [],
+  callout: "",
+  ctaLabel: "",
+  note: "",
 };
 
 /**

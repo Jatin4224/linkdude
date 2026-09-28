@@ -1,6 +1,6 @@
 # 20. Studio — templates as data
 
-> **Status: built and running.** Banner, headshot and featured cover render and
+> **Status: built and running. Phase 5 (carousels on this renderer) is now done — see 24-carousel-templates.md.** Banner, headshot and featured cover render and
 > export; twelve gallery templates across five layouts; AI backdrops; live
 > preview. Not yet built: carousels on this renderer, multiple featured covers,
 > the drag editor. The original plan and its reasoning are preserved at the end.
@@ -14,6 +14,11 @@ pipeline, and half the decisions here only make sense against that one.
 ---
 
 ## 1. The problem this feature exists to solve
+
+> **Phase 5 is built — see [24 — Carousel editor templates](./24-carousel-templates.md).**
+> `CarouselSlideView` no longer exists; carousel slides render through
+> `renderDesignPng` with their own layout registry over this block language. The
+> problem statement below is kept as the reason that work happened.
 
 `CarouselSlideView` in `src/services/carousel.service.tsx` hardcodes one layout
 and branches on `slide.kind`. The type in `src/lib/types/carousel.ts` says it

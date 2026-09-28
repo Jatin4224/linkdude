@@ -58,8 +58,10 @@ import {
   carouselPagePresetSchema,
   carouselSlidesSchema,
   carouselTemplateSchema,
+  carouselBrandSchema,
   designDocSchema,
   type CarouselPagePreset,
+  type CarouselBrandValues,
   type CarouselSlide,
   type CarouselSlidePreviewValues,
   type CarouselSlides,
@@ -114,6 +116,7 @@ function carouselSlideToDesignDoc(
   templateId: CarouselTemplate,
   canvas: DesignCanvasKey,
   palette: CarouselPalette,
+  brand: CarouselBrandValues,
 ): DesignDoc {
   const layout = getCarouselLayout(templateId, slide.kind);
 
@@ -150,6 +153,15 @@ function carouselSlideToDesignDoc(
     background: { kind: "solid", color: { slot: layout.field } },
     justify: layout.justify,
     blocks: layout.blocks,
+    /* `photo` rather than `backdrop`: a backdrop is a texture the design sits on
+     * top of, and this sits beside the type as its own subject.
+     *
+     * The layout carries the image BLOCK unconditionally and this supplies the
+     * image or nothing — the renderer's image case returns null when its slot is
+     * unresolved, so a slide with no illustration simply draws one block fewer.
+     * That is what lets each template decide how big the picture is and where it
+     * sits, which a block appended here by the service could never express. */
+    images: slide.illustration ? { photo: slide.illustration } : {},
     content: {
       headline: slide.heading,
       body: slide.body,
@@ -157,6 +169,11 @@ function carouselSlideToDesignDoc(
       quote: slide.callout,
       ctaLabel: slide.ctaLabel,
       footnote: slide.note,
+      /* The deck's own identity, mapped onto the slots the block language already
+       * has for it. A layout that draws neither simply ignores them, and an
+       * unconnected workspace sends empty strings that hide their blocks. */
+      logoText: brand.wordmark,
+      name: brand.name,
       ...bulletContent,
     },
   });
@@ -246,6 +263,7 @@ async function renderCarouselSlide(
   slide: CarouselSlide,
   templateId: CarouselTemplate,
   context: SlideRenderContext,
+  brand: CarouselBrandValues,
   index: number,
   total: number,
 ): Promise<Buffer> {
@@ -254,6 +272,7 @@ async function renderCarouselSlide(
     templateId,
     context.canvas,
     context.palette,
+    brand,
   );
   const rendered = await renderDesignPng(doc, { index, total });
   return Buffer.from(rendered.base64, "base64");
@@ -280,6 +299,7 @@ export async function renderCarouselSlidePreview(
     input.slide,
     input.templateId,
     context,
+    input.brand,
     input.index,
     input.total,
   );
@@ -312,6 +332,9 @@ export async function renderCarouselPdf(
   slides: CarouselSlides,
   templateId: string,
   pagePreset: string,
+  /* Read server-side by the router, where the organisation and the connected
+   * account are already in hand. */
+  brand: CarouselBrandValues,
 ): Promise<RenderedCarousel> {
   /* Same resolver the live preview uses — see the note there on why that sharing
    * is what keeps the two from disagreeing. */
@@ -326,6 +349,7 @@ export async function renderCarouselPdf(
       slide,
       template,
       context,
+      brand,
       index,
       slides.length,
     );
@@ -377,6 +401,10 @@ const CAROUSEL_SAFE_SELECT = {
   },
 } as const;
 
+/* How much of a topic the list carries. Enough for a clamped line and a muted
+ * second line, and nothing beyond that. */
+const CAROUSEL_LIST_TOPIC_MAX = 200;
+
 /* The list omits `slides` entirely. A list row shows a topic, a status and a
  * date — shipping every deck's full slide array to render four columns is
  * payload nobody reads, and it would hand the client a JsonValue it would have
@@ -419,6 +447,36 @@ function parseCarouselSlides(value: Prisma.JsonValue): CarouselSlides {
 }
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: safeParseCarouselSlides, illustrationFileIds,
+ *   orphaned image, ImageKit cleanup
+ *
+ * WHAT:  Reads a stored deck for cleanup purposes without throwing, and lists the
+ *        ImageKit files its slides reference.
+ * WHY:   The strict parse above is right on the READ path, where a deck that
+ *        cannot be understood must fail loudly rather than reach a renderer. It is
+ *        wrong here. These run while a member is saving or discarding, and a deck
+ *        written by an older shape must not make Save fail — the worst outcome of
+ *        not understanding it is that some images are left behind, which is where
+ *        we already were.
+ *
+ *        Returning [] on a parse failure is therefore deliberate: it leaks rather
+ *        than deletes. Given a choice between orphaning a file and deleting one a
+ *        live deck still points at, orphaning is the recoverable mistake.
+ * WHERE: updateCarouselRecord and discardCarousel, whose callers delete the
+ *        returned ids after the transaction commits.
+ */
+function safeParseCarouselSlides(value: Prisma.JsonValue): CarouselSlides {
+  const parsed = carouselSlidesSchema.safeParse(value);
+  return parsed.success ? parsed.data : [];
+}
+
+function illustrationFileIds(slides: CarouselSlides): string[] {
+  return slides
+    .map((slide) => slide.illustration?.fileId)
+    .filter((fileId): fileId is string => fileId !== undefined);
+}
+
+/**
  * SOURCE OF TRUTH KEYWORDS: listCarousels, search, CarouselWhereInput
  *
  * WHAT:  A page of decks for the workspace list, optionally narrowed by topic.
@@ -435,6 +493,42 @@ function parseCarouselSlides(value: Prisma.JsonValue): CarouselSlides {
  * WHERE: carousel.list. Filters are separate from pagination because the factory
  *        owns pagination and the router owns the filter.
  */
+/**
+ * SOURCE OF TRUTH KEYWORDS: readCarouselBrand, deck branding, wordmark, byline
+ *
+ * WHAT:  The wordmark and byline a rendered deck is signed with.
+ * WHY:   Two reads that are each allowed to come back empty. A workspace with no
+ *        connected LinkedIn account renders unbranded rather than failing — the
+ *        blocks hide themselves, which is the same `hideWhenEmpty` contract every
+ *        optional slot on a slide already relies on.
+ *
+ *        Parsed through carouselBrandSchema rather than returned raw, so the
+ *        ceilings are applied once here instead of being restated by the renderer:
+ *        an organisation named at length cannot push the byline off the slide.
+ * WHERE: carousel.render. The live preview cannot call this — its route reads no
+ *        database — so the client sends the same values in the payload.
+ */
+export async function readCarouselBrand(
+  organizationId: string,
+  db: DbClient = prisma,
+): Promise<CarouselBrandValues> {
+  const [organization, account] = await Promise.all([
+    db.organization.findUnique({
+      where: { id: organizationId },
+      select: { name: true },
+    }),
+    db.linkedInAccount.findUnique({
+      where: { organizationId },
+      select: { name: true },
+    }),
+  ]);
+
+  return carouselBrandSchema.parse({
+    wordmark: organization?.name ?? "",
+    name: account?.name ?? "",
+  });
+}
+
 export async function listCarousels(
   organizationId: string,
   filters: Pick<ListCarouselsValues, "search">,
@@ -458,7 +552,22 @@ export async function listCarousels(
     }),
     db.carousel.count({ where }),
   ]);
-  return { items, total };
+
+  /* Topics are truncated before they leave the server. The list draws one
+   * line-clamped line from this field, but a topic may now be a pasted article —
+   * so a page of ten decks would otherwise ship well over a hundred kilobytes of
+   * text to render ten clamped lines. The same argument CAROUSEL_LIST_SELECT
+   * already makes for omitting `slides`; it started applying to `topic` the moment
+   * the ceiling went from 1000 to 12000.
+   *
+   * The editor fetches the deck by id when it needs the whole thing. */
+  return {
+    items: items.map((item) => ({
+      ...item,
+      topic: item.topic.slice(0, CAROUSEL_LIST_TOPIC_MAX),
+    })),
+    total,
+  };
 }
 
 /**
@@ -526,6 +635,16 @@ export async function updateCarouselRecord(
   },
   db: DbClient = prisma,
 ) {
+  /* Read before write, to learn which illustrations this save drops. A member who
+   * regenerates or removes one leaves the old ImageKit file referenced by nothing,
+   * and nothing else would ever collect it — the same leak `supersededFileId`
+   * exists to prevent for the rendered PDF, except a deck can hold twelve of
+   * these rather than one. */
+  const previous = await db.carousel.findFirst({
+    where: { id: args.id, organizationId: args.organizationId },
+    select: { slides: true },
+  });
+
   const result = await db.carousel.updateMany({
     where: { id: args.id, organizationId: args.organizationId },
     data: {
@@ -536,7 +655,15 @@ export async function updateCarouselRecord(
       lastError: null,
     },
   });
-  return { count: result.count };
+
+  const kept = new Set(illustrationFileIds(args.slides));
+  const orphanedFileIds = previous
+    ? illustrationFileIds(safeParseCarouselSlides(previous.slides)).filter(
+        (fileId) => !kept.has(fileId),
+      )
+    : [];
+
+  return { count: result.count, orphanedFileIds };
 }
 
 /**
@@ -635,8 +762,23 @@ export async function discardCarousel(
   id: string,
   db: DbClient = prisma,
 ) {
+  /* Same read-before-write as updateCarouselRecord, for the same reason: the row
+   * is about to go, and with it the only record of which images it referenced. */
+  const previous = await db.carousel.findFirst({
+    where: { id, organizationId },
+    select: { slides: true },
+  });
+
   const result = await db.carousel.deleteMany({
     where: { id, organizationId },
   });
-  return { count: result.count };
+
+  /* Only if a row was actually deleted — reporting orphans for a discard that
+   * matched nothing would delete images still referenced by a live deck. */
+  const orphanedFileIds =
+    result.count > 0 && previous
+      ? illustrationFileIds(safeParseCarouselSlides(previous.slides))
+      : [];
+
+  return { count: result.count, orphanedFileIds };
 }

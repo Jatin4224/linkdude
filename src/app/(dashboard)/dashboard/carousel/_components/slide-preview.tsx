@@ -8,6 +8,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: SlidePreview, SlidePreviewProps, CAROUSEL_PREVIEW_PATH,
+ *   renderSlidePreview (exported — the template picker draws through it too),
  *   renderSlidePreview, carousel live preview, RenderPreview
  *
  * WHAT:  One slide, drawn by the server, beside the editor.
@@ -31,6 +32,7 @@ import {
   CAROUSEL_PAGE_PRESETS,
   type CarouselPagePreset,
   type CarouselSlide,
+  type CarouselBrandValues,
   type CarouselSlidePreviewValues,
   type CarouselTemplate,
 } from "@/lib/types";
@@ -47,6 +49,8 @@ export interface SlidePreviewProps {
   total: number;
   templateId: CarouselTemplate;
   page: CarouselPagePreset;
+  /** Wordmark and byline. Supplied here because the route reads no database. */
+  brand: CarouselBrandValues;
   className?: string;
 }
 
@@ -54,7 +58,7 @@ export interface SlidePreviewProps {
  * effect lists this in its deps, and a callback rebuilt per render would re-arm the
  * timer on every keystroke so it never fired — the preview would never draw. It
  * closes over nothing, so module scope says that outright. */
-async function renderSlidePreview(
+export async function renderSlidePreview(
   payload: CarouselSlidePreviewValues,
   signal: AbortSignal,
 ): Promise<{ dataUrl: string }> {
@@ -88,6 +92,7 @@ export function SlidePreview({
   total,
   templateId,
   page,
+  brand,
   className,
 }: SlidePreviewProps) {
   const preset = CAROUSEL_PAGE_PRESETS[page];
@@ -131,7 +136,7 @@ export function SlidePreview({
 
   return (
     <RenderPreview
-      payload={{ slide, index, total, templateId, page }}
+      payload={{ slide, index, total, templateId, page, brand }}
       onRender={renderSlidePreview}
       debounceMs={CAROUSEL_PREVIEW_DEBOUNCE_MS}
       aspect={{ width: preset.width, height: preset.height }}

@@ -28,11 +28,15 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 
 import { trpc } from "@/trpc/react-provider";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import {
+  useActiveOrganization,
+  useActiveOrganizationId,
+} from "@/hooks/use-active-organization";
 import {
   CAROUSEL_PAGE_PRESETS,
   carouselPagePresetSchema,
   carouselTemplateSchema,
+  type CarouselBrandValues,
   type CarouselDraftValues,
   type CarouselStatus,
   type GenerateCarouselValues,
@@ -41,6 +45,7 @@ import { ContentLayout } from "@/components/global/page-header";
 import { DataTable, type DataTableColumn } from "@/components/global/data-table";
 import { TechButton, TechSurface } from "@/components/global/tech";
 import { FeatureGate } from "@/components/feature-gate";
+import { UsageMeter } from "@/components/global/usage-meter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +77,7 @@ const CAROUSEL_STATUS_VARIANTS: Record<
 
 export function CarouselWorkspace() {
   const organizationId = useActiveOrganizationId();
+  const { activeOrganization } = useActiveOrganization();
   const utils = trpc.useUtils();
 
   const [page, setPage] = React.useState(1);
@@ -102,6 +108,19 @@ export function CarouselWorkspace() {
     },
     { enabled, retry: false },
   );
+
+  /* The deck's signature, assembled from what the client already knows. The
+   * preview route reads no database, so these have to travel in its payload —
+   * and both are allowed to be absent: an unconnected workspace previews
+   * unbranded rather than not at all. */
+  const connectionQuery = trpc.integrations.linkedin.useQuery(orgInput, {
+    enabled,
+    retry: false,
+  });
+  const brand: CarouselBrandValues = {
+    wordmark: activeOrganization?.name ?? "",
+    name: connectionQuery.data?.name ?? "",
+  };
 
   const openQuery = trpc.carousel.get.useQuery(
     { ...orgInput, id: openId ?? "" },
@@ -199,8 +218,17 @@ export function CarouselWorkspace() {
       /* The document's title first, the topic only as a fallback. A topic is the
        * PROMPT the author typed, so a list of topics reads like a list of
        * instructions; once a deck has rendered it has a real public name. */
+      /* BOUNDED, and that is not cosmetic. `line-clamp` needs a width to clamp
+       * against, and a table cell sized by its own content never provides one —
+       * the cell simply grows, the table outgrows the viewport, and the page
+       * scrolls sideways taking the header and the New button off screen with it.
+       *
+       * A topic may now be a pasted article, so this went from unlikely to the
+       * normal case. The width lives on an inner div rather than the cell because
+       * a max-width on a <td> is a hint the table layout may ignore; on a block
+       * inside it, it is not. */
       render: (row) => (
-        <div className="flex flex-col">
+        <div className="flex max-w-104 min-w-0 flex-col">
           <span className="line-clamp-1 font-medium">
             {row.document?.title ?? row.topic}
           </span>
@@ -274,12 +302,18 @@ export function CarouselWorkspace() {
             Back to all
           </Button>
         ) : (
-          <FeatureGate resource="carousel">
-            <TechButton size="sm" onClick={() => setIsCreateOpen(true)}>
-              <PlusIcon className="size-4" />
-              New carousel
-            </TechButton>
-          </FeatureGate>
+          /* The meter sits beside the button that spends it, which is the whole
+             point of the component: a cap should be visible BEFORE the action
+             rather than discovered as a rejection. Studio does the same. */
+          <div className="flex items-center gap-4">
+            <UsageMeter resource="carousel" className="w-40" />
+            <FeatureGate resource="carousel">
+              <TechButton size="sm" onClick={() => setIsCreateOpen(true)}>
+                <PlusIcon className="size-4" />
+                New carousel
+              </TechButton>
+            </FeatureGate>
+          </div>
         )
       }
     >
@@ -293,6 +327,7 @@ export function CarouselWorkspace() {
              the live region at exactly the boundary where syncedId resets the
              buffer. Without it those survive a deck switch. */
           key={openId}
+          carouselId={openId}
           draft={draft}
           onChange={setDraft}
           onSave={() =>
@@ -313,6 +348,7 @@ export function CarouselWorkspace() {
           isDirty={isDirty}
           status={openCarousel.status}
           deckTitle={openCarousel.document?.title ?? openCarousel.topic}
+          brand={brand}
           documentUrl={openCarousel.document?.url}
           documentFileName={openCarousel.document?.fileName}
           documentId={openCarousel.document?.id}
@@ -379,7 +415,10 @@ export function CarouselWorkspace() {
         {/* Scoped at its own root: a dialog is PORTALED to the body, so it is
             not a descendant of the surface above and would otherwise open as a
             rounded panel over a square page. */}
-        <DialogContent className="tech-scope sm:max-w-lg">
+        {/* Wide enough for the brief and the template gallery side by side, and
+            height-capped so a short laptop viewport scrolls the dialog's body
+            rather than pushing Generate off the bottom of the screen. */}
+        <DialogContent className="tech-scope max-h-[88vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>New carousel</DialogTitle>
             <DialogDescription>

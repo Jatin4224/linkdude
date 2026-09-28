@@ -574,45 +574,6 @@ export const RESOURCES = {
     },
   },
 
-  /**
-   * SOURCE OF TRUTH KEYWORDS: carousels, carousel generation, slide deck,
-   *   document post, PDF carousel, swipeable document
-   *
-   * WHAT:  Turning a topic into a multi-slide deck that publishes to LinkedIn as
-   *        a swipeable document.
-   * WHY:   A quota of its own rather than riding on linkedinPosts, because a
-   *        deck costs materially more to produce than a text post — it is an AI
-   *        pass per slide plus a render — so the two cannot share a meter
-   *        without one subsidising the other.
-   *
-   *        Declared limit-only: no `permissions` and no `nav`. That is the
-   *        documented "plan-tier quota with no dedicated page" shape, and it is
-   *        deliberate here — this checkout has no carousel router, service or
-   *        route, so a `nav` entry would put a 404 in the sidebar and a
-   *        permission string would grant access to nothing. The quota exists so
-   *        the pricing surfaces can state the allowance; the ENFORCEMENT lands
-   *        with the feature, at which point adding `permissions`, `nav` and
-   *        `audit` here wires the rest up automatically.
-   * WHERE: The pricing matrix, the free-tier counters and the capability ticker
-   *        pick this up from RESOURCE_ENTRIES with no further wiring.
-   */
-  carousels: {
-    name: "Carousels",
-    description: "Turn a topic into a slide deck published as a document",
-    limit: {
-      perPlan: {
-        free: 2,
-        starter: 30,
-        pro: 200,
-        enterprise: "unlimited",
-        portal: "unlimited",
-      },
-      upgradeMessage: "Upgrade to {nextPlan} to build more carousels",
-      availableOnFreeTrial: true,
-      unit: "carousels",
-    },
-  },
-
   /* The content calendar is its own KEY purely because `nav` is one entry per
    * resource and linkedinPosts already spends its on the composer — the sidebar
    * permission is derived as `<key>:<action>`, so a second page needs a second
@@ -822,6 +783,113 @@ export const RESOURCES = {
    *
    * No `nav`: the Generate button lives inside the studio editor. Same shape as
    * ideaAngles, which sits beside postIdeas for exactly this reason. */
+  /**
+   * SOURCE OF TRUTH KEYWORDS: carouselSlideRewrite, reroll, per-slide regenerate
+   *
+   * WHAT:  Rewriting the copy on one slide.
+   * WHY:   Its own key for the same reason carouselIllustration has one: only
+   *        `<resource>.create` spends a slot, and `carousel.create` already spends
+   *        one on the deck — so a reroll sharing that key would charge a member a
+   *        whole deck to reword a single slide.
+   *
+   *        It could not live under `aiGeneration` either, whose `create` verb is
+   *        already taken by post copy, and the factory meters only the verb
+   *        literally named `create`.
+   *
+   *        METERED, not free-but-rate-limited. A reroll is a paid model call, and
+   *        leaving it unmetered means a free account with two carousels can make
+   *        unlimited model calls by rerolling — a rate limit bounds the burst but
+   *        not the bill. The allowance is generous because rerolling is the normal
+   *        way a deck gets good: twenty on free is several passes over a short
+   *        deck, not a taste.
+   *
+   *        BACKFILL NOTE, per profileAnalysis: no existing OrganizationRole row
+   *        holds `carouselSlideRewrite:create`. Owners bypass; a custom-role member
+   *        is refused until their role is granted it. No nav entry to gate, since
+   *        the control lives inside the editor they can already reach.
+   */
+  carouselSlideRewrite: {
+    name: "Slide Rewrites",
+    description: "Rewrite the copy on a single carousel slide",
+    /* No `delete`: a generation is spend and is never refunded. */
+    permissions: ["create"],
+    limit: {
+      perPlan: {
+        free: 20,
+        starter: 200,
+        pro: 1_000,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to rewrite more slides",
+      availableOnFreeTrial: true,
+      unit: "rewrites",
+    },
+    rateLimit: {
+      /* A single-slide call is fast, so the cap is higher than the deck's — but it
+       * is still a paid call and a stuck client must not drain the budget. */
+      create: { count: 10, window: "1 m" },
+    },
+    audit: {
+      entity: "carouselSlideRewrite",
+      describe: { create: "Rewrote a carousel slide" },
+    },
+  },
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: carouselIllustration, slide illustration, AI image
+   *
+   * WHAT:  Generated illustrations for carousel slides.
+   * WHY:   Its own key, metered SEPARATELY from `carousel`, for the reason
+   *        studioBackdrop is separate from `studio`: only `<resource>.create`
+   *        spends a slot, and `carousel.create` already spends one on the deck. A
+   *        slide illustration sharing that key would charge a member a whole deck
+   *        every time they regenerated one picture.
+   *
+   *        Metered PER IMAGE, because that is the unit that costs money. The
+   *        allowance is larger than studioBackdrop's because a deck has three to
+   *        twelve slides: three images cannot illustrate one deck, and a limit that
+   *        cannot complete a single unit of work reads as broken rather than as a
+   *        limit. Five on free is enough to illustrate a short deck and see whether
+   *        the idea is worth paying for.
+   */
+  carouselIllustration: {
+    name: "Slide Illustrations",
+    description: "Generate an illustration for a carousel slide",
+    /* No `delete`: a generation is spend and is never refunded. Removing an
+     * illustration from a slide does not un-spend the model call that made it.
+     *
+     * BACKFILL NOTE, per the rule documented on profileAnalysis: nothing grants a
+     * new permission to OrganizationRole rows that already exist, so
+     * `carouselIllustration:create` is held by no custom role on the day this
+     * ships. Owners bypass and are unaffected; a member on a custom role sees the
+     * control and is refused until their role is granted it. That is why this
+     * feature has no nav entry to gate — it lives inside the carousel editor,
+     * which they can already reach. */
+    permissions: ["create"],
+    limit: {
+      perPlan: {
+        free: 5,
+        starter: 100,
+        pro: 500,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to illustrate more slides",
+      availableOnFreeTrial: true,
+      unit: "illustrations",
+    },
+    rateLimit: {
+      /* An image round trip runs to ninety seconds, so a tight burst cap costs
+       * nobody anything and stops a stuck client queueing paid calls. */
+      create: { count: 4, window: "1 m" },
+    },
+    audit: {
+      entity: "carouselIllustration",
+      describe: { create: "Generated a slide illustration" },
+    },
+  },
+
   studioBackdrop: {
     name: "AI Backdrops",
     description: "Generate a background image for a profile design",

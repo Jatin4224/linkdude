@@ -33,6 +33,7 @@
 import { z } from "zod";
 
 import { postToneSchema } from "./ai";
+import { postImageSchema } from "./imagekit";
 
 /* Reuses postToneSchema rather than declaring a carousel tone: a deck and a post
  * are the same author writing in the same register, and a second tone list would
@@ -122,8 +123,54 @@ export const CAROUSEL_DEFAULT_SLIDES = 7;
  * at the schema boundary where both the model and the editor hit them. */
 export const CAROUSEL_HEADING_MAX = 90;
 export const CAROUSEL_BODY_MAX = 260;
-export const CAROUSEL_TOPIC_MAX = 1000;
+/**
+ * SOURCE OF TRUTH KEYWORDS: CAROUSEL_TOPIC_MAX, CAROUSEL_TOPIC_MIN,
+ *   CAROUSEL_SOURCE_THRESHOLD, long input, source material
+ *
+ * WHAT:  How much someone may paste, and the point at which what they pasted is
+ *        treated as SOURCE MATERIAL rather than as a brief.
+ * WHY:   The ceiling was 1000, which rejected the most common real input this
+ *        feature has: an existing post, a newsletter section, a page of notes.
+ *        Someone pasting a draft they already wrote got a validation error rather
+ *        than a deck, which is the opposite of what the feature is for.
+ *
+ *        12000 is a bound, not a comfort limit — roughly a long article. It exists
+ *        because the topic is interpolated into a prompt, and an unbounded paste is
+ *        an unbounded bill and an unbounded latency on a call that holds a database
+ *        transaction open.
+ *
+ *        The THRESHOLD is the interesting number. Below it, the text is an idea the
+ *        model develops; above it, the text already contains the argument and the
+ *        model's job is to find the strongest one in it and cut everything else.
+ *        Those are different instructions, and giving a pasted article the "develop
+ *        this idea" prompt produces a deck that summarises section by section —
+ *        the exact failure the spec's summarise-or-split line is about.
+ * WHERE: generateCarouselSchema; the branch in generateCarouselSlides; the hint in
+ *        the generate form.
+ */
+export const CAROUSEL_TOPIC_MAX = 12000;
 export const CAROUSEL_TOPIC_MIN = 10;
+export const CAROUSEL_SOURCE_THRESHOLD = 600;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: CAROUSEL_REWRITE_CONTEXT_MAX, rewrite, context budget
+ *
+ * WHAT:  How much of a deck's topic a single-slide rewrite is shown.
+ * WHY:   A BUDGET, not a threshold, and it is its own constant because it answers
+ *        a different question from CAROUSEL_SOURCE_THRESHOLD. That one decides
+ *        whether text is a brief or source material; this one decides how much of
+ *        it a rewrite needs to stay faithful. They were briefly the same number,
+ *        which meant rewriting a slide in a deck built from a 12000-character
+ *        article showed the model the first 600 characters — often not even the
+ *        part the deck's argument came from.
+ *
+ *        Generous rather than tight, because the rewrite already receives every
+ *        other slide's heading: the deck itself carries the argument, and the
+ *        topic is here for the specifics — the names, numbers and examples — that
+ *        the headings had no room for.
+ * WHERE: rewriteCarouselSlide.
+ */
+export const CAROUSEL_REWRITE_CONTEXT_MAX = 2_000;
 
 /* Ceilings for the optional slots, set by the same rule as the two above: the
  * point at which the block overflows its box rather than wrapping. A bullet is
@@ -135,6 +182,11 @@ export const CAROUSEL_MAX_BULLETS = 5;
 export const CAROUSEL_CALLOUT_MAX = 200;
 export const CAROUSEL_CTA_LABEL_MAX = 40;
 export const CAROUSEL_NOTE_MAX = 80;
+
+/* Branding is a footer, not a headline: both are capped short enough that a long
+ * organisation name cannot push the byline off the slide. */
+export const CAROUSEL_WORDMARK_MAX = 24;
+export const CAROUSEL_BYLINE_MAX = 40;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: carouselSlideSchema, CarouselSlide,
@@ -201,20 +253,22 @@ export const carouselSlideSchema = z.object({
   ctaLabel: z.string().trim().max(CAROUSEL_CTA_LABEL_MAX).default(""),
   /** A handwritten-looking margin annotation. */
   note: z.string().trim().max(CAROUSEL_NOTE_MAX).default(""),
+
+  /**
+   * A generated illustration for this slide.
+   *
+   * `.optional()` rather than defaulted, and the difference carries meaning here
+   * where it did not for the text slots: an empty string is a slot nobody filled,
+   * but there is no empty IMAGE — absence is the only way to say "this slide has
+   * none", and a default would have to invent a reference pointing at nothing.
+   *
+   * Reuses postImageSchema rather than declaring a second ImageKit reference
+   * shape, which is the same call designDocSchema.images makes — and it means the
+   * renderer can hand this straight to the image pipeline.
+   */
+  illustration: postImageSchema.optional(),
 });
 export type CarouselSlide = z.infer<typeof carouselSlideSchema>;
-
-/**
- * SOURCE OF TRUTH KEYWORDS: CarouselSlideInput
- *
- * WHAT:  The authoring half of carouselSlideSchema, with the defaulted slots
- *        still optional.
- * WHY:   Same `.default()` input/output split that forced GenerateCarouselInput.
- *        Anything CONSTRUCTING a slide — a layout seed, a test fixture, the
- *        editor's "add slide" — should be typed on this half so it is not forced
- *        to spell out five empty slots it does not care about.
- */
-export type CarouselSlideInput = z.input<typeof carouselSlideSchema>;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: createEmptyCarouselSlide, add slide, empty slot
@@ -514,6 +568,114 @@ export type RenderCarouselValues = z.infer<typeof renderCarouselSchema>;
  * WHERE: Parsed by src/app/api/carousel/preview/route.ts; built by the carousel
  *        slide preview component from the editing draft.
  */
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateCarouselIllustrationSchema,
+ *   GenerateCarouselIllustrationValues, illustration brief
+ *
+ * WHAT:  Input to carouselIllustration.create — what the image should show.
+ * WHY:   A BRIEF, not a slide id. The endpoint generates and stores an image and
+ *        hands the reference back; it never touches the deck. The client writes it
+ *        onto the slide and saves through carousel.update, so an illustration the
+ *        member does not like is never persisted — the contract studioBackdrop
+ *        already establishes, and the reason a rejected generation costs a quota
+ *        slot but never corrupts a deck.
+ *
+ *        Capped short on purpose: this is a subject, not a prompt. The rules that
+ *        make an illustration usable on a slide — no text, leave room for type —
+ *        belong in the service beside the model call, where a member cannot
+ *        accidentally override them.
+ * WHERE: The illustrate control in the slide editor.
+ */
+export const generateCarouselIllustrationSchema = z.object({
+  brief: z
+    .string()
+    .trim()
+    .min(3, "Say what the illustration should show")
+    .max(300, "Keep the brief under 300 characters"),
+});
+export type GenerateCarouselIllustrationValues = z.infer<
+  typeof generateCarouselIllustrationSchema
+>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: carouselSlideCopySchema, CarouselSlideCopy,
+ *   rewriteCarouselSlideSchema, RewriteCarouselSlideValues, reroll
+ *
+ * WHAT:  The COPY half of a slide — everything a rewrite may change — and the
+ *        input to carouselSlideRewrite.create.
+ * WHY:   The model returns copy only, never a whole slide, and that omission is
+ *        load-bearing twice over. `kind` is a position role the deck's invariant
+ *        owns, so a model free to change it could make slide four a second cover.
+ *        `illustration` is an image someone PAID for, and a reroll of the words
+ *        must never silently discard it. Both survive because the router merges
+ *        this onto the existing slide rather than replacing it.
+ *
+ *        The request carries the deck's slides from the EDITOR, not just an id,
+ *        so a rewrite sees unsaved neighbours. Rerolling slide four against the
+ *        saved copy of slide three, after slide three was just rewritten, is how a
+ *        deck loses its thread — and the editing buffer is the honest picture of
+ *        the deck, the same reason the preview draws it.
+ * WHERE: carouselSlideRewrite.create; the rewrite control in the slide editor.
+ */
+export const carouselSlideCopySchema = carouselSlideSchema.pick({
+  heading: true,
+  body: true,
+  eyebrow: true,
+  bullets: true,
+  callout: true,
+  ctaLabel: true,
+  note: true,
+});
+export type CarouselSlideCopy = z.infer<typeof carouselSlideCopySchema>;
+
+export const rewriteCarouselSlideSchema = z.object({
+  id: z.string().min(1),
+  index: z.number().int().min(0).max(CAROUSEL_MAX_SLIDES - 1),
+  /* The deck as the editor currently has it, so the rewrite reads its real
+   * neighbours. Bounded by the same schema storage uses. */
+  slides: carouselSlidesSchema,
+  /* What to change, if the member has something specific in mind. Absent means
+   * "another take on the same job". */
+  instruction: z.string().trim().max(300).optional(),
+});
+export type RewriteCarouselSlideValues = z.infer<
+  typeof rewriteCarouselSlideSchema
+>;
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: carouselBrandSchema, CarouselBrandValues, deck branding,
+ *   wordmark, byline, handle
+ *
+ * WHAT:  Who a deck belongs to — the wordmark a slide carries and the name it is
+ *        signed with.
+ * WHY:   Every slide was anonymous. A deck that travels through a feed without a
+ *        name on it is a deck nobody can attribute, and attribution is most of why
+ *        someone posts one.
+ *
+ *        DERIVED, never stored on the deck. The wordmark is the organisation's
+ *        name and the byline is the connected LinkedIn identity, so a member who
+ *        renames their org or reconnects a different account sees every deck
+ *        follow — where a copy written onto the row at create time would freeze
+ *        whatever was true that day.
+ *
+ *        `name` rather than a handle, because there is no handle to use:
+ *        LinkedInAccount carries `name` and `avatarUrl` and no vanity URL. Calling
+ *        this a handle would promise an @mention the data cannot supply.
+ *
+ *        Both default to empty, and a template that asks for branding on an
+ *        unconnected workspace simply draws one block fewer — `hideWhenEmpty`
+ *        again, rather than a branch.
+ * WHERE: The preview payload (the route touches no database, so the client
+ *        supplies it), and carousel.render, which reads it server-side.
+ */
+export const carouselBrandSchema = z.object({
+  /** The organisation's name, drawn as a wordmark. */
+  wordmark: z.string().trim().max(CAROUSEL_WORDMARK_MAX).default(""),
+  /** The connected LinkedIn identity, drawn as a byline. */
+  name: z.string().trim().max(CAROUSEL_BYLINE_MAX).default(""),
+});
+export type CarouselBrandValues = z.infer<typeof carouselBrandSchema>;
+
 export const carouselSlidePreviewSchema = z
   .object({
     slide: carouselSlideSchema,
@@ -521,6 +683,10 @@ export const carouselSlidePreviewSchema = z
     total: z.number().int().min(CAROUSEL_MIN_SLIDES).max(CAROUSEL_MAX_SLIDES),
     templateId: carouselTemplateSchema,
     page: carouselPagePresetSchema,
+    /* Supplied by the client because this route reads no database — see its
+     * header for why. Defaulted so an older client, or a workspace with nothing
+     * connected, still previews. */
+    brand: carouselBrandSchema.default({ wordmark: "", name: "" }),
   })
   .refine((value) => value.index < value.total, {
     message: "A slide cannot sit past the end of its deck",

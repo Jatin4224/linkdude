@@ -30,7 +30,7 @@ import {
   CAROUSEL_MAX_SLIDES,
   CAROUSEL_DEFAULT_SLIDES,
   CAROUSEL_TOPIC_MAX,
-  CAROUSEL_TEMPLATES,
+  CAROUSEL_SOURCE_THRESHOLD,
   CAROUSEL_PAGE_PRESETS,
   POST_TONES,
   type GenerateCarouselValues,
@@ -40,10 +40,10 @@ import {
 import {
   CAROUSEL_GENERATION_PHASES,
   CAROUSEL_SAMPLE_TOPICS,
-  CAROUSEL_TEMPLATE_LABELS,
   POST_TONE_LABELS,
 } from "@/lib/config";
 import { Button } from "@/components/ui/button";
+import { TemplatePicker } from "./template-picker";
 import {
   Form,
   FormControl,
@@ -166,6 +166,9 @@ export function CarouselForm({
    * component. Same reasoning as the global image editor. Defaulted because
    * useWatch is typed as possibly-undefined before the first render settles. */
   const topic = useWatch({ control: form.control, name: "topic" }) ?? "";
+  /* Watched so the thumbnails redraw in the chosen shape. useWatch, not
+   * form.watch(), for the React Compiler reason noted on `topic`. */
+  const page = useWatch({ control: form.control, name: "page" }) ?? "portrait";
   const generatingLabel = useGenerationLabel(isGenerating);
 
   return (
@@ -174,187 +177,201 @@ export function CarouselForm({
         onSubmit={form.handleSubmit(onGenerate)}
         className="flex flex-col gap-4"
       >
-        <FormField
-          control={form.control}
-          name="topic"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Topic</FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  rows={4}
-                  placeholder="What should this carousel teach? Be specific — a concrete claim beats a broad subject."
-                  disabled={disabled || isGenerating}
-                />
-              </FormControl>
-              <FormDescription>
-                {topic.length} / {CAROUSEL_TOPIC_MAX}
-              </FormDescription>
-              <FormMessage />
-
-              {/* Offered only while the box is empty. An empty prompt field is the
-                  hardest screen in the product — it asks for a format nobody has
-                  seen yet — and these double as instruction, showing that a
-                  concrete claim beats a broad subject. They vanish once there is
-                  something to lose. */}
-              {topic.length === 0 ? (
-                <div className="flex flex-col gap-1.5 pt-1">
-                  <span className="text-xs text-muted-foreground">
-                    Or start from one of these:
-                  </span>
-                  {CAROUSEL_SAMPLE_TOPICS.map((sample) => (
-                    <button
-                      key={sample}
-                      type="button"
+        {/* Two columns from `lg`: the brief on the left, the gallery on the right.
+            Stacked, this dialog ran past the fold on a laptop — five rendered
+            thumbnails are tall, and pushing the submit button off-screen behind a
+            scroll is the one thing a create dialog must not do. Side by side, the
+            decision and the preview of that decision are visible together. */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-6">
+          {/* Left column: the brief and its settings. */}
+          <div className="flex flex-col gap-4">
+            <FormField
+              control={form.control}
+              name="topic"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Topic</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      rows={4}
+                      placeholder="What should this carousel teach? Be specific — a concrete claim beats a broad subject. Or paste a post, a newsletter or a page of notes and I'll cut it down."
                       disabled={disabled || isGenerating}
-                      onClick={() =>
-                        form.setValue("topic", sample, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        })
-                      }
-                      className="rounded-md border px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {/* The mode is stated rather than left to be discovered. Pasting
+                        an article and getting a deck built on one thread is
+                        surprising if nothing said that is what happens. */}
+                    {topic.length >= CAROUSEL_SOURCE_THRESHOLD
+                      ? "Long enough to treat as source — I'll build the deck on its strongest argument rather than summarising it."
+                      : `${String(topic.length)} / ${String(CAROUSEL_TOPIC_MAX)}`}
+                  </FormDescription>
+                  <FormMessage />
+
+                  {/* Offered only while the box is empty. An empty prompt field is the
+                      hardest screen in the product — it asks for a format nobody has
+                      seen yet — and these double as instruction, showing that a
+                      concrete claim beats a broad subject. They vanish once there is
+                      something to lose. */}
+                  {topic.length === 0 ? (
+                    <div className="flex flex-col gap-1.5 pt-1">
+                      <span className="text-xs text-muted-foreground">
+                        Or start from one of these:
+                      </span>
+                      {CAROUSEL_SAMPLE_TOPICS.map((sample) => (
+                        <button
+                          key={sample}
+                          type="button"
+                          disabled={disabled || isGenerating}
+                          onClick={() =>
+                            form.setValue("topic", sample, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            })
+                          }
+                          className="rounded-md border px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                        >
+                          {sample}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </FormItem>
+              )}
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="slideCount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Slides</FormLabel>
+                    <Select
+                      value={String(field.value)}
+                      onValueChange={(value) => field.onChange(Number(value))}
+                      disabled={disabled || isGenerating}
                     >
-                      {sample}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </FormItem>
-          )}
-        />
+                      <FormControl>
+                        <SelectTrigger>
+                          {/* Base UI's Select.Value renders the raw VALUE unless
+                              given children — see the note in image-editor.tsx. */}
+                          <SelectValue>
+                            {field.value ?? CAROUSEL_DEFAULT_SLIDES} slides
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {SLIDE_COUNTS.map((count) => (
+                          <SelectItem key={count} value={String(count)}>
+                            {count} slides
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="slideCount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Slides</FormLabel>
-                <Select
-                  value={String(field.value)}
-                  onValueChange={(value) => field.onChange(Number(value))}
-                  disabled={disabled || isGenerating}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      {/* Base UI's Select.Value renders the raw VALUE unless
-                          given children — see the note in image-editor.tsx. */}
-                      <SelectValue>
-                        {field.value ?? CAROUSEL_DEFAULT_SLIDES} slides
-                      </SelectValue>
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {SLIDE_COUNTS.map((count) => (
-                      <SelectItem key={count} value={String(count)}>
-                        {count} slides
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="tone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tone</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={disabled || isGenerating}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue>
+                            {field.value ? POST_TONE_LABELS[field.value] : null}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {POST_TONES.map((tone) => (
+                          <SelectItem key={tone} value={tone}>
+                            {POST_TONE_LABELS[tone]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="tone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tone</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={disabled || isGenerating}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue>
-                        {field.value ? POST_TONE_LABELS[field.value] : null}
-                      </SelectValue>
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {POST_TONES.map((tone) => (
-                      <SelectItem key={tone} value={tone}>
-                        {POST_TONE_LABELS[tone]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              {/* Template moved OUT of this two-column grid — it is a row of rendered
+                  thumbnails now, and a picker squeezed into half a dialog shows five
+                  slides too small to tell apart. */}
 
+              <FormField
+                control={form.control}
+                name="page"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Shape</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={disabled || isGenerating}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue>
+                            {field.value
+                              ? CAROUSEL_PAGE_PRESETS[field.value].label
+                              : null}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {(
+                          Object.keys(CAROUSEL_PAGE_PRESETS) as CarouselPagePreset[]
+                        ).map((preset) => (
+                          <SelectItem key={preset} value={preset}>
+                            {CAROUSEL_PAGE_PRESETS[preset].label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Shape changes the writing, not just the layout.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Right column. Sticky so the gallery stays put while the left column's
+              sample-prompt chips appear and disappear under the topic box. */}
           <FormField
             control={form.control}
             name="templateId"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="lg:sticky lg:top-0 lg:self-start">
                 <FormLabel>Template</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={disabled || isGenerating}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue>
-                        {field.value
-                          ? CAROUSEL_TEMPLATE_LABELS[field.value]
-                          : null}
-                      </SelectValue>
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {CAROUSEL_TEMPLATES.map((template) => (
-                      <SelectItem key={template} value={template}>
-                        {CAROUSEL_TEMPLATE_LABELS[template]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="page"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Shape</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={disabled || isGenerating}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue>
-                        {field.value
-                          ? CAROUSEL_PAGE_PRESETS[field.value].label
-                          : null}
-                      </SelectValue>
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {(
-                      Object.keys(CAROUSEL_PAGE_PRESETS) as CarouselPagePreset[]
-                    ).map((preset) => (
-                      <SelectItem key={preset} value={preset}>
-                        {CAROUSEL_PAGE_PRESETS[preset].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <TemplatePicker
+                    value={field.value ?? "minimal"}
+                    onChange={field.onChange}
+                    /* Drawn in the shape the deck will be, so switching Shape
+                       redraws every thumbnail rather than showing five portraits
+                       for a square deck. */
+                    page={page}
+                    disabled={disabled || isGenerating}
+                  />
+                </FormControl>
                 <FormDescription>
-                  Shape changes the writing, not just the layout.
+                  Each thumbnail is a real render — the same engine that draws your
+                  deck.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
