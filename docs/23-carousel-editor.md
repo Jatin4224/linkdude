@@ -1,10 +1,15 @@
 # 23. Carousel editor — live preview, structure, themes, PNG export
 
-> **Status: in progress on `feature/carousel-editor`.** This is the approved plan,
-> committed so the reasoning survives the branch. It gets rewritten into
-> built-feature narrative — the shape `20-studio.md` is written in — once the work
-> lands. Read `16-carousel-generation.md` first: this changes that feature's
-> editor and render path, and nothing here makes sense without it.
+> **Status: built.** The live preview, drag-and-drop reordering, structure controls,
+> in-editor template and shape switching and the PNG export all shipped.
+>
+> Read `16-carousel-generation.md` first — this changes that feature's editor and
+> render path. Then `24-carousel-templates.md`, which supersedes parts of this
+> document: the render path described here was later moved onto the shared design
+> engine, so `CarouselSlideView` and `carousel.service.tsx` no longer exist.
+>
+> The plan is kept below the build log because its reasoning is still the reason
+> these choices were made.
 
 
 ## Context
