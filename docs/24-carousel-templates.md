@@ -580,3 +580,32 @@ Illustrations beside them made obvious.
 
 Carousel now contributes three honest rows to that table: Carousels, Slide Rewrites,
 Slide Illustrations.
+
+## A rewrite was deleting hand-written copy
+
+Every field on `carouselSlideCopySchema` carries a default, so a model told to fill
+only `heading` and `bullets` still returned `""` for `note`, `callout` and
+`eyebrow`. The router spread that over the existing slide — silently wiping an
+aside the member had typed.
+
+The member had no way to connect the loss to its cause, because the cause is the
+blueprint step's `slots` list, which is invisible from the editor.
+
+The rewrite now takes **only the slots its step asked for**; the rest keep what the
+slide already said. A slot the step *did* ask for is taken even when it comes back
+empty — there, the model deciding the slide does not need it is the answer.
+
+Verified: a step asking for heading and bullets replaces those two and preserves
+note, callout and eyebrow; a step asking for callout accepts an empty one.
+
+## Two checks that found nothing, recorded so nobody repeats them
+
+**Strict maxima on the rewrite's output schema are correct.** A model returning a
+95-character heading discards a paid call, which looks like the failure
+`generateContentPlan` documents. It is not the same thing: that note relaxes
+*counts* (`.min`, `.length`) and says explicitly that "the maxima come through
+unchanged". Strict maxima, lenient counts is the established split, and the rewrite
+follows it.
+
+**Image slots resolve generically.** `resolveDesignImages` iterates `doc.images`
+rather than naming slots, so the carousel's `photo` needed no renderer change.

@@ -80,6 +80,7 @@ import type { FetchedProfile } from "@/lib/types/profile-lookup";
 import {
   carouselSlidesSchema,
   carouselSlideCopySchema,
+  CAROUSEL_SLOT_KEYS,
   expandCarouselBlueprint,
   CAROUSEL_PAGE_PRESETS,
   CAROUSEL_BODY_MAX,
@@ -92,6 +93,7 @@ import {
   CAROUSEL_SOURCE_THRESHOLD,
   CAROUSEL_REWRITE_CONTEXT_MAX,
   type CarouselSlideCopy,
+  type CarouselSlotKey,
   type CarouselSlides,
   type GenerateCarouselValues,
 } from "@/lib/types/carousel";
@@ -1361,7 +1363,32 @@ export async function rewriteCarouselSlide(
     timeoutMs: AI_TIMEOUT_MS,
   });
 
-  return carouselSlideCopySchema.parse(result);
+  const rewritten = carouselSlideCopySchema.parse(result);
+
+  /* Only the slots this step ASKED for are taken. The rest keep what the slide
+   * already said.
+   *
+   * Without this the rewrite silently deletes typed content: every field on the
+   * copy schema carries a default, so a model told to fill only `heading` and
+   * `bullets` still returns "" for `note`, and a plain spread would wipe an aside
+   * the member wrote by hand. They would have no way to connect that loss to the
+   * blueprint rule that caused it, because the rule is invisible from the editor.
+   *
+   * A slot the step DID ask for is taken even when it comes back empty — there,
+   * the model deciding the slide does not need it is the answer. */
+  const requested = new Set<CarouselSlotKey>(step.slots);
+  const merged: CarouselSlideCopy = { ...current, ...{} };
+
+  for (const slot of CAROUSEL_SLOT_KEYS) {
+    if (!requested.has(slot)) continue;
+    if (slot === "bullets") {
+      merged.bullets = rewritten.bullets;
+      continue;
+    }
+    merged[slot] = rewritten[slot];
+  }
+
+  return carouselSlideCopySchema.parse(merged);
 }
 
 function buildCarouselSourcePrompt(
