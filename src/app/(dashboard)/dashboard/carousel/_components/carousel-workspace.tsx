@@ -387,7 +387,10 @@ export function CarouselWorkspace() {
         {/* Scoped at its own root: a dialog is PORTALED to the body, so it is
             not a descendant of the surface above and would otherwise open as a
             rounded panel over a square page. */}
-        <DialogContent className="tech-scope sm:max-w-2xl">
+        {/* Wide enough for the brief and the template gallery side by side, and
+            height-capped so a short laptop viewport scrolls the dialog's body
+            rather than pushing Generate off the bottom of the screen. */}
+        <DialogContent className="tech-scope max-h-[88vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>New carousel</DialogTitle>
             <DialogDescription>

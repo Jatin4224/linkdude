@@ -65,7 +65,11 @@ export function TemplatePicker({
   const preset = CAROUSEL_PAGE_PRESETS[page];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    /* Two across at every width. The picker sits in a fixed-width column beside
+       the brief, so a breakpoint-driven third column would only shrink each
+       thumbnail below the size at which the templates are distinguishable —
+       which is the entire reason these are renders rather than labels. */
+    <div className="grid grid-cols-2 gap-3">
       {CAROUSEL_TEMPLATES.map((template) => {
         const isSelected = template === value;
         /* The label is split so the card can lead with the name and keep the
