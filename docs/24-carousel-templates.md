@@ -483,3 +483,56 @@ in the draft, and `carousel.update` commits it.
 Same backfill rule as `carouselIllustration`: no existing `OrganizationRole` row
 holds `carouselSlideRewrite:create`. Owners bypass; a custom-role member is refused
 until their role is granted it.
+
+---
+
+# Illustrations were leaking
+
+Phase E shipped a leak, and the codebase had already written down why it matters.
+`attachCarouselDocument` returns `supersededFileId` for exactly this reason:
+
+> *"without this the old Document and its ImageKit asset would leak, silently, once
+> per edit."*
+
+Illustrations had no equivalent. Three paths orphaned files with nothing to collect
+them: regenerating one, removing one, and discarding a deck — the last taking every
+illustration in it. A deck holds up to twelve, so this leaked faster than the PDF
+case it mirrors.
+
+## The fix
+
+`updateCarouselRecord` and `discardCarousel` now read the deck before writing and
+return `orphanedFileIds`. The router deletes them **after** the write, the same
+post-commit ordering `render` uses: deleting first would strand a live slide
+pointing at a dead file if the write then rolled back.
+
+## Two details that decide whether it is safe
+
+**Comparison is by file id, not by position.** Reordering slides changes every
+slide's index while keeping the same images — a positional diff would delete files a
+live deck still points at. Verified across replace, remove, add, reorder, slide
+deletion and text-only edits.
+
+**A deck that will not parse leaks rather than deletes.** `safeParseCarouselSlides`
+returns `[]` on failure instead of throwing, which is the opposite of the strict
+parse on the read path and deliberately so. These run while someone is saving: a
+deck written by an older shape must not make Save fail, and given a choice between
+orphaning a file and deleting one that is still referenced, orphaning is the
+recoverable mistake.
+
+## Why the PDF is treated differently
+
+`discardCarousel` still leaves the rendered PDF in the documents library. That is
+not an inconsistency: a PDF is a finished artifact with its own page, its own
+permission and its own delete verb, and someone who throws away a draft after
+posting the file has not asked for the file to disappear. An illustration is a
+fragment of the deck that referenced it — nothing else can reach it and no surface
+lists it, so leaving it behind is a leak rather than a courtesy.
+
+## One leak that remains, honestly
+
+An illustration generated and then never saved — the member navigates away — is
+still orphaned, because the endpoint returns a stored reference and nothing records
+the intent to keep it. `studioBackdrop` has the identical gap by the same design.
+Closing it needs a reaper over unreferenced files in the folder, which is its own
+piece of work rather than a line in this one.

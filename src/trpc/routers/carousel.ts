@@ -62,6 +62,29 @@ import * as voiceProfileService from "@/services/voice-profile.service";
 
 const withOrganization = z.object({ organizationId: z.string().min(1) });
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: deleteOrphanedIllustrations, orphaned image,
+ *   ImageKit cleanup, post-commit
+ *
+ * WHAT:  Removes the ImageKit files a save or a discard just left unreferenced.
+ * WHY:   Sequential rather than Promise.all, matching the export path: these are
+ *        housekeeping calls behind a response the member is already waiting on,
+ *        and a burst of parallel deletes is a worse neighbour for no gain.
+ *
+ *        Never throws, because deleteImage never throws. A failed cleanup must not
+ *        turn a successful save into an error the member sees — the cost of
+ *        failing here is one orphaned file, and the cost of surfacing it is losing
+ *        the save.
+ * WHERE: carousel.update and carousel.discard, after the write.
+ */
+async function deleteOrphanedIllustrations(
+  fileIds: readonly string[],
+): Promise<void> {
+  for (const fileId of fileIds) {
+    await imagekitService.deleteImage(fileId);
+  }
+}
+
 export const carouselRouter = createTRPCRouter({
   create: protectedProcedure({
     requirePermission: permissions.CAROUSEL_CREATE,
@@ -141,6 +164,13 @@ export const carouselRouter = createTRPCRouter({
           message: "That carousel no longer exists.",
         });
       }
+
+      /* Illustrations this save dropped, removed AFTER the write — the same
+       * post-commit ordering render uses for the superseded PDF. Deleting first
+       * would strand a live slide pointing at a dead file if the write then
+       * rolled back. deleteImage never throws. */
+      await deleteOrphanedIllustrations(result.orphanedFileIds);
+
       return { id: input.id, count: result.count };
     }),
 
@@ -310,7 +340,16 @@ export const carouselRouter = createTRPCRouter({
         });
       }
       /* The rendered PDF is deliberately left in the documents library — see the
-       * note on carouselService.discardCarousel. */
+       * note on carouselService.discardCarousel.
+       *
+       * Its ILLUSTRATIONS are not, and the difference is not an inconsistency. A
+       * PDF is a finished artifact with its own page, its own permission and its
+       * own delete verb; someone who throws away a draft after posting the file
+       * has not asked for the file to disappear. An illustration is a fragment of
+       * the deck that referenced it — nothing else can reach it, and no surface
+       * lists it, so leaving it behind is a leak rather than a courtesy. */
+      await deleteOrphanedIllustrations(result.orphanedFileIds);
+
       return { id: input.id, count: result.count };
     }),
 });

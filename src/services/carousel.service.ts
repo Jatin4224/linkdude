@@ -447,6 +447,36 @@ function parseCarouselSlides(value: Prisma.JsonValue): CarouselSlides {
 }
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: safeParseCarouselSlides, illustrationFileIds,
+ *   orphaned image, ImageKit cleanup
+ *
+ * WHAT:  Reads a stored deck for cleanup purposes without throwing, and lists the
+ *        ImageKit files its slides reference.
+ * WHY:   The strict parse above is right on the READ path, where a deck that
+ *        cannot be understood must fail loudly rather than reach a renderer. It is
+ *        wrong here. These run while a member is saving or discarding, and a deck
+ *        written by an older shape must not make Save fail — the worst outcome of
+ *        not understanding it is that some images are left behind, which is where
+ *        we already were.
+ *
+ *        Returning [] on a parse failure is therefore deliberate: it leaks rather
+ *        than deletes. Given a choice between orphaning a file and deleting one a
+ *        live deck still points at, orphaning is the recoverable mistake.
+ * WHERE: updateCarouselRecord and discardCarousel, whose callers delete the
+ *        returned ids after the transaction commits.
+ */
+function safeParseCarouselSlides(value: Prisma.JsonValue): CarouselSlides {
+  const parsed = carouselSlidesSchema.safeParse(value);
+  return parsed.success ? parsed.data : [];
+}
+
+function illustrationFileIds(slides: CarouselSlides): string[] {
+  return slides
+    .map((slide) => slide.illustration?.fileId)
+    .filter((fileId): fileId is string => fileId !== undefined);
+}
+
+/**
  * SOURCE OF TRUTH KEYWORDS: listCarousels, search, CarouselWhereInput
  *
  * WHAT:  A page of decks for the workspace list, optionally narrowed by topic.
@@ -569,6 +599,16 @@ export async function updateCarouselRecord(
   },
   db: DbClient = prisma,
 ) {
+  /* Read before write, to learn which illustrations this save drops. A member who
+   * regenerates or removes one leaves the old ImageKit file referenced by nothing,
+   * and nothing else would ever collect it — the same leak `supersededFileId`
+   * exists to prevent for the rendered PDF, except a deck can hold twelve of
+   * these rather than one. */
+  const previous = await db.carousel.findFirst({
+    where: { id: args.id, organizationId: args.organizationId },
+    select: { slides: true },
+  });
+
   const result = await db.carousel.updateMany({
     where: { id: args.id, organizationId: args.organizationId },
     data: {
@@ -579,7 +619,15 @@ export async function updateCarouselRecord(
       lastError: null,
     },
   });
-  return { count: result.count };
+
+  const kept = new Set(illustrationFileIds(args.slides));
+  const orphanedFileIds = previous
+    ? illustrationFileIds(safeParseCarouselSlides(previous.slides)).filter(
+        (fileId) => !kept.has(fileId),
+      )
+    : [];
+
+  return { count: result.count, orphanedFileIds };
 }
 
 /**
@@ -678,8 +726,23 @@ export async function discardCarousel(
   id: string,
   db: DbClient = prisma,
 ) {
+  /* Same read-before-write as updateCarouselRecord, for the same reason: the row
+   * is about to go, and with it the only record of which images it referenced. */
+  const previous = await db.carousel.findFirst({
+    where: { id, organizationId },
+    select: { slides: true },
+  });
+
   const result = await db.carousel.deleteMany({
     where: { id, organizationId },
   });
-  return { count: result.count };
+
+  /* Only if a row was actually deleted — reporting orphans for a discard that
+   * matched nothing would delete images still referenced by a live deck. */
+  const orphanedFileIds =
+    result.count > 0 && previous
+      ? illustrationFileIds(safeParseCarouselSlides(previous.slides))
+      : [];
+
+  return { count: result.count, orphanedFileIds };
 }
