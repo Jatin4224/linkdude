@@ -822,6 +822,60 @@ export const RESOURCES = {
    *
    * No `nav`: the Generate button lives inside the studio editor. Same shape as
    * ideaAngles, which sits beside postIdeas for exactly this reason. */
+  /**
+   * SOURCE OF TRUTH KEYWORDS: carouselIllustration, slide illustration, AI image
+   *
+   * WHAT:  Generated illustrations for carousel slides.
+   * WHY:   Its own key, metered SEPARATELY from `carousel`, for the reason
+   *        studioBackdrop is separate from `studio`: only `<resource>.create`
+   *        spends a slot, and `carousel.create` already spends one on the deck. A
+   *        slide illustration sharing that key would charge a member a whole deck
+   *        every time they regenerated one picture.
+   *
+   *        Metered PER IMAGE, because that is the unit that costs money. The
+   *        allowance is larger than studioBackdrop's because a deck has three to
+   *        twelve slides: three images cannot illustrate one deck, and a limit that
+   *        cannot complete a single unit of work reads as broken rather than as a
+   *        limit. Five on free is enough to illustrate a short deck and see whether
+   *        the idea is worth paying for.
+   */
+  carouselIllustration: {
+    name: "Slide Illustrations",
+    description: "Generate an illustration for a carousel slide",
+    /* No `delete`: a generation is spend and is never refunded. Removing an
+     * illustration from a slide does not un-spend the model call that made it.
+     *
+     * BACKFILL NOTE, per the rule documented on profileAnalysis: nothing grants a
+     * new permission to OrganizationRole rows that already exist, so
+     * `carouselIllustration:create` is held by no custom role on the day this
+     * ships. Owners bypass and are unaffected; a member on a custom role sees the
+     * control and is refused until their role is granted it. That is why this
+     * feature has no nav entry to gate — it lives inside the carousel editor,
+     * which they can already reach. */
+    permissions: ["create"],
+    limit: {
+      perPlan: {
+        free: 5,
+        starter: 100,
+        pro: 500,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to illustrate more slides",
+      availableOnFreeTrial: true,
+      unit: "illustrations",
+    },
+    rateLimit: {
+      /* An image round trip runs to ninety seconds, so a tight burst cap costs
+       * nobody anything and stops a stuck client queueing paid calls. */
+      create: { count: 4, window: "1 m" },
+    },
+    audit: {
+      entity: "carouselIllustration",
+      describe: { create: "Generated a slide illustration" },
+    },
+  },
+
   studioBackdrop: {
     name: "AI Backdrops",
     description: "Generate a background image for a profile design",

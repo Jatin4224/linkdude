@@ -349,3 +349,76 @@ when it needs it.
 
 Bounds and mode switching at every boundary: 9 rejected, 10 accepted, 599 brief, 600
 source, 12000 accepted, 12001 rejected.
+
+---
+
+# Phase E — AI illustration per slide
+
+The model draws the picture; the renderer draws the words. That division is the whole
+feature: image models cannot render legible lettering, so asking one for a finished
+slide returns garbled words baked into the pixels. Generating only the illustration
+and compositing crisp type beside it is the thing neither a design tool nor an image
+model does on its own — the same argument `studioBackdrop` makes.
+
+## Metered separately, and per image
+
+`carouselIllustration` is its own `RESOURCES` key, not a verb on `carousel`. Only
+`<resource>.create` spends a slot, and `carousel.create` already spends one on the
+deck — so an illustration sharing that key would charge a member an entire deck every
+time they regenerated one picture.
+
+Per **image**, because that is what costs money. Allowances are larger than
+`studioBackdrop`'s (free 5 / starter 100 / pro 500) because a deck holds three to
+twelve slides: three images cannot illustrate one deck, and a limit that cannot
+complete a single unit of work reads as broken rather than as a limit.
+
+`permissions: ["create"]` only. A generation is spend and is never refunded —
+removing an illustration does not un-spend the model call that made it.
+
+## The endpoint never touches the deck
+
+`carouselIllustration.create` takes a brief and returns a **stored reference**. It
+reads and writes no Carousel row.
+
+The client puts the reference on the slide it is editing and saves through
+`carousel.update`, so an illustration the member rejects is never persisted. It also
+means a ninety-second image call holds no database row — the reason the endpoint is
+shaped this way rather than as `carousel.illustrate`.
+
+## Two details that would have been bugs
+
+**The image block is appended, not part of the layout.** There is no `hideWhenEmpty`
+for images the way there is for text, so an image block living in the layout
+unconditionally would draw an empty frame on every slide nobody illustrated. The
+block is added only when the slide actually has one.
+
+**`fit: "contain"`, not `cover`.** The illustration directive asks for a subject with
+generous empty space around it; cropping it to fill a box throws exactly that
+composition away.
+
+## Backward compatibility
+
+`illustration` is `.optional()` rather than defaulted, and here the distinction
+carries meaning where it did not for the text slots: an empty string is a slot nobody
+filled, but there is no empty image — absence is the only way to say a slide has
+none.
+
+Verified: a pre-slots, pre-illustration deck still parses, its `illustration` reads
+`undefined`, a deck carrying one parses, and a malformed reference is rejected.
+
+## Operational note — custom roles
+
+Nothing backfills `OrganizationRole` rows when a permission is added, per the rule
+documented on `profileAnalysis`. On the day this ships, **no custom role holds
+`carouselIllustration:create`**. Owners bypass and are unaffected; a member on a
+custom role sees the control and is refused until their role is granted it.
+
+That is also why the feature has no nav entry to gate — it lives inside the carousel
+editor, which those members can already reach.
+
+## Cost shape worth knowing
+
+A slide carrying an illustration makes the live preview fetch that image from
+ImageKit on every render, because `resolveDesignImages` resolves references to data
+URIs up front. Studio's backdrops behave identically. It is a network round trip on a
+debounced path, so an illustrated slide previews measurably slower than a plain one.

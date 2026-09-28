@@ -356,6 +356,54 @@ export interface GeneratedBackdrop {
   mediaType: string;
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateSlideIllustration, CAROUSEL_ILLUSTRATION_DIRECTIVE
+ *
+ * WHAT:  An illustration for one carousel slide.
+ * WHY:   A separate directive from BACKDROP_DIRECTIVE rather than a parameter on
+ *        it, because the two ask for opposite pictures. A backdrop is a wide, low
+ *        contrast texture that type sits ON TOP of; a slide illustration is a
+ *        subject that sits BESIDE the type, in a portrait or square frame, and it
+ *        is allowed to be the most interesting thing on the slide.
+ *
+ *        The no-text rule is repeated at length, and that repetition is earned:
+ *        image models cannot render legible lettering, and the single most common
+ *        failure here is an illustration with garbled words baked into the pixels
+ *        sitting next to the crisp type the renderer drew. The division of labour
+ *        is the same one studioBackdrop documents — the MODEL draws the picture,
+ *        the RENDERER draws the words.
+ *
+ *        Returns BYTES, not a stored file: this file talks to models and the
+ *        caller decides where things land.
+ * WHERE: Called by src/trpc/routers/carousel-illustration.ts, which uploads it.
+ */
+const CAROUSEL_ILLUSTRATION_DIRECTIVE = [
+  "A single clear illustration for one slide of a social media carousel.",
+  "ABSOLUTELY NO TEXT, NO LETTERS, NO WORDS, NO NUMBERS, NO LOGOS, NO WATERMARKS, NO UI CHROME.",
+  "One subject, centred, on a plain uncluttered background with generous empty space around it.",
+  "Flat modern editorial illustration style with clean confident linework and a small colour palette.",
+  "No photorealism. No drop shadows. No busy detail that would compete with text placed beside it.",
+].join(" ");
+
+export async function generateSlideIllustration(
+  brief: string,
+): Promise<GeneratedBackdrop> {
+  const { image, warnings } = await generateImage({
+    model: getAiImageModel(),
+    prompt: `${CAROUSEL_ILLUSTRATION_DIRECTIVE} The subject matter: ${brief}`,
+    /* Zero, for the reason editImage states: the dominant failure is a quota
+     * refusal, and quota does not clear between attempts. */
+    maxRetries: 0,
+    abortSignal: AbortSignal.timeout(AI_IMAGE_TIMEOUT_MS),
+  });
+
+  if (warnings.length > 0) {
+    console.warn("[ai] slide illustration returned warnings", { warnings });
+  }
+
+  return { base64: image.base64, mediaType: image.mediaType };
+}
+
 export async function generateBackdrop(brief: string): Promise<GeneratedBackdrop> {
   const { image, warnings } = await generateImage({
     model: getAiImageModel(),

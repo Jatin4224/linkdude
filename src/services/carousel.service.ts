@@ -149,7 +149,18 @@ function carouselSlideToDesignDoc(
      * full slide of it. */
     background: { kind: "solid", color: { slot: layout.field } },
     justify: layout.justify,
-    blocks: layout.blocks,
+    /* The illustration block is appended rather than living in the layout,
+     * because it is CONDITIONAL on the slide's data in a way no other block is.
+     * An image block whose slot is empty still draws its frame — there is no
+     * hideWhenEmpty for images the way there is for text — so a layout carrying
+     * one unconditionally would put an empty box on every slide nobody
+     * illustrated. */
+    blocks: slide.illustration
+      ? [...layout.blocks, CAROUSEL_ILLUSTRATION_BLOCK]
+      : layout.blocks,
+    /* `photo` rather than `backdrop`: a backdrop is a texture the design sits on
+     * top of, and this sits beside the type as its own subject. */
+    images: slide.illustration ? { photo: slide.illustration } : {},
     content: {
       headline: slide.heading,
       body: slide.body,
@@ -190,6 +201,19 @@ interface SlideRenderContext {
    * numbers under two vocabularies rather than a pair that could drift. */
   canvas: DesignCanvasKey;
 }
+
+/* The generated illustration, drawn under the slide's copy. `contain` rather than
+ * `cover` because the image is a subject with deliberate empty space around it —
+ * cropping it to fill a box is exactly what throws that composition away. */
+const CAROUSEL_ILLUSTRATION_BLOCK = {
+  id: "illustration",
+  type: "image",
+  slot: "photo",
+  fit: "contain",
+  width: 0.5,
+  height: 0.3,
+  radius: 16,
+} as const;
 
 /* One place the two vocabularies meet. */
 const CAROUSEL_CANVAS_BY_PAGE: Record<CarouselPagePreset, DesignCanvasKey> = {

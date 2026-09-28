@@ -91,6 +91,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { SlidePreview } from "./slide-preview";
 import { SlideImageExport } from "./slide-image-export";
+import { SlideIllustration } from "./slide-illustration";
 
 export interface SlideEditorProps {
   draft: CarouselDraftValues;
@@ -725,6 +726,15 @@ export function SlideEditor({
                           />
                         </div>
                       </div>
+
+                      <SlideIllustration
+                        value={slide.illustration}
+                        onChange={(illustration) =>
+                          updateSlide(index, { illustration })
+                        }
+                        suggestedBrief={slide.heading}
+                        fieldId={`illustration-${keyFor(index)}`}
+                      />
                     </CollapsibleContent>
                   </Collapsible>
                 </CardContent>

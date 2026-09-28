@@ -238,6 +238,9 @@ export type { ContentPlanSectionDefinition } from "./content-plan-sections";
 export { CAROUSEL_BLUEPRINTS, getCarouselBlueprint } from "./carousel-blueprints";
 export {
   IMAGEKIT_DOCUMENT_FOLDER,
+  IMAGEKIT_CAROUSEL_FOLDER,
+  CAROUSEL_ILLUSTRATION_TIMEOUT_MS,
+  carouselIllustrationFileName,
   CAROUSEL_PDF_MIME_TYPE,
   CAROUSEL_PNG_MIME_TYPE,
   CAROUSEL_GENERATION_MAX_TOKENS,

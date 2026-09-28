@@ -33,6 +33,7 @@
 import { z } from "zod";
 
 import { postToneSchema } from "./ai";
+import { postImageSchema } from "./imagekit";
 
 /* Reuses postToneSchema rather than declaring a carousel tone: a deck and a post
  * are the same author writing in the same register, and a second tone list would
@@ -227,6 +228,20 @@ export const carouselSlideSchema = z.object({
   ctaLabel: z.string().trim().max(CAROUSEL_CTA_LABEL_MAX).default(""),
   /** A handwritten-looking margin annotation. */
   note: z.string().trim().max(CAROUSEL_NOTE_MAX).default(""),
+
+  /**
+   * A generated illustration for this slide.
+   *
+   * `.optional()` rather than defaulted, and the difference carries meaning here
+   * where it did not for the text slots: an empty string is a slot nobody filled,
+   * but there is no empty IMAGE — absence is the only way to say "this slide has
+   * none", and a default would have to invent a reference pointing at nothing.
+   *
+   * Reuses postImageSchema rather than declaring a second ImageKit reference
+   * shape, which is the same call designDocSchema.images makes — and it means the
+   * renderer can hand this straight to the image pipeline.
+   */
+  illustration: postImageSchema.optional(),
 });
 export type CarouselSlide = z.infer<typeof carouselSlideSchema>;
 
@@ -528,6 +543,35 @@ export type RenderCarouselValues = z.infer<typeof renderCarouselSchema>;
  * WHERE: Parsed by src/app/api/carousel/preview/route.ts; built by the carousel
  *        slide preview component from the editing draft.
  */
+/**
+ * SOURCE OF TRUTH KEYWORDS: generateCarouselIllustrationSchema,
+ *   GenerateCarouselIllustrationValues, illustration brief
+ *
+ * WHAT:  Input to carouselIllustration.create — what the image should show.
+ * WHY:   A BRIEF, not a slide id. The endpoint generates and stores an image and
+ *        hands the reference back; it never touches the deck. The client writes it
+ *        onto the slide and saves through carousel.update, so an illustration the
+ *        member does not like is never persisted — the contract studioBackdrop
+ *        already establishes, and the reason a rejected generation costs a quota
+ *        slot but never corrupts a deck.
+ *
+ *        Capped short on purpose: this is a subject, not a prompt. The rules that
+ *        make an illustration usable on a slide — no text, leave room for type —
+ *        belong in the service beside the model call, where a member cannot
+ *        accidentally override them.
+ * WHERE: The illustrate control in the slide editor.
+ */
+export const generateCarouselIllustrationSchema = z.object({
+  brief: z
+    .string()
+    .trim()
+    .min(3, "Say what the illustration should show")
+    .max(300, "Keep the brief under 300 characters"),
+});
+export type GenerateCarouselIllustrationValues = z.infer<
+  typeof generateCarouselIllustrationSchema
+>;
+
 export const carouselSlidePreviewSchema = z
   .object({
     slide: carouselSlideSchema,
