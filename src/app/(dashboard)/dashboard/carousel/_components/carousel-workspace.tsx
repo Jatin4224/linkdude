@@ -200,8 +200,17 @@ export function CarouselWorkspace() {
       /* The document's title first, the topic only as a fallback. A topic is the
        * PROMPT the author typed, so a list of topics reads like a list of
        * instructions; once a deck has rendered it has a real public name. */
+      /* BOUNDED, and that is not cosmetic. `line-clamp` needs a width to clamp
+       * against, and a table cell sized by its own content never provides one —
+       * the cell simply grows, the table outgrows the viewport, and the page
+       * scrolls sideways taking the header and the New button off screen with it.
+       *
+       * A topic may now be a pasted article, so this went from unlikely to the
+       * normal case. The width lives on an inner div rather than the cell because
+       * a max-width on a <td> is a hint the table layout may ignore; on a block
+       * inside it, it is not. */
       render: (row) => (
-        <div className="flex flex-col">
+        <div className="flex max-w-104 min-w-0 flex-col">
           <span className="line-clamp-1 font-medium">
             {row.document?.title ?? row.topic}
           </span>
