@@ -30,6 +30,7 @@ import {
   CAROUSEL_MAX_SLIDES,
   CAROUSEL_DEFAULT_SLIDES,
   CAROUSEL_TOPIC_MAX,
+  CAROUSEL_SOURCE_THRESHOLD,
   CAROUSEL_PAGE_PRESETS,
   POST_TONES,
   type GenerateCarouselValues,
@@ -186,12 +187,17 @@ export function CarouselForm({
                 <Textarea
                   {...field}
                   rows={4}
-                  placeholder="What should this carousel teach? Be specific — a concrete claim beats a broad subject."
+                  placeholder="What should this carousel teach? Be specific — a concrete claim beats a broad subject. Or paste a post, a newsletter or a page of notes and I'll cut it down."
                   disabled={disabled || isGenerating}
                 />
               </FormControl>
               <FormDescription>
-                {topic.length} / {CAROUSEL_TOPIC_MAX}
+                {/* The mode is stated rather than left to be discovered. Pasting
+                    an article and getting a deck built on one thread is
+                    surprising if nothing said that is what happens. */}
+                {topic.length >= CAROUSEL_SOURCE_THRESHOLD
+                  ? "Long enough to treat as source — I'll build the deck on its strongest argument rather than summarising it."
+                  : `${String(topic.length)} / ${String(CAROUSEL_TOPIC_MAX)}`}
               </FormDescription>
               <FormMessage />
 

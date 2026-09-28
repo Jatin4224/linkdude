@@ -262,3 +262,90 @@ what a slide heading is.
 
 Adding the id to `CAROUSEL_TEMPLATES` makes the compiler name all four. Nothing else
 changes — no renderer, no migration, no UI.
+
+---
+
+# The template picker
+
+Five templates, two of them illustrated, were a dropdown of text labels. "Notebook —
+paper, marker headlines" describes a design nobody has seen, and the only way to find
+out was to spend a generation.
+
+The create dialog now shows **one real rendered sample slide per template**, drawn
+through the same preview route and the same engine that draws the deck.
+
+**Real renders, not mocked swatches.** A hand-built swatch is a second description of
+the design, and it drifts silently — nothing would ever compare the two.
+
+**One sample slide across all of them.** Comparison only works with the words held
+constant; different copy per card has people choosing on the sentence rather than the
+design. It carries a `==marked==` phrase on purpose, so the highlight pairing is
+visible before anyone commits to a template.
+
+Thumbnails follow the chosen page shape, so a square deck never previews as five
+portraits. Each card renders exactly once: the payload serialises stably and the
+fetch is module-scope, so `RenderPreview`'s debounce is not re-armed.
+
+`renderSlidePreview` is exported from `slide-preview.tsx` so the picker reuses the
+one fetch rather than owning a second copy of the 401 handling and object-URL
+lifetime.
+
+## It also makes the feature self-verifying
+
+Opening the dialog draws five slides through the whole stack — layouts, palettes,
+marker and handwriting faces, the marked-text swash, and the decoration kit. A
+regression anywhere in phases B–D is visible in one screen, to every user, without
+anyone spending a generation to find it.
+
+---
+
+# Long input — paste an article, get a deck
+
+The spec asked for this and it was the one line still unmet:
+
+> *"Extremely long text inputs exceeding standard slide character limits must be
+> automatically summarized or split across multiple cards."*
+
+`CAROUSEL_TOPIC_MAX` was 1000, so the most common real input this feature has — an
+existing post, a newsletter section, a page of notes — produced a **validation
+error** rather than a deck. The ceiling is now 12000.
+
+## The threshold is the interesting part
+
+Raising a number alone would have made it worse, not better. A pasted article given
+the "write a carousel about the following" prompt comes back as a deck that walks the
+source section by section: every slide a paragraph summary, no single claim. That is
+precisely the failure the spec line is about, and a chunking algorithm does not fix
+it — an instruction does.
+
+So `CAROUSEL_SOURCE_THRESHOLD` (600) picks the prompt:
+
+- **Below it** the text is an idea, and the model develops it.
+- **At or above it** the text already contains the argument. The model is told to
+  find the ONE strongest thread, build the whole deck on it, and *cut* everything
+  else — explicitly not to summarise section by section, and to keep the source's own
+  numbers, names and sharp phrasings rather than paraphrasing them blander.
+
+The form says which mode it is in, because pasting an article and getting a deck
+built on one thread is surprising if nothing said that is what happens.
+
+## Pasted text is material, not instructions
+
+Long input is where pasted text starts to resemble instructions, so the source is
+fenced between markers and labelled as material to draw from. This is not a security
+boundary — nothing downstream trusts the model's output — but it measurably stops a
+pasted "ignore the above" from being read as one.
+
+## One consequence worth catching
+
+`CAROUSEL_LIST_SELECT` carries `topic`, and the list draws a single clamped line from
+it. At 1000 characters that was free; at 12000 a page of ten decks would ship well
+over a hundred kilobytes of text to render ten clamped lines — the same argument that
+select already makes for omitting `slides`. Topics are therefore truncated to 200
+characters on the way out of `listCarousels`. The editor fetches the whole deck by id
+when it needs it.
+
+## Verified
+
+Bounds and mode switching at every boundary: 9 rejected, 10 accepted, 599 brief, 600
+source, 12000 accepted, 12001 rejected.

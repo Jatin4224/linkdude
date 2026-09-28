@@ -377,6 +377,10 @@ const CAROUSEL_SAFE_SELECT = {
   },
 } as const;
 
+/* How much of a topic the list carries. Enough for a clamped line and a muted
+ * second line, and nothing beyond that. */
+const CAROUSEL_LIST_TOPIC_MAX = 200;
+
 /* The list omits `slides` entirely. A list row shows a topic, a status and a
  * date — shipping every deck's full slide array to render four columns is
  * payload nobody reads, and it would hand the client a JsonValue it would have
@@ -458,7 +462,22 @@ export async function listCarousels(
     }),
     db.carousel.count({ where }),
   ]);
-  return { items, total };
+
+  /* Topics are truncated before they leave the server. The list draws one
+   * line-clamped line from this field, but a topic may now be a pasted article —
+   * so a page of ten decks would otherwise ship well over a hundred kilobytes of
+   * text to render ten clamped lines. The same argument CAROUSEL_LIST_SELECT
+   * already makes for omitting `slides`; it started applying to `topic` the moment
+   * the ceiling went from 1000 to 12000.
+   *
+   * The editor fetches the deck by id when it needs the whole thing. */
+  return {
+    items: items.map((item) => ({
+      ...item,
+      topic: item.topic.slice(0, CAROUSEL_LIST_TOPIC_MAX),
+    })),
+    total,
+  };
 }
 
 /**

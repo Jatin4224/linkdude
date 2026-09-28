@@ -122,8 +122,34 @@ export const CAROUSEL_DEFAULT_SLIDES = 7;
  * at the schema boundary where both the model and the editor hit them. */
 export const CAROUSEL_HEADING_MAX = 90;
 export const CAROUSEL_BODY_MAX = 260;
-export const CAROUSEL_TOPIC_MAX = 1000;
+/**
+ * SOURCE OF TRUTH KEYWORDS: CAROUSEL_TOPIC_MAX, CAROUSEL_TOPIC_MIN,
+ *   CAROUSEL_SOURCE_THRESHOLD, long input, source material
+ *
+ * WHAT:  How much someone may paste, and the point at which what they pasted is
+ *        treated as SOURCE MATERIAL rather than as a brief.
+ * WHY:   The ceiling was 1000, which rejected the most common real input this
+ *        feature has: an existing post, a newsletter section, a page of notes.
+ *        Someone pasting a draft they already wrote got a validation error rather
+ *        than a deck, which is the opposite of what the feature is for.
+ *
+ *        12000 is a bound, not a comfort limit — roughly a long article. It exists
+ *        because the topic is interpolated into a prompt, and an unbounded paste is
+ *        an unbounded bill and an unbounded latency on a call that holds a database
+ *        transaction open.
+ *
+ *        The THRESHOLD is the interesting number. Below it, the text is an idea the
+ *        model develops; above it, the text already contains the argument and the
+ *        model's job is to find the strongest one in it and cut everything else.
+ *        Those are different instructions, and giving a pasted article the "develop
+ *        this idea" prompt produces a deck that summarises section by section —
+ *        the exact failure the spec's summarise-or-split line is about.
+ * WHERE: generateCarouselSchema; the branch in generateCarouselSlides; the hint in
+ *        the generate form.
+ */
+export const CAROUSEL_TOPIC_MAX = 12000;
 export const CAROUSEL_TOPIC_MIN = 10;
+export const CAROUSEL_SOURCE_THRESHOLD = 600;
 
 /* Ceilings for the optional slots, set by the same rule as the two above: the
  * point at which the block overflows its box rather than wrapping. A bullet is
