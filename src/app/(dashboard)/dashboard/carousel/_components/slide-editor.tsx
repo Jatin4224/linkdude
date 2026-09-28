@@ -57,6 +57,7 @@ import {
   normalizeCarouselSlideKinds,
   createEmptyCarouselSlide,
   DESIGN_MARK_DELIMITER,
+  type CarouselBrandValues,
   type CarouselDraftValues,
   type CarouselPagePreset,
   type CarouselSlide,
@@ -107,8 +108,10 @@ export interface SlideEditorProps {
   isDirty: boolean;
   /** The stored row's status. `ready` is the only value with a current file. */
   status: string;
-  /** Names the PNG archive — the deck's public title, or its topic. */
+  /** Names the PNG archive — the deck public title, or its topic. */
   deckTitle: string;
+  /** Wordmark and byline, drawn by templates that ask for them. */
+  brand: CarouselBrandValues;
   /** Present once a render has succeeded. */
   documentUrl?: string | undefined;
   documentFileName?: string | undefined;
@@ -129,6 +132,7 @@ export function SlideEditor({
   isDirty,
   status,
   deckTitle,
+  brand,
   documentUrl,
   documentFileName,
   documentId,
@@ -802,6 +806,7 @@ export function SlideEditor({
               total={slides.length}
               templateId={draft.templateId}
               page={draft.page}
+              brand={brand}
             />
           ) : null}
 

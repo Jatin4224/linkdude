@@ -101,6 +101,10 @@ export function TemplatePicker({
                 total: 3,
                 templateId: template,
                 page,
+                /* Unbranded on purpose. These thumbnails exist to compare five
+                   designs, and a name repeated across all five is the one thing
+                   on them that carries no information. */
+                brand: { wordmark: "", name: "" },
               }}
               onRender={renderSlidePreview}
               debounceMs={CAROUSEL_PREVIEW_DEBOUNCE_MS}

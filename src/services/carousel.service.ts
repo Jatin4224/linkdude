@@ -58,8 +58,10 @@ import {
   carouselPagePresetSchema,
   carouselSlidesSchema,
   carouselTemplateSchema,
+  carouselBrandSchema,
   designDocSchema,
   type CarouselPagePreset,
+  type CarouselBrandValues,
   type CarouselSlide,
   type CarouselSlidePreviewValues,
   type CarouselSlides,
@@ -114,6 +116,7 @@ function carouselSlideToDesignDoc(
   templateId: CarouselTemplate,
   canvas: DesignCanvasKey,
   palette: CarouselPalette,
+  brand: CarouselBrandValues,
 ): DesignDoc {
   const layout = getCarouselLayout(templateId, slide.kind);
 
@@ -166,6 +169,11 @@ function carouselSlideToDesignDoc(
       quote: slide.callout,
       ctaLabel: slide.ctaLabel,
       footnote: slide.note,
+      /* The deck's own identity, mapped onto the slots the block language already
+       * has for it. A layout that draws neither simply ignores them, and an
+       * unconnected workspace sends empty strings that hide their blocks. */
+      logoText: brand.wordmark,
+      name: brand.name,
       ...bulletContent,
     },
   });
@@ -255,6 +263,7 @@ async function renderCarouselSlide(
   slide: CarouselSlide,
   templateId: CarouselTemplate,
   context: SlideRenderContext,
+  brand: CarouselBrandValues,
   index: number,
   total: number,
 ): Promise<Buffer> {
@@ -263,6 +272,7 @@ async function renderCarouselSlide(
     templateId,
     context.canvas,
     context.palette,
+    brand,
   );
   const rendered = await renderDesignPng(doc, { index, total });
   return Buffer.from(rendered.base64, "base64");
@@ -289,6 +299,7 @@ export async function renderCarouselSlidePreview(
     input.slide,
     input.templateId,
     context,
+    input.brand,
     input.index,
     input.total,
   );
@@ -321,6 +332,9 @@ export async function renderCarouselPdf(
   slides: CarouselSlides,
   templateId: string,
   pagePreset: string,
+  /* Read server-side by the router, where the organisation and the connected
+   * account are already in hand. */
+  brand: CarouselBrandValues,
 ): Promise<RenderedCarousel> {
   /* Same resolver the live preview uses — see the note there on why that sharing
    * is what keeps the two from disagreeing. */
@@ -335,6 +349,7 @@ export async function renderCarouselPdf(
       slide,
       template,
       context,
+      brand,
       index,
       slides.length,
     );
@@ -478,6 +493,42 @@ function illustrationFileIds(slides: CarouselSlides): string[] {
  * WHERE: carousel.list. Filters are separate from pagination because the factory
  *        owns pagination and the router owns the filter.
  */
+/**
+ * SOURCE OF TRUTH KEYWORDS: readCarouselBrand, deck branding, wordmark, byline
+ *
+ * WHAT:  The wordmark and byline a rendered deck is signed with.
+ * WHY:   Two reads that are each allowed to come back empty. A workspace with no
+ *        connected LinkedIn account renders unbranded rather than failing — the
+ *        blocks hide themselves, which is the same `hideWhenEmpty` contract every
+ *        optional slot on a slide already relies on.
+ *
+ *        Parsed through carouselBrandSchema rather than returned raw, so the
+ *        ceilings are applied once here instead of being restated by the renderer:
+ *        an organisation named at length cannot push the byline off the slide.
+ * WHERE: carousel.render. The live preview cannot call this — its route reads no
+ *        database — so the client sends the same values in the payload.
+ */
+export async function readCarouselBrand(
+  organizationId: string,
+  db: DbClient = prisma,
+): Promise<CarouselBrandValues> {
+  const [organization, account] = await Promise.all([
+    db.organization.findUnique({
+      where: { id: organizationId },
+      select: { name: true },
+    }),
+    db.linkedInAccount.findUnique({
+      where: { organizationId },
+      select: { name: true },
+    }),
+  ]);
+
+  return carouselBrandSchema.parse({
+    wordmark: organization?.name ?? "",
+    name: account?.name ?? "",
+  });
+}
+
 export async function listCarousels(
   organizationId: string,
   filters: Pick<ListCarouselsValues, "search">,

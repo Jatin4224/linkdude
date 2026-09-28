@@ -100,6 +100,15 @@ interface SlideLayoutOptions {
    * wants a small mark, an illustrated one wants the picture to carry the slide.
    */
   readonly illustrationWidth: number;
+  /**
+   * Whether slides carry the deck's wordmark and byline.
+   *
+   * Per template, because signing a slide is a stylistic choice as much as an
+   * attribution one: a quiet document-style deck reads better unsigned, and a
+   * deck built to travel wants its name on every frame. Both values hide
+   * themselves when empty, so this only decides whether the block exists.
+   */
+  readonly showBrand: boolean;
 }
 
 /**
@@ -268,6 +277,50 @@ function buildSlideLayouts(
     radius: 16,
   };
 
+  /* The signature: wordmark and byline on one row, at the foot of the slide.
+   *
+   * A row rather than two stacked lines, because this is the quietest thing on the
+   * slide and two lines of it start competing with the copy. Each half hides
+   * independently, so a workspace with no connected account shows the wordmark
+   * alone rather than a stray separator. */
+  const brandRow = (ink: DesignColorSlot): readonly DesignBlockInput[] =>
+    options.showBrand
+      ? [
+          {
+            id: "brand",
+            type: "group",
+            direction: "row",
+            gap: 12,
+            align: "center",
+            children: [
+              {
+                id: "wordmark",
+                type: "logoText",
+                text: { source: "slot", slot: "logoText", hideWhenEmpty: true },
+                /* A small square in the same ink as the text. It turns a word at
+                 * the foot of the slide into something that reads as a mark —
+                 * and taking the ink rather than the accent keeps it legible on
+                 * the inverted closing slide, where accent is the field. */
+                mark: "square",
+                markFill: { slot: ink },
+                color: { slot: ink },
+                role: "meta",
+              },
+              {
+                id: "byline",
+                type: "text",
+                text: { source: "slot", slot: "name", hideWhenEmpty: true },
+                role: "meta",
+                font: options.asideFont,
+                weight: 400,
+                color: { slot: ink },
+                maxLines: 1,
+              },
+            ],
+          },
+        ]
+      : [];
+
   const coverMark: readonly DesignBlockInput[] = options.coverMark
     ? [
         {
@@ -293,6 +346,7 @@ function buildSlideLayouts(
         illustration,
         body("muted", 3),
         note("muted"),
+        ...brandRow("muted"),
       ],
     },
 
@@ -308,6 +362,7 @@ function buildSlideLayouts(
         ...points,
         callout,
         note("muted"),
+        ...brandRow("muted"),
         { id: "progressGap", type: "spacer", size: 24 },
         progress(options.lineInk),
       ],
@@ -339,6 +394,7 @@ function buildSlideLayouts(
           paddingY: 13,
         },
         note(ctaInk),
+        ...brandRow(ctaInk),
         { id: "progressGap", type: "spacer", size: 24 },
         progress(ctaInk),
       ],
@@ -360,6 +416,9 @@ const CLASSIC = buildSlideLayouts({
   /* Modest: these templates are typographic, and a picture that competes with
    * the headline is not what someone picked "Minimal" for. */
   illustrationWidth: 0.4,
+  /* Unsigned. These are the typographic templates; someone choosing "Minimal"
+   * is choosing for the copy to be the only thing on the slide. */
+  showBrand: false,
   points: "lines",
 });
 
@@ -387,6 +446,7 @@ export const CAROUSEL_LAYOUTS: Record<
     eyebrowInk: "muted",
     lineInk: "foreground",
     illustrationWidth: 0.52,
+    showBrand: true,
     coverMark: "underline",
     points: "lines",
   }),
@@ -404,6 +464,7 @@ export const CAROUSEL_LAYOUTS: Record<
     lineInk: "accent",
     /* The illustrated templates let the picture carry more of the slide. */
     illustrationWidth: 0.55,
+    showBrand: true,
     coverMark: "starburst",
     points: "pills",
   }),

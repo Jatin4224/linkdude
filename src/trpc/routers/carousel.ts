@@ -216,10 +216,21 @@ export const carouselRouter = createTRPCRouter({
         /* `carousel.slides` is already CarouselSlides — getCarousel validates it
          * on the way out, so a deck written by an older shape fails there with a
          * clear message rather than reaching the renderer. */
+        /* Read at RENDER time, not stored on the deck: a member who renames the
+         * workspace or reconnects a different account sees every deck they render
+         * afterwards follow, where a copy written at create time would freeze
+         * whatever was true that day. Both are optional — an unconnected
+         * workspace renders unbranded rather than failing. */
+        const brand = await carouselService.readCarouselBrand(
+          input.organizationId,
+          ctx.db,
+        );
+
         const rendered = await carouselService.renderCarouselPdf(
           carousel.slides,
           carousel.templateId,
           carousel.pagePreset,
+          brand,
         );
 
         /* Remote leg BEFORE the database write, so an upload failure rolls the

@@ -32,6 +32,7 @@ import {
   CAROUSEL_PAGE_PRESETS,
   type CarouselPagePreset,
   type CarouselSlide,
+  type CarouselBrandValues,
   type CarouselSlidePreviewValues,
   type CarouselTemplate,
 } from "@/lib/types";
@@ -48,6 +49,8 @@ export interface SlidePreviewProps {
   total: number;
   templateId: CarouselTemplate;
   page: CarouselPagePreset;
+  /** Wordmark and byline. Supplied here because the route reads no database. */
+  brand: CarouselBrandValues;
   className?: string;
 }
 
@@ -89,6 +92,7 @@ export function SlidePreview({
   total,
   templateId,
   page,
+  brand,
   className,
 }: SlidePreviewProps) {
   const preset = CAROUSEL_PAGE_PRESETS[page];
@@ -132,7 +136,7 @@ export function SlidePreview({
 
   return (
     <RenderPreview
-      payload={{ slide, index, total, templateId, page }}
+      payload={{ slide, index, total, templateId, page, brand }}
       onRender={renderSlidePreview}
       debounceMs={CAROUSEL_PREVIEW_DEBOUNCE_MS}
       aspect={{ width: preset.width, height: preset.height }}

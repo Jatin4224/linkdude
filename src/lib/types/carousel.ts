@@ -183,6 +183,11 @@ export const CAROUSEL_CALLOUT_MAX = 200;
 export const CAROUSEL_CTA_LABEL_MAX = 40;
 export const CAROUSEL_NOTE_MAX = 80;
 
+/* Branding is a footer, not a headline: both are capped short enough that a long
+ * organisation name cannot push the byline off the slide. */
+export const CAROUSEL_WORDMARK_MAX = 24;
+export const CAROUSEL_BYLINE_MAX = 40;
+
 /**
  * SOURCE OF TRUTH KEYWORDS: carouselSlideSchema, CarouselSlide,
  *   carouselSlidesSchema, CarouselSlides
@@ -637,6 +642,40 @@ export type RewriteCarouselSlideValues = z.infer<
   typeof rewriteCarouselSlideSchema
 >;
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: carouselBrandSchema, CarouselBrandValues, deck branding,
+ *   wordmark, byline, handle
+ *
+ * WHAT:  Who a deck belongs to — the wordmark a slide carries and the name it is
+ *        signed with.
+ * WHY:   Every slide was anonymous. A deck that travels through a feed without a
+ *        name on it is a deck nobody can attribute, and attribution is most of why
+ *        someone posts one.
+ *
+ *        DERIVED, never stored on the deck. The wordmark is the organisation's
+ *        name and the byline is the connected LinkedIn identity, so a member who
+ *        renames their org or reconnects a different account sees every deck
+ *        follow — where a copy written onto the row at create time would freeze
+ *        whatever was true that day.
+ *
+ *        `name` rather than a handle, because there is no handle to use:
+ *        LinkedInAccount carries `name` and `avatarUrl` and no vanity URL. Calling
+ *        this a handle would promise an @mention the data cannot supply.
+ *
+ *        Both default to empty, and a template that asks for branding on an
+ *        unconnected workspace simply draws one block fewer — `hideWhenEmpty`
+ *        again, rather than a branch.
+ * WHERE: The preview payload (the route touches no database, so the client
+ *        supplies it), and carousel.render, which reads it server-side.
+ */
+export const carouselBrandSchema = z.object({
+  /** The organisation's name, drawn as a wordmark. */
+  wordmark: z.string().trim().max(CAROUSEL_WORDMARK_MAX).default(""),
+  /** The connected LinkedIn identity, drawn as a byline. */
+  name: z.string().trim().max(CAROUSEL_BYLINE_MAX).default(""),
+});
+export type CarouselBrandValues = z.infer<typeof carouselBrandSchema>;
+
 export const carouselSlidePreviewSchema = z
   .object({
     slide: carouselSlideSchema,
@@ -644,6 +683,10 @@ export const carouselSlidePreviewSchema = z
     total: z.number().int().min(CAROUSEL_MIN_SLIDES).max(CAROUSEL_MAX_SLIDES),
     templateId: carouselTemplateSchema,
     page: carouselPagePresetSchema,
+    /* Supplied by the client because this route reads no database — see its
+     * header for why. Defaulted so an older client, or a workspace with nothing
+     * connected, still previews. */
+    brand: carouselBrandSchema.default({ wordmark: "", name: "" }),
   })
   .refine((value) => value.index < value.total, {
     message: "A slide cannot sit past the end of its deck",

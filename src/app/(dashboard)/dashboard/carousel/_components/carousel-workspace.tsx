@@ -28,11 +28,15 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 
 import { trpc } from "@/trpc/react-provider";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import {
+  useActiveOrganization,
+  useActiveOrganizationId,
+} from "@/hooks/use-active-organization";
 import {
   CAROUSEL_PAGE_PRESETS,
   carouselPagePresetSchema,
   carouselTemplateSchema,
+  type CarouselBrandValues,
   type CarouselDraftValues,
   type CarouselStatus,
   type GenerateCarouselValues,
@@ -73,6 +77,7 @@ const CAROUSEL_STATUS_VARIANTS: Record<
 
 export function CarouselWorkspace() {
   const organizationId = useActiveOrganizationId();
+  const { activeOrganization } = useActiveOrganization();
   const utils = trpc.useUtils();
 
   const [page, setPage] = React.useState(1);
@@ -103,6 +108,19 @@ export function CarouselWorkspace() {
     },
     { enabled, retry: false },
   );
+
+  /* The deck's signature, assembled from what the client already knows. The
+   * preview route reads no database, so these have to travel in its payload —
+   * and both are allowed to be absent: an unconnected workspace previews
+   * unbranded rather than not at all. */
+  const connectionQuery = trpc.integrations.linkedin.useQuery(orgInput, {
+    enabled,
+    retry: false,
+  });
+  const brand: CarouselBrandValues = {
+    wordmark: activeOrganization?.name ?? "",
+    name: connectionQuery.data?.name ?? "",
+  };
 
   const openQuery = trpc.carousel.get.useQuery(
     { ...orgInput, id: openId ?? "" },
@@ -330,6 +348,7 @@ export function CarouselWorkspace() {
           isDirty={isDirty}
           status={openCarousel.status}
           deckTitle={openCarousel.document?.title ?? openCarousel.topic}
+          brand={brand}
           documentUrl={openCarousel.document?.url}
           documentFileName={openCarousel.document?.fileName}
           documentId={openCarousel.document?.id}
