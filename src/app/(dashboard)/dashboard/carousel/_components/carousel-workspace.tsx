@@ -41,6 +41,7 @@ import { ContentLayout } from "@/components/global/page-header";
 import { DataTable, type DataTableColumn } from "@/components/global/data-table";
 import { TechButton, TechSurface } from "@/components/global/tech";
 import { FeatureGate } from "@/components/feature-gate";
+import { UsageMeter } from "@/components/global/usage-meter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -274,12 +275,18 @@ export function CarouselWorkspace() {
             Back to all
           </Button>
         ) : (
-          <FeatureGate resource="carousel">
-            <TechButton size="sm" onClick={() => setIsCreateOpen(true)}>
-              <PlusIcon className="size-4" />
-              New carousel
-            </TechButton>
-          </FeatureGate>
+          /* The meter sits beside the button that spends it, which is the whole
+             point of the component: a cap should be visible BEFORE the action
+             rather than discovered as a rejection. Studio does the same. */
+          <div className="flex items-center gap-4">
+            <UsageMeter resource="carousel" className="w-40" />
+            <FeatureGate resource="carousel">
+              <TechButton size="sm" onClick={() => setIsCreateOpen(true)}>
+                <PlusIcon className="size-4" />
+                New carousel
+              </TechButton>
+            </FeatureGate>
+          </div>
         )
       }
     >

@@ -71,6 +71,7 @@ import {
 } from "@/lib/config";
 import { Badge } from "@/components/ui/badge";
 import { TechButton, TechLabel, TechRule } from "@/components/global/tech";
+import { UsageMeter } from "@/components/global/usage-meter";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -883,6 +884,27 @@ export function SlideEditor({
                 Changing either makes the last render stale — save, then render
                 again.
               </p>
+            </div>
+          </div>
+
+          {/* The two AI actions on a slide spend a slot per click, and both live
+              inside a collapsed disclosure on whichever card is open. Their caps
+              belong somewhere permanently visible, not next to twelve separate
+              buttons — the rule the dashboard's usage panel states: a cap should
+              be visible BEFORE the action, not discovered as a rejection. */}
+          <TechRule />
+
+          <div className="flex flex-col gap-3">
+            <TechLabel>Remaining this period</TechLabel>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Rewrites</span>
+              <UsageMeter resource="carouselSlideRewrite" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">
+                Illustrations
+              </span>
+              <UsageMeter resource="carouselIllustration" />
             </div>
           </div>
         </div>
