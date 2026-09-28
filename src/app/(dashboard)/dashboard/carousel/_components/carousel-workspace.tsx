@@ -293,6 +293,7 @@ export function CarouselWorkspace() {
              the live region at exactly the boundary where syncedId resets the
              buffer. Without it those survive a deck switch. */
           key={openId}
+          carouselId={openId}
           draft={draft}
           onChange={setDraft}
           onSave={() =>

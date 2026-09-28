@@ -422,3 +422,64 @@ A slide carrying an illustration makes the live preview fetch that image from
 ImageKit on every render, because `resolveDesignImages` resolves references to data
 URIs up front. Studio's backdrops behave identically. It is a network round trip on a
 debounced path, so an illustrated slide previews measurably slower than a plain one.
+
+---
+
+# Per-slide rewrite
+
+Rerolling one slide, rather than regenerating a deck to fix its third card.
+
+## Where the blueprint finally pays off
+
+A reroll that does not know what the slide is FOR produces a differently-worded
+slide that does the same job badly. This one is told: *slide 4 of 9, a content
+slide, whose job is "Give the mechanism as ordered steps"*, with the other slides'
+headings as context and an explicit instruction not to rewrite them.
+
+That is the whole reason `CAROUSEL_BLUEPRINTS` exists as data rather than as one
+prompt — the arc is available per-slide, not only per-deck.
+
+## Metered, and why it had to be
+
+Its own `RESOURCES` key, free 20 / starter 200 / pro 1000.
+
+It could not go on `carousel`: only `<resource>.create` spends a slot and
+`carousel.create` already spends one on the deck, so a reroll there would charge a
+member a whole deck to reword one card. It could not go on `aiGeneration` either —
+that key's `create` verb is already post copy, and the factory meters only the verb
+literally named `create`.
+
+And it could not be free-but-rate-limited, which was the tempting option. A reroll
+is a paid model call; unmetered, a free account holding two carousels can make
+unlimited model calls by rerolling. A rate limit bounds the burst, not the bill.
+
+Twenty on free is several passes over a short deck, because rerolling is how a deck
+gets good — not a taste of a feature.
+
+## The model returns COPY, not a slide
+
+`carouselSlideCopySchema` omits two fields, and both omissions are load-bearing:
+
+- **`kind`** is a position role the deck's invariant owns. A model free to change it
+  could make slide four a second cover.
+- **`illustration`** is an image someone PAID for. A reroll of the words must never
+  silently discard it.
+
+Both survive because the **router** merges the copy onto the existing slide. Doing
+that server-side rather than in the client means no caller can get it wrong.
+
+## It reads the editor's buffer, not the saved deck
+
+The request carries the deck id *and* the current slides. The id supplies the topic
+and template — the deck's own facts, not the client's to assert. The slides come
+from the editor, because rerolling slide four against a stale copy of slide three,
+right after slide three was rewritten, is how a deck loses its thread.
+
+Like the illustration endpoint, the result is returned and **not saved**: it lands
+in the draft, and `carousel.update` commits it.
+
+## Operational note
+
+Same backfill rule as `carouselIllustration`: no existing `OrganizationRole` row
+holds `carouselSlideRewrite:create`. Owners bypass; a custom-role member is refused
+until their role is granted it.

@@ -92,8 +92,11 @@ import { cn } from "@/lib/utils";
 import { SlidePreview } from "./slide-preview";
 import { SlideImageExport } from "./slide-image-export";
 import { SlideIllustration } from "./slide-illustration";
+import { SlideRewrite } from "./slide-rewrite";
 
 export interface SlideEditorProps {
+  /** The open deck's id. The rewrite endpoint reads its topic and template. */
+  carouselId: string;
   draft: CarouselDraftValues;
   onChange: (draft: CarouselDraftValues) => void;
   onSave: () => void;
@@ -115,6 +118,7 @@ export interface SlideEditorProps {
 }
 
 export function SlideEditor({
+  carouselId,
   draft,
   onChange,
   onSave,
@@ -726,6 +730,25 @@ export function SlideEditor({
                           />
                         </div>
                       </div>
+
+                      <SlideRewrite
+                        carouselId={carouselId}
+                        index={index}
+                        slides={slides}
+                        /* Replaces the whole slide, because the server merged the
+                           new copy onto the old one — kind and illustration
+                           included. Patching only the text here would duplicate
+                           that merge in a second place. */
+                        onRewritten={(rewritten) =>
+                          onChange({
+                            ...draft,
+                            slides: slides.map((existing, i) =>
+                              i === index ? rewritten : existing,
+                            ),
+                          })
+                        }
+                        fieldId={`rewrite-${keyFor(index)}`}
+                      />
 
                       <SlideIllustration
                         value={slide.illustration}

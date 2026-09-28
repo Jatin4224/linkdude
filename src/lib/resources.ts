@@ -823,6 +823,59 @@ export const RESOURCES = {
    * No `nav`: the Generate button lives inside the studio editor. Same shape as
    * ideaAngles, which sits beside postIdeas for exactly this reason. */
   /**
+   * SOURCE OF TRUTH KEYWORDS: carouselSlideRewrite, reroll, per-slide regenerate
+   *
+   * WHAT:  Rewriting the copy on one slide.
+   * WHY:   Its own key for the same reason carouselIllustration has one: only
+   *        `<resource>.create` spends a slot, and `carousel.create` already spends
+   *        one on the deck — so a reroll sharing that key would charge a member a
+   *        whole deck to reword a single slide.
+   *
+   *        It could not live under `aiGeneration` either, whose `create` verb is
+   *        already taken by post copy, and the factory meters only the verb
+   *        literally named `create`.
+   *
+   *        METERED, not free-but-rate-limited. A reroll is a paid model call, and
+   *        leaving it unmetered means a free account with two carousels can make
+   *        unlimited model calls by rerolling — a rate limit bounds the burst but
+   *        not the bill. The allowance is generous because rerolling is the normal
+   *        way a deck gets good: twenty on free is several passes over a short
+   *        deck, not a taste.
+   *
+   *        BACKFILL NOTE, per profileAnalysis: no existing OrganizationRole row
+   *        holds `carouselSlideRewrite:create`. Owners bypass; a custom-role member
+   *        is refused until their role is granted it. No nav entry to gate, since
+   *        the control lives inside the editor they can already reach.
+   */
+  carouselSlideRewrite: {
+    name: "Slide Rewrites",
+    description: "Rewrite the copy on a single carousel slide",
+    /* No `delete`: a generation is spend and is never refunded. */
+    permissions: ["create"],
+    limit: {
+      perPlan: {
+        free: 20,
+        starter: 200,
+        pro: 1_000,
+        enterprise: "unlimited",
+        portal: "unlimited",
+      },
+      upgradeMessage: "Upgrade to {nextPlan} to rewrite more slides",
+      availableOnFreeTrial: true,
+      unit: "rewrites",
+    },
+    rateLimit: {
+      /* A single-slide call is fast, so the cap is higher than the deck's — but it
+       * is still a paid call and a stuck client must not drain the budget. */
+      create: { count: 10, window: "1 m" },
+    },
+    audit: {
+      entity: "carouselSlideRewrite",
+      describe: { create: "Rewrote a carousel slide" },
+    },
+  },
+
+  /**
    * SOURCE OF TRUTH KEYWORDS: carouselIllustration, slide illustration, AI image
    *
    * WHAT:  Generated illustrations for carousel slides.

@@ -79,6 +79,7 @@ import {
 import type { FetchedProfile } from "@/lib/types/profile-lookup";
 import {
   carouselSlidesSchema,
+  carouselSlideCopySchema,
   expandCarouselBlueprint,
   CAROUSEL_PAGE_PRESETS,
   CAROUSEL_BODY_MAX,
@@ -89,6 +90,7 @@ import {
   CAROUSEL_MAX_BULLETS,
   CAROUSEL_NOTE_MAX,
   CAROUSEL_SOURCE_THRESHOLD,
+  type CarouselSlideCopy,
   type CarouselSlides,
   type GenerateCarouselValues,
 } from "@/lib/types/carousel";
@@ -1268,6 +1270,96 @@ ${LINKEDIN_LANGUAGE_RULES}
  *        a pasted "ignore the above" from being read as one.
  * WHERE: generateCarouselSlides.
  */
+/**
+ * SOURCE OF TRUTH KEYWORDS: rewriteCarouselSlide, RewriteCarouselSlideArgs,
+ *   carouselSlideCopySchema, reroll, slide job
+ *
+ * WHAT:  Rewrites the copy on one slide, in place, knowing its job and its
+ *        neighbours.
+ * WHY:   THIS IS WHERE THE BLUEPRINT EARNS ITS KEEP. Rerolling a slide without
+ *        knowing what it is for produces a differently-worded slide that does the
+ *        same thing badly; knowing it is the mechanism slide, sitting between the
+ *        problem and the proof, is what makes a second attempt better rather than
+ *        merely different.
+ *
+ *        The neighbours are given as context and explicitly fenced off from being
+ *        rewritten. A model handed a deck and asked to fix one slide will
+ *        cheerfully return a better deck, and the caller only has room for one
+ *        slide — so the instruction says so twice.
+ *
+ *        Returns COPY, never a slide: `kind` is a position role and
+ *        `illustration` is an image someone paid for. Neither is the model's to
+ *        change, and the router merges this onto the existing slide.
+ * WHERE: Called by src/trpc/routers/carousel-slide-rewrite.ts.
+ */
+export interface RewriteCarouselSlideArgs {
+  readonly topic: string;
+  readonly templateId: string;
+  readonly slides: CarouselSlides;
+  readonly index: number;
+  readonly instruction?: string | undefined;
+}
+
+export async function rewriteCarouselSlide(
+  args: RewriteCarouselSlideArgs,
+  voice: ResolvedVoice | null = null,
+): Promise<CarouselSlideCopy> {
+  const blueprint = getCarouselBlueprint(args.templateId);
+  const steps = expandCarouselBlueprint(blueprint, args.slides.length);
+  const step = steps[args.index];
+  const current = args.slides[args.index];
+
+  if (!current || !step) {
+    throw new UserFacingError("That slide is no longer part of the deck.", {
+      errorCode: SANITIZED_ERROR_CODES.AI_OUTPUT_UNUSABLE,
+      /* Not retryable: the index does not become valid by asking again. */
+      retryable: false,
+    });
+  }
+
+  /* Neighbours only — the slide being rewritten is shown separately, so the model
+   * is never looking at it twice in two roles. */
+  const context = args.slides
+    .map((slide, index) =>
+      index === args.index
+        ? null
+        : `${String(index + 1)}. [${slide.kind}] ${slide.heading}`,
+    )
+    .filter((line): line is string => line !== null)
+    .join("\n");
+
+  const result = await generateStructured({
+    system: CAROUSEL_SYSTEM_PROMPT,
+    prompt: [
+      `Rewrite ONE slide of an existing LinkedIn carousel. Return only that slide's copy.`,
+      ``,
+      `The deck is about:`,
+      args.topic.slice(0, CAROUSEL_SOURCE_THRESHOLD),
+      ``,
+      `Voice for this deck: ${blueprint.voice}`,
+      ``,
+      `The other slides, for context. DO NOT rewrite these and do not repeat their points:`,
+      context,
+      ``,
+      `The slide to rewrite is number ${String(args.index + 1)}, a "${step.kind}" slide.`,
+      `Its job: ${step.job}`,
+      `Fill these slots: ${step.slots.join(", ")}. Leave the others empty.`,
+      ``,
+      `What it says now:`,
+      `Heading: ${current.heading}`,
+      ...(current.body.length > 0 ? [`Body: ${current.body}`] : []),
+      ``,
+      args.instruction
+        ? `The member asked for this specifically: ${args.instruction}`
+        : `No specific instruction — make it land harder than the current version. If the current version is already good, change the angle rather than shuffling its words.`,
+    ].join("\n") + buildVoiceDirective(voice),
+    schema: carouselSlideCopySchema,
+    timeoutMs: AI_TIMEOUT_MS,
+  });
+
+  return carouselSlideCopySchema.parse(result);
+}
+
 function buildCarouselSourcePrompt(
   topic: string,
   slideCount: number,

@@ -572,6 +572,51 @@ export type GenerateCarouselIllustrationValues = z.infer<
   typeof generateCarouselIllustrationSchema
 >;
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: carouselSlideCopySchema, CarouselSlideCopy,
+ *   rewriteCarouselSlideSchema, RewriteCarouselSlideValues, reroll
+ *
+ * WHAT:  The COPY half of a slide — everything a rewrite may change — and the
+ *        input to carouselSlideRewrite.create.
+ * WHY:   The model returns copy only, never a whole slide, and that omission is
+ *        load-bearing twice over. `kind` is a position role the deck's invariant
+ *        owns, so a model free to change it could make slide four a second cover.
+ *        `illustration` is an image someone PAID for, and a reroll of the words
+ *        must never silently discard it. Both survive because the router merges
+ *        this onto the existing slide rather than replacing it.
+ *
+ *        The request carries the deck's slides from the EDITOR, not just an id,
+ *        so a rewrite sees unsaved neighbours. Rerolling slide four against the
+ *        saved copy of slide three, after slide three was just rewritten, is how a
+ *        deck loses its thread — and the editing buffer is the honest picture of
+ *        the deck, the same reason the preview draws it.
+ * WHERE: carouselSlideRewrite.create; the rewrite control in the slide editor.
+ */
+export const carouselSlideCopySchema = carouselSlideSchema.pick({
+  heading: true,
+  body: true,
+  eyebrow: true,
+  bullets: true,
+  callout: true,
+  ctaLabel: true,
+  note: true,
+});
+export type CarouselSlideCopy = z.infer<typeof carouselSlideCopySchema>;
+
+export const rewriteCarouselSlideSchema = z.object({
+  id: z.string().min(1),
+  index: z.number().int().min(0).max(CAROUSEL_MAX_SLIDES - 1),
+  /* The deck as the editor currently has it, so the rewrite reads its real
+   * neighbours. Bounded by the same schema storage uses. */
+  slides: carouselSlidesSchema,
+  /* What to change, if the member has something specific in mind. Absent means
+   * "another take on the same job". */
+  instruction: z.string().trim().max(300).optional(),
+});
+export type RewriteCarouselSlideValues = z.infer<
+  typeof rewriteCarouselSlideSchema
+>;
+
 export const carouselSlidePreviewSchema = z
   .object({
     slide: carouselSlideSchema,
