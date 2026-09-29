@@ -97,6 +97,27 @@ export const CAROUSEL_PREVIEW_DEBOUNCE_MS = 300;
  * WHERE: carouselIllustration.create.
  */
 export const IMAGEKIT_CAROUSEL_FOLDER = "/carousel";
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: REAP_GRACE_MS, REAP_BATCH_SIZE, REAP_PAGE_SIZE,
+ *   REAP_RUN_PATH, asset reaper
+ *
+ * WHAT:  The bounds the orphaned-illustration reaper works inside.
+ * WHY:   The GRACE PERIOD is the one that keeps it safe. An illustration lives in
+ *        an unsaved draft between being generated and being saved, and during that
+ *        window nothing references it — it is indistinguishable from an orphan.
+ *        Twenty-four hours is far longer than anyone edits a deck for, and the
+ *        cost of being generous is a file living one extra day.
+ *
+ *        The BATCH CAP exists because a reap that can empty the folder in one pass
+ *        is one bug away from doing so. The backlog clears over several runs and
+ *        the caller is told when the cap was hit.
+ * WHERE: asset-reaper.service and its cron route.
+ */
+export const REAP_GRACE_MS = 24 * 60 * 60 * 1000;
+export const REAP_BATCH_SIZE = 200;
+export const REAP_PAGE_SIZE = 100;
+export const REAP_RUN_PATH = "/api/assets/reap/run";
 export const CAROUSEL_ILLUSTRATION_TIMEOUT_MS = 90_000;
 
 export function carouselIllustrationFileName(brief: string): string {
