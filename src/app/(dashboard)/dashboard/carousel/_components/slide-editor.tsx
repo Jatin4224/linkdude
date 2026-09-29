@@ -38,6 +38,7 @@ import {
   CopyIcon,
   DownloadIcon,
   GripVerticalIcon,
+  LayoutGridIcon,
   Loader2Icon,
   PlusIcon,
   SendIcon,
@@ -54,6 +55,7 @@ import {
   CAROUSEL_TEMPLATES,
   carouselPagePresetSchema,
   carouselSlideKindOptionsFor,
+  expandCarouselBlueprint,
   normalizeCarouselSlideKinds,
   createEmptyCarouselSlide,
   DESIGN_MARK_DELIMITER,
@@ -69,6 +71,7 @@ import {
   buildAttachmentUrl,
   CAROUSEL_SLIDE_KIND_LABELS,
   CAROUSEL_TEMPLATE_LABELS,
+  getCarouselBlueprint,
 } from "@/lib/config";
 import { Badge } from "@/components/ui/badge";
 import { TechButton, TechLabel, TechRule } from "@/components/global/tech";
@@ -95,6 +98,7 @@ import { SlidePreview } from "./slide-preview";
 import { SlideImageExport } from "./slide-image-export";
 import { SlideIllustration } from "./slide-illustration";
 import { SlideRewrite } from "./slide-rewrite";
+import { DeckReview } from "./deck-review";
 
 export interface SlideEditorProps {
   /** The open deck's id. The rewrite endpoint reads its topic and template. */
@@ -142,6 +146,7 @@ export function SlideEditor({
   const slides = draft.slides;
 
   const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const [isReviewOpen, setIsReviewOpen] = React.useState(false);
 
   /* Keys for the slide cards, held PARALLEL to the buffer rather than derived from
    * it. With `key={index}` a reorder makes React reuse position three's DOM node for
@@ -167,6 +172,14 @@ export function SlideEditor({
    * forbids setState in an effect for exactly that reason. */
   const activeIndex = Math.min(selectedIndex, slides.length - 1);
   const activeSlide = slides[activeIndex];
+
+  /* The arc this deck was written against, stretched to its current length. Read
+   * straight from config rather than fetched: the blueprint is data the client
+   * already ships, so naming each slide's job costs nothing at runtime. */
+  const blueprintSteps = expandCarouselBlueprint(
+    getCarouselBlueprint(draft.templateId),
+    slides.length,
+  );
 
   const canDelete = slides.length > CAROUSEL_MIN_SLIDES;
   const canAdd = slides.length < CAROUSEL_MAX_SLIDES;
@@ -320,6 +333,18 @@ export function SlideEditor({
         {announcement}
       </div>
 
+      {/* Mounted unconditionally but only RENDERS its slides while open — the
+          dialog's own content is unmounted when closed, so the twelve preview
+          requests inside it do not fire until someone asks for them. */}
+      <DeckReview
+        open={isReviewOpen}
+        onOpenChange={setIsReviewOpen}
+        slides={slides}
+        templateId={draft.templateId}
+        page={draft.page}
+        brand={brand}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {slides.length} / {CAROUSEL_MAX_SLIDES} slides
@@ -334,6 +359,17 @@ export function SlideEditor({
           >
             {isSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
             Save changes
+          </Button>
+          {/* Deliberately NOT gated on a clean buffer, unlike Render and Publish:
+              reviewing is how you decide whether the deck is worth saving, so
+              requiring a save first would invert the order people work in. */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsReviewOpen(true)}
+          >
+            <LayoutGridIcon className="size-4" />
+            Review deck
           </Button>
           <Button
             variant="brand"
@@ -579,6 +615,17 @@ export function SlideEditor({
                       </Button>
                     </div>
                   </div>
+
+                  {/* What this slide is FOR, taken from the template's blueprint —
+                      the same sentence the model was given when it wrote the deck.
+                      Shown because a member rewriting slide four otherwise has no
+                      idea it is the mechanism slide, and the editor was asking them
+                      to improve copy whose job was invisible. */}
+                  {blueprintSteps[index] ? (
+                    <p className="text-xs text-muted-foreground">
+                      {blueprintSteps[index].job}
+                    </p>
+                  ) : null}
 
                   <div className="flex flex-col gap-1">
                     <Input

@@ -46,8 +46,19 @@ import { DataTable, type DataTableColumn } from "@/components/global/data-table"
 import { TechButton, TechSurface } from "@/components/global/tech";
 import { FeatureGate } from "@/components/feature-gate";
 import { UsageMeter } from "@/components/global/usage-meter";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -85,6 +96,11 @@ export function CarouselWorkspace() {
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [isPublishOpen, setIsPublishOpen] = React.useState(false);
+  /* Where the member was heading when the unsaved-changes prompt stopped them.
+   * Wrapped in an object because `null` is a real destination — the deck list. */
+  const [pendingDeckId, setPendingDeckId] = React.useState<{
+    id: string | null;
+  } | null>(null);
 
   /* The editing buffer. Held here rather than inside SlideEditor so switching decks
    * cannot carry one deck's unsaved edits into another.
@@ -207,6 +223,56 @@ export function CarouselWorkspace() {
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
+  const openCarousel = openQuery.data;
+
+  /* Compared against the loaded row, not tracked with a flag: a flag drifts the
+   * moment a save resolves, and "dirty" must mean the buffer differs from what is
+   * stored — that is what makes Render safe to gate on.
+   *
+   * ONE comparison over the whole draft, so a template or shape change is dirty
+   * too. Comparing only slides is what previously left Save disabled and Render
+   * enabled after switching template.
+   *
+   * Declared ABOVE the organisation guard, because a hook reads it. Below that
+   * early return it would be a conditional hook call — and it derives purely from
+   * state already in scope, so nothing is lost by hoisting it. */
+  const isDirty =
+    draft !== null &&
+    openCarousel !== undefined &&
+    JSON.stringify(draft) !==
+      JSON.stringify({
+        slides: openCarousel.slides,
+        templateId: openCarousel.templateId,
+        page: openCarousel.pagePreset,
+      });
+
+  /* Reloads and tab closes. The in-app transitions this component owns are
+   * guarded by closeDeck below, where a dialog can say what is at stake. */
+  useUnsavedChangesWarning(isDirty);
+
+  /**
+   * SOURCE OF TRUTH KEYWORDS: closeDeck, pendingDeckId, unsaved changes
+   *
+   * WHAT:  Leaves the open deck, or swaps to another, asking first when the buffer
+   *        differs from what is stored.
+   * WHY:   These are the two transitions this component OWNS, and the two that
+   *        used to discard a draft in silence. `beforeunload` cannot cover them —
+   *        it only fires when the page itself goes — so they get a real dialog
+   *        that can say what is at stake instead of the browser's generic copy.
+   *
+   *        The destination is parked rather than acted on: confirming has to know
+   *        whether the member was going back to the list or opening a different
+   *        deck, and `null` is a legitimate destination, so it is held as a
+   *        separate flag rather than inferred from the value being nullish.
+   */
+  function closeDeck(nextId: string | null) {
+    if (isDirty) {
+      setPendingDeckId({ id: nextId });
+      return;
+    }
+    setOpenId(nextId);
+  }
+
   if (!organizationId) return null;
 
   const rows = listQuery.data?.items ?? [];
@@ -272,25 +338,6 @@ export function CarouselWorkspace() {
     },
   ];
 
-  const openCarousel = openQuery.data;
-
-  /* Compared against the loaded row, not tracked with a flag: a flag drifts the
-   * moment a save resolves, and "dirty" must mean the buffer differs from what is
-   * stored — that is what makes Render safe to gate on.
-   *
-   * ONE comparison over the whole draft, so a template or shape change is dirty
-   * too. Comparing only slides is what previously left Save disabled and Render
-   * enabled after switching template. */
-  const isDirty =
-    draft !== null &&
-    openCarousel !== undefined &&
-    JSON.stringify(draft) !==
-      JSON.stringify({
-        slides: openCarousel.slides,
-        templateId: openCarousel.templateId,
-        page: openCarousel.pagePreset,
-      });
-
   return (
     <ContentLayout
       title="Carousel"
@@ -298,7 +345,7 @@ export function CarouselWorkspace() {
       icon={<LayersIcon className="size-4" />}
       actions={
         openId ? (
-          <Button variant="outline" size="sm" onClick={() => setOpenId(null)}>
+          <Button variant="outline" size="sm" onClick={() => closeDeck(null)}>
             Back to all
           </Button>
         ) : (
@@ -382,7 +429,7 @@ export function CarouselWorkspace() {
             total: listQuery.data?.total ?? 0,
             onPageChange: setPage,
           }}
-          onRowClick={(row) => setOpenId(row.id)}
+          onRowClick={(row) => closeDeck(row.id)}
           rowActions={(row) => (
             <Button
               variant="ghost"
@@ -407,9 +454,45 @@ export function CarouselWorkspace() {
           /* Seeded from the cover slide's heading — the deck's own promise is a
            * better starting point for the commentary than a blank box. */
           defaultCommentary={openCarousel.slides[0]?.heading}
+          documentSummary={`${openCarousel.document.fileName} · ${String(
+            openCarousel.document.pageCount,
+          )} pages`}
           onPublished={() => void invalidate()}
         />
       ) : null}
+
+      {/* Only the two transitions this component owns. A sidebar link is still a
+          client-side navigation App Router gives no supported way to intercept —
+          `beforeunload` covers reloads and tab closes, and that gap is documented
+          on the hook rather than papered over here. */}
+      <AlertDialog
+        open={pendingDeckId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeckId(null);
+        }}
+      >
+        <AlertDialogContent className="tech-scope">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deck has changes you haven&rsquo;t saved. Leaving now discards
+              them — there&rsquo;s no draft to come back to.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const next = pendingDeckId;
+                setPendingDeckId(null);
+                if (next) setOpenId(next.id);
+              }}
+            >
+              Discard changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         {/* Scoped at its own root: a dialog is PORTALED to the body, so it is
