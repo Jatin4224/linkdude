@@ -508,48 +508,6 @@ function illustrationFileIds(slides: CarouselSlides): string[] {
  * WHERE: carousel.render. The live preview cannot call this — its route reads no
  *        database — so the client sends the same values in the payload.
  */
-/**
- * SOURCE OF TRUTH KEYWORDS: listReferencedIllustrationFileIds, reaper, orphan
- *
- * WHAT:  Every ImageKit file id any carousel slide currently points at, across
- *        every organisation.
- * WHY:   The reaper's safety half. It deletes what this does NOT return, so a
- *        miss here is a live image deleted — which makes two properties
- *        load-bearing.
- *
- *        It reads EVERY organisation, deliberately. The asset library is not
- *        partitioned by tenant, so a reap scoped to one org would see another
- *        org's files as unreferenced.
- *
- *        And it uses the LENIENT parse. A deck written by a shape this build does
- *        not understand still holds real file ids, and a strict parse would throw
- *        them away — turning an unreadable deck into a deck whose pictures get
- *        collected. `safeParseCarouselSlides` yields [] for such a row, so this
- *        walks the raw value itself rather than going through it.
- * WHERE: asset-reaper.service, which aborts the whole run if this throws.
- */
-export async function listReferencedIllustrationFileIds(
-  db: DbClient = prisma,
-): Promise<ReadonlySet<string>> {
-  const rows = await db.carousel.findMany({ select: { slides: true } });
-  const referenced = new Set<string>();
-
-  for (const row of rows) {
-    if (!Array.isArray(row.slides)) continue;
-    for (const slide of row.slides) {
-      if (typeof slide !== "object" || slide === null) continue;
-      const illustration = (slide as { illustration?: unknown }).illustration;
-      if (typeof illustration !== "object" || illustration === null) continue;
-      const fileId = (illustration as { fileId?: unknown }).fileId;
-      if (typeof fileId === "string" && fileId.length > 0) {
-        referenced.add(fileId);
-      }
-    }
-  }
-
-  return referenced;
-}
-
 export async function readCarouselBrand(
   organizationId: string,
   db: DbClient = prisma,

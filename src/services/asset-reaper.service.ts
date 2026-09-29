@@ -40,13 +40,92 @@ import "server-only";
 
 import { prisma, type DbClient } from "@/lib/config/prisma";
 import {
-  IMAGEKIT_CAROUSEL_FOLDER,
+  REAP_FOLDERS,
   REAP_BATCH_SIZE,
   REAP_GRACE_MS,
   REAP_PAGE_SIZE,
 } from "@/lib/config";
-import * as carouselService from "./carousel.service";
 import * as imagekitService from "./imagekit.service";
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: listReferencedAssetFileIds, reaper, orphan, fileId
+ *
+ * WHAT:  Every ImageKit file id this database knows about, from every column and
+ *        JSON blob that can hold one.
+ * WHY:   THE SAFETY HALF OF THE REAPER, and the reason it is one function rather
+ *        than one per folder. The reaper deletes what this does not return, so the
+ *        set may be over-inclusive with no consequence beyond a file living longer
+ *        — and under-inclusive exactly once before someone loses work.
+ *
+ *        Listing every source together is what makes that auditable: the five
+ *        places a file id can hide are visible in one screen, so adding a sixth
+ *        column somewhere is a change someone can notice here.
+ *
+ *        It is NOT scoped per folder, deliberately. `/studio` holds two kinds of
+ *        file with different owners — AI backdrops referenced by StudioAsset.doc,
+ *        and rendered exports referenced by a Document row — so a scan that knew
+ *        only about backdrops would read every finished export as an orphan.
+ *        Unioning everything removes that whole class of mistake.
+ *
+ *        Reads every organisation, because the asset library is not partitioned by
+ *        tenant: a per-org scan sees another org's files as unreferenced.
+ *
+ *        Walks raw JSON rather than the typed parsers on purpose. A row written by
+ *        a shape this build does not understand still holds real file ids, and a
+ *        strict parse would discard them — turning an unreadable row into one
+ *        whose images get collected.
+ * WHERE: reapOrphanedAssets, which aborts the run if this throws.
+ */
+export async function listReferencedAssetFileIds(
+  db: DbClient = prisma,
+): Promise<ReadonlySet<string>> {
+  const referenced = new Set<string>();
+  const add = (value: unknown) => {
+    if (typeof value === "string" && value.length > 0) referenced.add(value);
+  };
+
+  const [documents, carousels, studioAssets, posts] = await Promise.all([
+    db.document.findMany({ select: { fileId: true } }),
+    db.carousel.findMany({ select: { slides: true } }),
+    db.studioAsset.findMany({ select: { doc: true } }),
+    db.linkedInPost.findMany({
+      select: { imageFileId: true, originalFileId: true },
+    }),
+  ]);
+
+  /* 1. Rendered artifacts — carousel PDFs and studio exports both land here. */
+  for (const document of documents) add(document.fileId);
+
+  /* 2. Slide illustrations, inside the deck's JSON. */
+  for (const carousel of carousels) {
+    if (!Array.isArray(carousel.slides)) continue;
+    for (const slide of carousel.slides) {
+      if (typeof slide !== "object" || slide === null) continue;
+      const illustration = (slide as { illustration?: unknown }).illustration;
+      if (typeof illustration !== "object" || illustration === null) continue;
+      add((illustration as { fileId?: unknown }).fileId);
+    }
+  }
+
+  /* 3. Studio images — backdrops, photos, logos — keyed by slot inside the doc. */
+  for (const asset of studioAssets) {
+    if (typeof asset.doc !== "object" || asset.doc === null) continue;
+    const images = (asset.doc as { images?: unknown }).images;
+    if (typeof images !== "object" || images === null) continue;
+    for (const image of Object.values(images)) {
+      if (typeof image !== "object" || image === null) continue;
+      add((image as { fileId?: unknown }).fileId);
+    }
+  }
+
+  /* 4 and 5. A post's image, and the original it was edited from. */
+  for (const post of posts) {
+    add(post.imageFileId);
+    add(post.originalFileId);
+  }
+
+  return referenced;
+}
 
 export interface ReapResult {
   /** Files examined — that is, old enough to be candidates. */
@@ -56,24 +135,57 @@ export interface ReapResult {
   readonly capped: boolean;
 }
 
-export async function reapOrphanedIllustrations(
+export async function reapOrphanedAssets(
   now: Date,
   db: DbClient = prisma,
 ): Promise<ReapResult> {
   /* Rule 1. Deliberately not wrapped: a throw here aborts the run before a single
    * delete, which is the behaviour we want when we cannot tell what is live. */
-  const referenced = await carouselService.listReferencedIllustrationFileIds(db);
+  const referenced = await listReferencedAssetFileIds(db);
 
   const cutoff = new Date(now.getTime() - REAP_GRACE_MS);
   let examined = 0;
   let deleted = 0;
+
+  for (const folder of REAP_FOLDERS) {
+    const folderResult = await reapFolder({
+      folder,
+      referenced,
+      cutoff,
+      /* The cap is across the WHOLE run, not per folder — otherwise two folders
+       * could delete twice the intended ceiling between them. */
+      budget: REAP_BATCH_SIZE - deleted,
+    });
+
+    examined += folderResult.examined;
+    deleted += folderResult.deleted;
+
+    if (folderResult.capped) return { examined, deleted, capped: true };
+  }
+
+  return { examined, deleted, capped: false };
+}
+
+/* One folder's pass. Split out so the run-wide budget and the per-folder cursor
+ * cannot be confused for each other. */
+async function reapFolder(args: {
+  folder: string;
+  referenced: ReadonlySet<string>;
+  cutoff: Date;
+  budget: number;
+}): Promise<ReapResult> {
+  const { folder, referenced, cutoff, budget } = args;
+  let examined = 0;
+  let deleted = 0;
   let skip = 0;
 
+  if (budget <= 0) return { examined, deleted, capped: true };
+
   for (;;) {
-    const page = await imagekitService.listFolderFiles(
-      IMAGEKIT_CAROUSEL_FOLDER,
-      { limit: REAP_PAGE_SIZE, skip },
-    );
+    const page = await imagekitService.listFolderFiles(folder, {
+      limit: REAP_PAGE_SIZE,
+      skip,
+    });
     if (page.length === 0) break;
 
     /* Per PAGE, not cumulative: the cursor advances by how many files this page
@@ -98,8 +210,8 @@ export async function reapOrphanedIllustrations(
       await imagekitService.deleteImage(file.fileId);
       deleted += 1;
 
-      /* Rule 4. */
-      if (deleted >= REAP_BATCH_SIZE) {
+      /* Rule 4, against this folder's share of the run-wide budget. */
+      if (deleted >= budget) {
         return { examined, deleted, capped: true };
       }
     }

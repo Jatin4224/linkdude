@@ -5,10 +5,11 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: POST, asset reap route, reapOrphanedIllustrations,
+ * SOURCE OF TRUTH KEYWORDS: POST, asset reap route, reapOrphanedAssets,
  *   REAP_RUN_PATH, cron, orphaned image
  *
- * WHAT:  Runs the orphaned-illustration reap. Triggered on a schedule.
+ * WHAT:  Runs the orphaned-asset reap over every generated-file folder.
+ *        Triggered on a schedule.
  * WHY:   A route handler on a Bearer secret, deliberately the SAME shape and the
  *        same secret as scheduled publishing — this codebase keeps no queue SDK,
  *        and a second trigger mechanism for a second background job would be a
@@ -77,7 +78,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const result = await assetReaperService.reapOrphanedIllustrations(
+    const result = await assetReaperService.reapOrphanedAssets(
       new Date(),
     );
     return Response.json(result, { status: 200 });

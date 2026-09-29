@@ -239,6 +239,7 @@ export { CAROUSEL_BLUEPRINTS, getCarouselBlueprint } from "./carousel-blueprints
 export {
   IMAGEKIT_DOCUMENT_FOLDER,
   IMAGEKIT_CAROUSEL_FOLDER,
+  REAP_FOLDERS,
   REAP_GRACE_MS,
   REAP_BATCH_SIZE,
   REAP_PAGE_SIZE,

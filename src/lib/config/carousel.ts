@@ -114,6 +114,18 @@ export const IMAGEKIT_CAROUSEL_FOLDER = "/carousel";
  *        the caller is told when the cap was hit.
  * WHERE: asset-reaper.service and its cron route.
  */
+/* The folders a reap may touch, named explicitly rather than derived.
+ *
+ * Both hold GENERATED files whose only reference is a database row. `/documents`
+ * is absent on purpose — its PDFs are owned by Document rows with their own
+ * permission and delete verb — and so is `/linkedin-posts`, which holds member
+ * uploads rather than anything this app made.
+ *
+ * `/studio` is safe to include only because the reference scan unions every
+ * source: that folder holds AI backdrops AND rendered exports, and a scan that
+ * knew about one would read the other as garbage. */
+export const REAP_FOLDERS = ["/carousel", "/studio"] as const;
+
 export const REAP_GRACE_MS = 24 * 60 * 60 * 1000;
 export const REAP_BATCH_SIZE = 200;
 export const REAP_PAGE_SIZE = 100;

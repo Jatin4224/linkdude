@@ -2,8 +2,9 @@
 
 > **Status: built.** Five templates, slide slots, per-template narrative arcs, the
 > shared design renderer, marker and handwriting faces, a hand-drawn decoration kit,
-> a live template picker, long-paste input, and two metered AI surfaces
-> (illustration and per-slide rewrite). Not built: an unreferenced-file reaper.
+> a live template picker, long-paste input, two metered AI surfaces (illustration
+> and per-slide rewrite), deck branding, per-template illustration placement, and a
+> reaper for orphaned illustrations.
 >
 > Read `16-carousel-generation.md` for how a deck is generated, stored and
 > published, and `23-carousel-editor.md` for the editor this builds on.
@@ -109,6 +110,13 @@ layout's, not the service's: they were a hardcoded `isCta ? accent : background`
 branch, which meant a template could not decide how its own closing slide inverted —
 and `notebook`, whose accent is a marker yellow, has nothing readable to put on a full
 slide of it.
+
+A template also chooses where a generated illustration **sits** — `below` the copy or
+`beside` it, copy left and picture right. Only two, and that is the language's limit
+rather than a lack of ambition: a group takes **leaf** children, so "a text stack
+beside a picture" is inexpressible — the headline stays full width and the row
+carries the body. True corner placement would need `designLayoutOverrideSchema`,
+whose `dx`/`dy`/`scale` the schema declares and **the renderer does not read**.
 
 Layouts are built from **options** rather than five hand-written triples. The
 structure of a deck slide does not vary between templates — counter, headline,
@@ -225,7 +233,66 @@ The rendered PDF is still left behind on discard, and that is not an inconsisten
 PDF is a finished artifact with its own page, permission and delete verb. An
 illustration is a fragment of the deck that referenced it.
 
-## 12. Adding a template
+### The case no write path can see
+
+Those two cover the moment a save or a discard orphans a file. They cannot cover an
+illustration that was **generated and never saved** — nothing was written, so there
+is no write to hook.
+
+`asset-reaper.service` handles that on a cron, over every folder in `REAP_FOLDERS` (`REAP_RUN_PATH`, the same Bearer
+secret as scheduled publishing). It deletes customer images, so it fails closed on
+four rules:
+
+1. **The reference scan runs first and may not fail.** If listing what is referenced
+   throws, the run aborts having deleted nothing — reading a failed scan as "nothing
+   is referenced" empties the library.
+2. **Nothing younger than `REAP_GRACE_MS` (24h) is touched.** Between generating and
+   saving, an illustration is referenced by nothing; it is *indistinguishable from an
+   orphan*. The grace period is the whole of what makes deleting safe.
+3. **Named folders only** — `/carousel` and `/studio`, both of which hold generated
+   files whose only reference is a row. Not `/documents`, whose PDFs are owned by
+   Document rows with their own delete verb, and not `/linkedin-posts`, which holds
+   member uploads.
+4. **A cap per run.** A reap that can empty a folder in one pass is one bug away from
+   doing so; the backlog clears over several runs and the result says when the cap
+   was hit.
+
+**The scan unions every source, and that is what makes `/studio` safe to touch.**
+That folder holds AI backdrops referenced by `StudioAsset.doc` AND rendered exports
+referenced by a `Document` row — a scan that knew only about backdrops would read
+every finished export as an orphan. There are five places a file id can hide
+(`Document.fileId`, carousel slide illustrations, studio doc images, and a post image
+plus its pre-edit original); the set may be over-inclusive at no cost, and
+under-inclusive exactly once before someone loses work.
+
+The scan reads **every organisation**, because the asset library is not partitioned
+by tenant — a per-org reap would see another org's files as unreferenced. It walks
+the raw JSON rather than the strict parse, since a deck this build cannot fully
+understand still holds real file ids, and discarding them would turn an unreadable
+deck into one whose pictures get collected.
+
+**Watch the cursor.** Deleting shifts the listing, so pagination advances by *files
+left in place*. Using a cumulative delete count steps over one file per earlier
+deletion — a bug that reading the loop did not reveal and exercising it did.
+
+## 12. Deck branding
+
+Slides carry a wordmark (the organisation) and a byline (the connected LinkedIn
+identity). Notebook and LinkDude sign their slides; the typographic templates do not,
+because someone choosing Minimal is choosing for the copy to be the only thing there.
+
+**Derived at render time, never stored on the deck.** Rename the workspace or
+reconnect an account and every deck rendered afterwards follows, where a copy written
+at create time would freeze whatever was true that day.
+
+The preview route reads no database, so **the client sends the brand in its payload**
+while `carousel.render` reads it server-side through `readCarouselBrand`. Same values,
+two routes, because only one of them may query.
+
+It is a `name`, not a handle: `LinkedInAccount` carries `name` and `avatarUrl` and no
+vanity URL, so calling it a handle would promise an @mention the data cannot supply.
+
+## 13. Adding a template
 
 1. A palette in `CAROUSEL_PALETTES`
 2. An arc and a voice in `CAROUSEL_BLUEPRINTS`
@@ -242,7 +309,7 @@ state: no pairing below 3:1, both illustrated templates AA throughout. `minimal`
 at 3.50 across its accent pairings — pre-existing, and AA for large text, which is
 what a slide heading is.
 
-## 13. Traps
+## 14. Traps
 
 - **WOFF2 anywhere in `RENDER_FONT_FAMILIES`** fails silently and flattens every
   weight.
@@ -255,16 +322,17 @@ what a slide heading is.
 - **The `.next` type validator errors mid-rebuild** while `next dev` runs. Filter
   `^\.next/` before believing a red typecheck.
 
-## 14. Still to build
+## 15. Still to build
 
 | | Why not here |
 |---|---|
-| Unreferenced-file reaper | An illustration generated and never saved is still orphaned. `studioBackdrop` has the identical gap, so this is shared infrastructure, not a carousel patch — and it needs a list capability `imagekit.service` does not have. |
-| Per-slide illustration placement | Templates choose a size; where the picture sits is still fixed by block order. |
+| Reaping `/linkedin-posts` | Member uploads rather than generated files. An orphan there is a photo someone chose, and the cost of being wrong is not symmetrical with saving a few kilobytes. |
+| Corner / absolute placement | Needs `designLayoutOverrideSchema` implemented in the shared renderer, which changes studio too. |
+| The mascot | `public/linkdin-dude.png` is 1024×1024 / 1.4 MB, which is 1.87 MB of base64 **per slide**. It needs a pre-resized asset or `sharp`; neither is in the repo. |
 | JPEG export | resvg emits PNG. The spec said PNG/JPEG; we ship PNG. |
 | Auto-splitting very long input across decks | The prompt condenses into one deck; it never proposes a second. |
 
-## 15. File map
+## 16. File map
 
 **New**
 
@@ -272,6 +340,8 @@ what a slide heading is.
 src/lib/config/carousel-blueprints.ts        arcs and voices per template
 src/lib/config/carousel-layouts.ts           blocks, field and justify per kind
 src/services/render-decorations.service.ts   doodle SVGs, read once and tinted
+src/services/asset-reaper.service.ts         deletes illustrations nothing points at
+src/app/api/assets/reap/run/route.ts         the reap trigger, Bearer secret
 src/services/carousel.service.ts             was .tsx; no JSX remains
 src/app/api/carousel/preview/route.ts        one slide → PNG, no DB
 src/components/global/render-preview/        debounce, abort, last good frame
