@@ -25,7 +25,7 @@
  */
 
 import * as React from "react";
-import { Loader2Icon, SendIcon } from "lucide-react";
+import { FileTextIcon, Loader2Icon, SendIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { getErrorMessage } from "@/lib/errors";
@@ -46,7 +46,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { LinkedInConnectButton } from "@/components/global/linkedin";
+import {
+  LinkedInConnectButton,
+  LinkedInPostPreview,
+} from "@/components/global/linkedin";
 
 export interface PublishDialogProps {
   open: boolean;
@@ -54,6 +57,8 @@ export interface PublishDialogProps {
   documentId: string;
   /** Seeds the commentary box so the user edits rather than starts blank. */
   defaultCommentary?: string | undefined;
+  /** Names the attached deck in the preview, e.g. "my-deck.pdf · 8 pages". */
+  documentSummary?: string | undefined;
   onPublished: () => void;
 }
 
@@ -62,6 +67,7 @@ export function PublishDialog({
   onOpenChange,
   documentId,
   defaultCommentary,
+  documentSummary,
   onPublished,
 }: PublishDialogProps) {
   const organizationId = useActiveOrganizationId();
@@ -168,6 +174,31 @@ export function PublishDialog({
               >
                 {commentary.length} / {LINKEDIN_MAX_COMMENTARY}
               </span>
+            </div>
+
+            {/* The post as the feed will render it. Publishing is irreversible and
+                goes to a professional network, and until now this dialog took the
+                commentary and showed nothing back — the one place in the product
+                where you could not see what you were about to send.
+
+                The component is the composer's, not a second approximation of a
+                LinkedIn card that would drift from it. */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Preview</Label>
+              <LinkedInPostPreview
+                authorName={connection.data?.name ?? "You"}
+                authorAvatarUrl={connection.data?.avatarUrl}
+                commentary={commentary}
+              >
+                {/* A document post shows a file card rather than an image, so the
+                    deck is named here instead of being faked as a picture. */}
+                {documentSummary ? (
+                  <div className="flex items-center gap-2 rounded-md border p-3 text-xs text-muted-foreground">
+                    <FileTextIcon className="size-4 shrink-0" />
+                    <span className="line-clamp-1">{documentSummary}</span>
+                  </div>
+                ) : null}
+              </LinkedInPostPreview>
             </div>
 
             <div className="flex items-center justify-between gap-2">

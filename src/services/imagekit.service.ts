@@ -218,6 +218,61 @@ export async function uploadFileBytes(
  *        commits — never inside it, or a rollback would leave a live row
  *        pointing at a deleted image.
  */
+/**
+ * SOURCE OF TRUTH KEYWORDS: listFolderFiles, StoredFile, assets.list, reaper
+ *
+ * WHAT:  One page of the files stored under a folder, newest last.
+ * WHY:   The only read of the asset library this codebase performs. Every other
+ *        call here writes a file or deletes one by id, because everything else
+ *        knows its own ids — the reaper is the single caller that has to ask what
+ *        is actually THERE, since an orphan is by definition a file no row
+ *        remembers.
+ *
+ *        Paginated explicitly rather than fetching everything: a library grows
+ *        without bound and a reap that must hold all of it in memory is a reap
+ *        that eventually stops running.
+ *
+ *        `createdAt` is returned because it is the only thing that makes deleting
+ *        safe. A file uploaded seconds ago and not yet saved is indistinguishable
+ *        from an orphan by reference alone, so the caller needs an age to leave it
+ *        alone with.
+ *
+ *        THROWS, unlike deleteImage. A failed listing must abort a reap rather
+ *        than be read as "the folder is empty", which is the one misreading that
+ *        would delete everything.
+ * WHERE: asset-reaper.service.
+ */
+export interface StoredFile {
+  fileId: string;
+  filePath: string;
+  createdAt: Date;
+}
+
+export async function listFolderFiles(
+  path: string,
+  page: { limit: number; skip: number },
+): Promise<StoredFile[]> {
+  const files = await getImageKitClient().assets.list({
+    type: "file",
+    path,
+    limit: page.limit,
+    skip: page.skip,
+    /* Oldest first, so a reap walks the backlog it is there to clear rather than
+     * paging through recent uploads it must not touch. */
+    sort: "ASC_CREATED",
+  });
+
+  return files.flatMap((file) => {
+    /* The union includes folders; a folder has no fileId and nothing to reap. */
+    if (!("fileId" in file) || typeof file.fileId !== "string") return [];
+    const createdAt = new Date(file.createdAt ?? "");
+    if (Number.isNaN(createdAt.getTime())) return [];
+    return [
+      { fileId: file.fileId, filePath: file.filePath ?? "", createdAt },
+    ];
+  });
+}
+
 export async function deleteImage(fileId: string): Promise<void> {
   try {
     await getImageKitClient().files.delete(fileId);
