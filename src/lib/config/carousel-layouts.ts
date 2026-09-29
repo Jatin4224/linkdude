@@ -44,7 +44,10 @@
  * WHERE: carouselSlideToDesignDoc in services/carousel.service.
  */
 
-import type { DesignBlockInput } from "@/lib/types/design-block";
+import type {
+  DesignBlockInput,
+  DesignLeafBlockInput,
+} from "@/lib/types/design-block";
 import type {
   CarouselSlideKind,
   CarouselTemplate,
@@ -109,6 +112,19 @@ interface SlideLayoutOptions {
    * themselves when empty, so this only decides whether the block exists.
    */
   readonly showBrand: boolean;
+  /**
+   * Where a generated illustration sits relative to the copy.
+   *
+   * `below` stacks it under the supporting text; `beside` puts the text and the
+   * picture on one row, copy left and picture right.
+   *
+   * Only two, and that is a limit of the language rather than a lack of
+   * ambition: a group takes LEAF children, so "a text stack beside a picture"
+   * cannot be expressed — the headline stays full width and the row carries the
+   * body. True corner placement would need `designLayoutOverrideSchema`, whose
+   * dx/dy/scale the renderer declares but does not yet read.
+   */
+  readonly illustrationPlacement: "below" | "beside";
 }
 
 /**
@@ -203,7 +219,7 @@ function buildSlideLayouts(
     lineHeight: 1.05,
   });
 
-  const body = (ink: DesignColorSlot, maxLines: number): DesignBlockInput => ({
+  const body = (ink: DesignColorSlot, maxLines: number): DesignLeafBlockInput => ({
     id: "body",
     type: "text",
     text: { source: "slot", slot: "body", hideWhenEmpty: true },
@@ -264,7 +280,7 @@ function buildSlideLayouts(
    * `contain`, not `cover`: the illustration directive asks for a subject with
    * generous empty space around it, and cropping it to fill a box throws exactly
    * that composition away. */
-  const illustration: DesignBlockInput = {
+  const illustration: DesignLeafBlockInput = {
     id: "illustration",
     type: "image",
     slot: "photo",
@@ -321,6 +337,36 @@ function buildSlideLayouts(
         ]
       : [];
 
+  /**
+   * SOURCE OF TRUTH KEYWORDS: bodyWithIllustration, illustrationPlacement
+   *
+   * WHAT:  The supporting copy and the picture, arranged as the template asks.
+   * WHY:   Returned together because `beside` fuses them into one row group and
+   *        `below` leaves them as two siblings — a caller that placed them
+   *        separately would have to know which mode it was in, which is exactly
+   *        the branch this keeps out of the layouts.
+   *
+   *        The image keeps `hideWhenEmpty` semantics either way: an unresolved
+   *        slot renders null, so a row with no picture collapses to the body
+   *        alone rather than leaving a gap where one would have been.
+   */
+  const bodyWithIllustration = (
+    ink: DesignColorSlot,
+    maxLines: number,
+  ): readonly DesignBlockInput[] =>
+    options.illustrationPlacement === "beside"
+      ? [
+          {
+            id: "bodyRow",
+            type: "group",
+            direction: "row",
+            gap: 24,
+            align: "center",
+            children: [body(ink, maxLines), illustration],
+          },
+        ]
+      : [body(ink, maxLines), illustration];
+
   const coverMark: readonly DesignBlockInput[] = options.coverMark
     ? [
         {
@@ -343,8 +389,7 @@ function buildSlideLayouts(
         eyebrow,
         headline("display", "foreground", markSwash, markInk),
         ...coverMark,
-        illustration,
-        body("muted", 3),
+        ...bodyWithIllustration("muted", 3),
         note("muted"),
         ...brandRow("muted"),
       ],
@@ -357,8 +402,7 @@ function buildSlideLayouts(
         counter,
         eyebrow,
         headline("heading", "foreground", markSwash, markInk),
-        body("muted", 4),
-        illustration,
+        ...bodyWithIllustration("muted", 4),
         ...points,
         callout,
         note("muted"),
@@ -419,6 +463,9 @@ const CLASSIC = buildSlideLayouts({
   /* Unsigned. These are the typographic templates; someone choosing "Minimal"
    * is choosing for the copy to be the only thing on the slide. */
   showBrand: false,
+  /* Stacked. A typographic deck reads top to bottom, and pulling a picture
+   * alongside the copy turns the slide into a layout exercise. */
+  illustrationPlacement: "below",
   points: "lines",
 });
 
@@ -447,6 +494,8 @@ export const CAROUSEL_LAYOUTS: Record<
     lineInk: "foreground",
     illustrationWidth: 0.52,
     showBrand: true,
+    /* Copy left, picture right — the arrangement the reference decks use. */
+    illustrationPlacement: "beside",
     coverMark: "underline",
     points: "lines",
   }),
@@ -465,6 +514,7 @@ export const CAROUSEL_LAYOUTS: Record<
     /* The illustrated templates let the picture carry more of the slide. */
     illustrationWidth: 0.55,
     showBrand: true,
+    illustrationPlacement: "beside",
     coverMark: "starburst",
     points: "pills",
   }),

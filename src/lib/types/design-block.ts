@@ -644,6 +644,10 @@ export const designLeafBlockSchema = z.discriminatedUnion(
   DESIGN_LEAF_VARIANTS,
 );
 export type DesignLeafBlock = z.infer<typeof designLeafBlockSchema>;
+/* The INPUT half, for the same reason DesignBlockInput exists — and needed
+ * separately because a group's `children` accepts LEAVES only, so a helper that
+ * builds one cannot be typed on the full block union. */
+export type DesignLeafBlockInput = z.input<typeof designLeafBlockSchema>;
 
 const designGroupBlockSchema = z.object({
   ...designBlockBase,
