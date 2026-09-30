@@ -84,14 +84,25 @@ import { cn } from "@/lib/utils";
  * cannot drift apart across the four places they are applied. */
 const LINE_STATE = {
   waiting: "translate-y-3 opacity-0",
-  live: "translate-y-0 opacity-100",
+  /* The delay is the phone's, and it is what keeps a REPLACEMENT from
+     reading as a pile: the outgoing pair is stacked in the same place, so
+     without it both sit at half strength on top of each other for a quarter
+     of a second. It leaves first, then this arrives. */
+  live: "translate-y-0 opacity-100 max-[899px]:delay-[120ms]",
   /* Still readable, clearly finished — and MEASURED, not guessed. At 0.4 the
      past calls came out at 2.58:1 against the cream and the white text inside
      their ink boxes at 1.61:1, both under the 3:1 that WCAG AA asks of large
      text. On the closing beat six of the seven lines on screen are in this
      state, so that was most of the hero failing contrast. 0.62 clears it while
-     still letting the live pair win the eye. */
-  past: "translate-y-0 opacity-[0.62]",
+     still letting the live pair win the eye.
+
+     ON A PHONE A PAST PAIR GOES AWAY ENTIRELY. There is one column there, so
+     accumulating pairs have nowhere to accumulate INTO: they stacked down the
+     screen until the third pair, the sign-off and the ask were all lying across
+     the character. Below the breakpoint the stage shows exactly one pair at a
+     time, in a fixed band above the mascot — see the band's own note. */
+  past:
+    "translate-y-0 opacity-[0.62] max-[899px]:opacity-0 max-[899px]:delay-0 max-[899px]:duration-200",
 } as const;
 
 /**
@@ -345,7 +356,15 @@ export function StickyHero() {
        land one at a time, and at 280svh two of them changed in the same flick
        of a trackpad. */
     <section id={MARKETING_SECTION_IDS.top} className="relative h-[440svh]">
-      <div ref={stage} className="sticky top-0 h-svh overflow-hidden">
+      {/* The mascot's size is declared HERE, not on the mascot, because two
+          things need it: the figure itself and the copy layer that has to
+          reserve the space under it on a phone. Written twice it drifts, and
+          the drift is invisible until some viewport puts type back on the
+          character's face. */}
+      <div
+        ref={stage}
+        className="sticky top-0 h-svh overflow-hidden [--hero-mascot:min(58svh,520px,84vw)] min-[900px]:[--hero-mascot:min(52svh,480px,38vw)]"
+      >
         {/* Bottom-anchored and cropped by the stage: the mascot is taller than
             the space it is given, which is what stops it reading as a sticker
             dropped onto the page.
@@ -383,7 +402,7 @@ export function StickyHero() {
               is square, so a height clamp alone lets it spill sideways into the
               copy on a wide, short screen — exactly the collision the reserved
               column exists to prevent. */
-          className="absolute bottom-[-5%] left-1/2 z-[1] h-[min(58svh,520px,84vw)] w-auto -translate-x-1/2 origin-bottom min-[900px]:bottom-[clamp(200px,33svh,330px)] min-[900px]:h-[min(52svh,480px,38vw)]"
+          className="absolute bottom-[-5%] left-1/2 z-[1] h-[var(--hero-mascot)] w-auto -translate-x-1/2 origin-bottom min-[900px]:bottom-[clamp(200px,33svh,330px)]"
         >
           <PaperMascot
             width={780}
@@ -404,7 +423,13 @@ export function StickyHero() {
         {/* The top padding clears the FIXED navbar, which is drawn over this
             stage rather than above it — at less than its height the first pair
             arrives already cut in half. */}
-        <div className="absolute inset-0 z-[6] flex flex-col px-[clamp(16px,4vw,72px)] pt-[clamp(88px,14svh,152px)] pb-[clamp(44px,7svh,78px)]">
+        {/* On a phone the bottom padding reserves the mascot's box — its
+            height less the 5% it hangs below the stage — and the column centres
+            what is left, so the live pair sits in the middle of the free space
+            rather than tight under the navbar with a hole beneath it. Above the
+            breakpoint the character is off to one side of a three-column grid
+            and none of this applies. */}
+        <div className="absolute inset-0 z-[6] flex flex-col px-[clamp(16px,4vw,72px)] pt-[clamp(88px,14svh,152px)] pb-[clamp(44px,7svh,78px)] max-[899px]:justify-center max-[899px]:pb-[calc(var(--hero-mascot)-5svh+12px)]">
           {/* Spread down the stage rather than stacked at the top. Bunched
               under the navbar with a fixed gap, the three pairs left a large
               hole between the last call and the sign-off — a composition that
@@ -412,7 +437,24 @@ export function StickyHero() {
               `justify-evenly` distributes whatever height is left after the
               closing block takes its share, so the rhythm holds on a laptop and
               on a tall monitor without a breakpoint. */}
-          <div className="flex flex-1 flex-col justify-evenly gap-[clamp(14px,2vh,26px)]">
+          {/* PHONE: A FIXED BAND THAT HOLDS ONE PAIR. The pairs are stacked
+              on top of each other and centred in it, so a beat REPLACES its
+              predecessor instead of pushing the stage taller — and the band
+              collapses on the closing beat so the sign-off and the ask take
+              the same space rather than a second slot below it. The mascot
+              owns everything under this band and is never drawn on.
+
+              Above the breakpoint none of it applies: three columns have room
+              for the pairs to accumulate, which is the whole idea. */}
+          <div
+            className={cn(
+              "flex flex-1 flex-col justify-evenly gap-[clamp(14px,2vh,26px)]",
+              "max-[899px]:relative max-[899px]:block max-[899px]:flex-none max-[899px]:overflow-hidden max-[899px]:transition-[height] max-[899px]:duration-500 max-[899px]:ease-out",
+              isSignoff
+                ? "max-[899px]:h-0"
+                : "max-[899px]:h-[clamp(132px,25svh,210px)]",
+            )}
+          >
           {MARKETING_HERO_INTRO.map((pair, index) => (
             <div
               key={pair.call}
@@ -428,7 +470,7 @@ export function StickyHero() {
                  its head. Reserving more than the character can occupy is what
                  makes the clearance hold at every viewport instead of at the
                  one that was tested. */
-              className="grid grid-cols-1 items-baseline gap-x-[clamp(16px,3vw,48px)] gap-y-1 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)]"
+              className="grid grid-cols-1 items-baseline gap-x-[clamp(16px,3vw,48px)] gap-y-1 max-[899px]:absolute max-[899px]:inset-x-0 max-[899px]:top-1/2 max-[899px]:-translate-y-1/2 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)]"
             >
               {/* The leader. At 1900px a call ends around x=540 and its answer
                   starts around x=1350, with the character between them — far
@@ -485,7 +527,19 @@ export function StickyHero() {
               mascot at any height nobody had checked. Stacked in flow they
               cannot collide, and the mascot's bottom offset is set to clear
               them. */}
-          <div className="mt-auto flex flex-col items-center gap-[clamp(14px,2.4vh,30px)]">
+          {/* `mt-auto` pins this to the foot of the stage, which on a phone is
+              the mascot's chest — so below the breakpoint it sits directly under
+              the band instead, and is the only thing occupying it on the closing
+              beat. Collapsed rather than merely transparent the rest of the
+              time: an invisible 200px block still takes 200px out of the space
+              above the character. */}
+          <div
+            className={cn(
+              "mt-auto flex flex-col items-center gap-[clamp(14px,2.4vh,30px)]",
+              "max-[899px]:mt-0 max-[899px]:overflow-hidden max-[899px]:transition-[max-height] max-[899px]:duration-500 max-[899px]:ease-out",
+              isSignoff ? "max-[899px]:max-h-[70svh]" : "max-[899px]:max-h-0",
+            )}
+          >
             <PaperDisplay
               as="h1"
               words={MARKETING_HERO_SIGNOFF}
