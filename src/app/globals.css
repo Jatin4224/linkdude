@@ -980,29 +980,37 @@
     position: relative;
   }
 
+  /* EVERY VARIABLE BELOW CARRIES A FALLBACK, and that is load-bearing rather
+     than defensive. The sizes are defined on .tech-scope, so a bracket used
+     anywhere else — the landing page's composer, say — resolved
+     `background-size` to an invalid value, which computes to `auto`, which
+     makes all eight crop-mark gradients fill the whole element. The mark
+     became an opaque rectangle over its own content: the landing page's
+     "Generate post" button was a blank blue bar at every viewport. Unsized
+     brackets now degrade to correct marks instead. */
   .brackets::after {
     content: "";
     position: absolute;
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(var(--bracket-color), var(--bracket-color)),
-      linear-gradient(var(--bracket-color), var(--bracket-color)),
-      linear-gradient(var(--bracket-color), var(--bracket-color)),
-      linear-gradient(var(--bracket-color), var(--bracket-color)),
-      linear-gradient(var(--bracket-color), var(--bracket-color)),
-      linear-gradient(var(--bracket-color), var(--bracket-color)),
-      linear-gradient(var(--bracket-color), var(--bracket-color)),
-      linear-gradient(var(--bracket-color), var(--bracket-color));
+      linear-gradient(var(--bracket-color, currentColor), var(--bracket-color, currentColor)),
+      linear-gradient(var(--bracket-color, currentColor), var(--bracket-color, currentColor)),
+      linear-gradient(var(--bracket-color, currentColor), var(--bracket-color, currentColor)),
+      linear-gradient(var(--bracket-color, currentColor), var(--bracket-color, currentColor)),
+      linear-gradient(var(--bracket-color, currentColor), var(--bracket-color, currentColor)),
+      linear-gradient(var(--bracket-color, currentColor), var(--bracket-color, currentColor)),
+      linear-gradient(var(--bracket-color, currentColor), var(--bracket-color, currentColor)),
+      linear-gradient(var(--bracket-color, currentColor), var(--bracket-color, currentColor));
     background-size:
-      var(--bracket-arm) var(--bracket-weight),
-      var(--bracket-weight) var(--bracket-arm),
-      var(--bracket-arm) var(--bracket-weight),
-      var(--bracket-weight) var(--bracket-arm),
-      var(--bracket-arm) var(--bracket-weight),
-      var(--bracket-weight) var(--bracket-arm),
-      var(--bracket-arm) var(--bracket-weight),
-      var(--bracket-weight) var(--bracket-arm);
+      var(--bracket-arm, 8px) var(--bracket-weight, 1.5px),
+      var(--bracket-weight, 1.5px) var(--bracket-arm, 8px),
+      var(--bracket-arm, 8px) var(--bracket-weight, 1.5px),
+      var(--bracket-weight, 1.5px) var(--bracket-arm, 8px),
+      var(--bracket-arm, 8px) var(--bracket-weight, 1.5px),
+      var(--bracket-weight, 1.5px) var(--bracket-arm, 8px),
+      var(--bracket-arm, 8px) var(--bracket-weight, 1.5px),
+      var(--bracket-weight, 1.5px) var(--bracket-arm, 8px);
     background-position:
       top left, top left,
       top right, top right,
