@@ -151,14 +151,17 @@
    * system sans, which is invisible at 14px body copy and obvious at display
    * sizes on the landing page. */
   --font-sans: var(--font-archivo), Archivo, system-ui, sans-serif;
-  /* The landing pages display accent face. Instrument Serif is only ever used
-   * ITALIC, as the second half of a two-part heading, so the Georgia fallback
-   * keeps that role rather than silently turning the clause upright. */
   --font-mono: var(--font-geist-mono), Geist Mono, monospace;
+  /* WAS ARCHIVO NARROW. The condensed face went with the consolidation to two
+     families, so the technical surfaces take plain Archivo. Declared rather
+     than left undefined: `var(--font-condensed), var(--font-sans)` would still
+     have resolved by falling through to the sans, and a token that works only
+     because it is missing is a trap for whoever reads it next. */
+  --font-condensed: var(--font-archivo), Archivo, system-ui, sans-serif;
 
   /*
    * SOURCE OF TRUTH KEYWORDS: --font-paper-sans, --font-paper-display, Archivo,
-   *   Archivo Black, paper-scope, font-paper-display, display type, public type
+   *   paper-scope, font-paper-display, display type, public type, font weight 900
    * WHAT:  The two families the public paper surfaces are set in.
    * WHY:   These are the ONLY two faces the public surfaces use — Archivo Black
    *        for display type, Archivo for everything else including labels,
@@ -342,9 +345,6 @@
    * system sans, which is invisible at 14px body copy and obvious at display
    * sizes on the landing page. */
   --font-sans: var(--font-archivo), Archivo, system-ui, sans-serif;
-  /* The landing pages display accent face. Instrument Serif is only ever used
-   * ITALIC, as the second half of a two-part heading, so the Georgia fallback
-   * keeps that role rather than silently turning the clause upright. */
   --font-mono: var(--font-geist-mono), Geist Mono, monospace;
   --radius: 0.5rem;
   --shadow-x: 0px;
