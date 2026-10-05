@@ -538,6 +538,21 @@ export type {
   PaperScatterMark,
   PaperOrbitMark,
 } from "./paper";
+/* The landing page's product tour — camera geometry and the handles its
+ * per-frame renderer writes to. Type-only: the VALUES are in
+ * src/lib/config/marketing-tour.ts. */
+export type {
+  TourPoseKey,
+  TourRect,
+  TourPose,
+  TourCameraFrame,
+  TourTrackStop,
+  TourFraming,
+  TourStopKey,
+  TourStop,
+  TourNodeKey,
+  TourListKey,
+} from "./marketing-tour";
 /* Studio feature contracts — asset kinds, gallery facets and every router input.
  * Separate from ./design-block, which describes a DESIGN and is what phase 5
  * shares with the carousel. */

@@ -6,7 +6,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LandingPage, metadata, APP_NAME, StickyHero,
- *   BlueStatement, CapabilityTicker, FreePlanCaps, ComposerShowcase,
+ *   ProductTour, BlueStatement, CapabilityTicker, FreePlanCaps, ComposerShowcase,
  *   HowItWorks, FinalCta, section order, paper design
  *
  * WHAT:  The public landing page at "/" — the running order of the pitch.
@@ -37,6 +37,7 @@ import {
   FinalCta,
   FreePlanCaps,
   HowItWorks,
+  ProductTour,
   StickyHero,
 } from "./_components";
 
@@ -76,7 +77,9 @@ export const metadata: Metadata = {
 export default function LandingPage() {
   return (
     <>
-      <StickyHero />
+      <ProductTour>
+        <StickyHero />
+      </ProductTour>
       <BlueStatement />
       <CapabilityTicker />
       <FreePlanCaps />

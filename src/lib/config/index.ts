@@ -129,6 +129,7 @@ export {
   MARKETING_AUTH_ASSURANCES,
   GET_STARTED_HREF,
   GET_STARTED_LABEL,
+  MARKETING_HEADER_ATTR,
 } from "./marketing";
 export type {
   MarketingSectionId,
@@ -143,6 +144,27 @@ export type {
   MarketingProfileRow,
   MarketingFooterGroup,
 } from "./marketing";
+/* The landing page's scroll-driven product tour — its geometry, its scroll
+ * timeline and the four chapters' copy. Separate from ./marketing because it is
+ * one section's MECHANISM rather than the page's content, and because most of
+ * its copy is reused from ./marketing rather than declared a second time. */
+export {
+  TOUR_DESIGN,
+  TOUR_RECTS,
+  TOUR_FRAMING,
+  TOUR_TRACK,
+  TOUR_STOPS,
+  TOUR_POSE_FOCUS,
+  TOUR_DEMO,
+  TOUR_STAGE,
+  TOUR_DRAFT,
+  TOUR_CALENDAR,
+  MARKETING_TOUR,
+  MARKETING_TOUR_PHASES,
+  MARKETING_TOUR_RANGE_SVH,
+  TOUR_MARKS,
+  TOUR_ENTRY,
+} from "./marketing-tour";
 export {
   getResendClient,
   RESEND_DEFAULT_FROM,
