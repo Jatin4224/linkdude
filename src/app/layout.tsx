@@ -72,11 +72,22 @@ import { cn } from "@/lib/utils";
  * WHERE: The two variables land on <html> below; globals.css maps every
  *        --font-* token onto them.
  */
+/*
+ * NO `weight` ARRAY, AND THAT IS THE WHOLE POINT. Archivo is a VARIABLE font,
+ * so omitting weight ships one file carrying the entire 100–900 axis — which
+ * is what lets --font-paper-display reach 900 and the body sit at 400 out of a
+ * single download.
+ *
+ * Listing weights instead asks next/font for one STATIC instance per weight,
+ * and five of those broke the Vercel build outright: Turbopack's Google-font
+ * resolver emits one @font-face src per weight per unicode range and then
+ * fails with "next/font/google queries have exactly one entry" — fifteen
+ * errors for five weights across three ranges. It compiled locally and died in
+ * CI, which is the worst way to find out. Do not reintroduce the array.
+ */
 const archivo = Archivo({
   variable: "--font-archivo",
   subsets: ["latin"],
-  /* 800 and 900 are new, and they are what replaces Archivo Black. */
-  weight: ["400", "500", "600", "800", "900"],
 });
 
 const geistMono = Geist_Mono({
