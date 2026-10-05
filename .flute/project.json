@@ -1,7 +1,0 @@
-{
-  "version": 1,
-  "projectId": "a23d4ca7-48d0-4a29-bda3-3d05186e690c",
-  "entry": "src/app/flute/page.jsx",
-  "packageManager": "npm",
-  "adapter": "next-app"
-}

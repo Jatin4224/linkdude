@@ -20,14 +20,7 @@
  */
 
 import type { Metadata } from "next";
-import {
-  Archivo,
-  Archivo_Black,
-  Archivo_Narrow,
-  Geist,
-  Geist_Mono,
-  Instrument_Serif,
-} from "next/font/google";
+import { Archivo, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import {
@@ -47,75 +40,48 @@ import { SetupChecklist } from "@/components/global/setup-checklist";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
-/* Geist is the app-wide sans font (matches funnelmods). Its variable
- * (--font-geist-sans) is set on <html>, where globals.css's `html { @apply
- * font-sans }` + `--font-sans: var(--font-geist-sans)` resolve it. Geist Mono
- * backs --font-geist-mono / the `font-mono` utility. */
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+/**
+ * SOURCE OF TRUTH KEYWORDS: Archivo, Geist_Mono, --font-archivo,
+ *   --font-geist-mono, two fonts, font stack, --font-sans, --font-mono,
+ *   --font-paper-display, --font-condensed
+ *
+ * WHAT:  The app's entire type stack: one sans and one mono.
+ *
+ * WHY:   IT USED TO BE SIX FAMILIES — Geist, Geist Mono, Instrument Serif,
+ *        Archivo, Archivo Black and Archivo Narrow — and four of them were
+ *        doing a job one variable family does better.
+ *
+ *        ARCHIVO SPANS BODY TO DISPLAY BY WEIGHT. It is loaded here across
+ *        400–900, which is what lets it be the body face, the paper surfaces'
+ *        text AND the heavy poster words those surfaces are built around.
+ *        Archivo Black was a separate static family sitting at one weight;
+ *        Archivo at 900 is the same design at the same darkness, reached
+ *        through the axis the variable font already ships. Archivo Narrow went
+ *        the same way — the condensed headings now take plain Archivo, which
+ *        is the one visible trade in this consolidation.
+ *
+ *        GEIST MONO STAYS because a mono is not a style choice here. Thirty-six
+ *        places use it for tabular numerals, audit rows and label caps, where
+ *        the point is that digits align and the text reads as data. A
+ *        proportional face with `tabular-nums` aligns the digits and still
+ *        reads as prose.
+ *
+ *        INSTRUMENT SERIF IS SIMPLY GONE. It was declared as --font-display and
+ *        no component ever read it, so it cost a font download and bought
+ *        nothing.
+ * WHERE: The two variables land on <html> below; globals.css maps every
+ *        --font-* token onto them.
+ */
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
+  /* 800 and 900 are new, and they are what replaces Archivo Black. */
+  weight: ["400", "500", "600", "800", "900"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
-
-/* SOURCE OF TRUTH KEYWORDS: Instrument_Serif, --font-instrument-serif,
- *   --font-display, font-display, display accent, italic clause
- *
- * The landing page's display accent face. Loaded ITALIC ONLY because that is the
- * only cut the design uses — every heading pairs an upright Geist clause with an
- * italic serif one, and shipping the upright cut too would double the bytes for
- * a style nothing renders. next/font self-hosts and preloads it, so it costs no
- * third-party request and produces no layout shift. Resolved through
- * --font-display in globals.css (Georgia italic is the fallback), which is what
- * the `font-display` utility reads. */
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif",
-  subsets: ["latin"],
-  weight: "400",
-  style: "italic",
-});
-
-/* SOURCE OF TRUTH KEYWORDS: Archivo, Archivo_Black, --font-archivo,
- *   --font-archivo-black, --font-paper-sans, --font-paper-display, paper-scope,
- *   font-paper-display, public surfaces, landing typography, auth typography
- *
- * WHAT:  The two faces the public "paper" surfaces are set in — Archivo for
- *        everything, Archivo Black for display type.
- * WHY:   The paper design system is carried almost entirely by its type: Archivo
- *        Black at 0.82 line-height with words boxed in blue IS the look, and
- *        substituting a heavier Geist weight for it changes the design rather
- *        than approximating it. Loaded here, at the ROOT, because next/font must
- *        be called at module scope in a layout — the `.paper-scope` class in
- *        globals.css is what limits them to the public pages, so the app's own
- *        surfaces keep Geist and pay nothing but the two extra font files.
- *        Archivo carries 400/500/600 (the three weights the design actually
- *        uses); Archivo Black ships one weight by definition.
- * WHERE: Resolved through --font-paper-sans / --font-paper-display in
- *        globals.css, consumed by .paper-scope and the `font-paper-display`
- *        utility across (marketing) and (auth). */
-const archivo = Archivo({
-  variable: "--font-archivo",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
-
-/* The condensed display face for the technical-editorial surface. Archivo has
- * no narrow width axis in its static cuts, so the condensed look the design
- * depends on needs its own family rather than tighter tracking on a normal one —
- * tracking closes the gaps between letters but never narrows the letters. */
-const archivoNarrow = Archivo_Narrow({
-  variable: "--font-condensed",
-  subsets: ["latin"],
-  weight: ["600", "700"],
-});
-
-const archivoBlack = Archivo_Black({
-  variable: "--font-archivo-black",
-  subsets: ["latin"],
-  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -151,12 +117,8 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn(
         "h-full",
-        geistSans.variable,
-        geistMono.variable,
-        instrumentSerif.variable,
         archivo.variable,
-        archivoBlack.variable,
-        archivoNarrow.variable,
+        geistMono.variable,
       )}
     >
       <body

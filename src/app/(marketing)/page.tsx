@@ -6,7 +6,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LandingPage, metadata, APP_NAME, StickyHero,
- *   BlueStatement, CapabilityTicker, FreePlanCaps, ComposerShowcase,
+ *   ProductTour, BlueStatement, CapabilityTicker,
  *   HowItWorks, FinalCta, section order, paper design
  *
  * WHAT:  The public landing page at "/" — the running order of the pitch.
@@ -20,10 +20,15 @@
  *        Seven bands, in the order a sceptical reader asks their questions: what
  *        is this about (the sticky hero's two beats), what are you building
  *        (the blue statement), what can it do (the ticker), what does it cost to
- *        try (the free caps), what does it actually look like (the composer),
  *        how does it work (the dark band), and where do I start (the closing
- *        CTA). Only StickyHero is a client component; everything after it is
- *        static HTML.
+ *        CTA).
+ *
+ *        THE COMPOSER SECTION IS GONE FROM HERE. It drew the Create Post screen
+ *        as a still panel, which is the same claim the product tour's first
+ *        stop now makes with the screen actually working — the page was
+ *        showing the composer twice, once live and once as a photograph. The
+ *        component still exists and is still exported, because the flute scene
+ *        `composer-survey` mounts it; it simply no longer ships on this page.
  * WHERE: Rendered inside src/app/(marketing)/layout.tsx.
  */
 
@@ -33,10 +38,9 @@ import { APP_NAME } from "@/lib/config";
 import {
   BlueStatement,
   CapabilityTicker,
-  ComposerShowcase,
   FinalCta,
-  FreePlanCaps,
   HowItWorks,
+  ProductTour,
   StickyHero,
 } from "./_components";
 
@@ -76,11 +80,11 @@ export const metadata: Metadata = {
 export default function LandingPage() {
   return (
     <>
-      <StickyHero />
+      <ProductTour>
+        <StickyHero />
+      </ProductTour>
       <BlueStatement />
       <CapabilityTicker />
-      <FreePlanCaps />
-      <ComposerShowcase />
       <HowItWorks />
       <FinalCta />
     </>

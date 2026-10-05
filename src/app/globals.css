@@ -12,6 +12,21 @@
 
 :root {
   /*
+   * SOURCE OF TRUTH KEYWORDS: --tour-ground, product tour, hand-off, black
+   *   band, BlueStatement, wipe backdrop
+   * WHAT:  The black the product tour sits on, and hands off on.
+   * WHY:   TWO SECTIONS HAVE TO AGREE ABOUT IT. The tour's stage paints it, and
+   *        the blue statement band below wipes its colour up OVER it — a wipe
+   *        reveals from the bottom edge, so whatever is behind that band at the
+   *        top of its box is what the reader sees until the wipe finishes. That
+   *        used to be cream, correctly, because a cream section came before it.
+   *        With a black tour above, cream reads as a white gap punched between
+   *        two dark bands. One token so the two can never disagree again.
+   * WHERE: .tour-scope's sheet, and the blue statement's section background.
+   */
+  --tour-ground: #000;
+
+  /*
    * SOURCE OF TRUTH KEYWORDS: light theme, cream, warm white, light neutrals,
    *   --background, --card, --muted, --border, theme toggle
    * WHAT:  The light theme’s neutrals, tinted a warm cream.
@@ -135,12 +150,10 @@
    * have the font installed locally — everyone else silently fell back to the
    * system sans, which is invisible at 14px body copy and obvious at display
    * sizes on the landing page. */
-  --font-sans: var(--font-geist-sans), Geist, sans-serif;
-  --font-serif: Georgia, serif;
+  --font-sans: var(--font-archivo), Archivo, system-ui, sans-serif;
   /* The landing pages display accent face. Instrument Serif is only ever used
    * ITALIC, as the second half of a two-part heading, so the Georgia fallback
    * keeps that role rather than silently turning the clause upright. */
-  --font-display: var(--font-instrument-serif), Georgia, serif;
   --font-mono: var(--font-geist-mono), Geist Mono, monospace;
 
   /*
@@ -166,8 +179,7 @@
    *        `font-paper-display` utility.
    */
   --font-paper-sans: var(--font-archivo), Archivo, system-ui, sans-serif;
-  --font-paper-display:
-    var(--font-archivo-black), Archivo Black, Archivo, system-ui, sans-serif;
+  --font-paper-display: var(--font-archivo), Archivo, system-ui, sans-serif;
 
   /*
    * SOURCE OF TRUTH KEYWORDS: --paper, --ink, --blue, --blue-hover,
@@ -242,7 +254,26 @@
   --spacing: 0.25rem;
 }
 
-.dark {
+/*
+ * SOURCE OF TRUTH KEYWORDS: .dark, .tour-scope, dark theme tokens, product tour,
+ *   always black, theme-independent section, ProductTour
+ *
+ * `.tour-scope` RIDES ON THE DARK RAMP RATHER THAN COPYING IT. The landing
+ * page's product tour is black in every theme the site can be in — it is one
+ * section with its own visual world, and the brief for it is explicit that the
+ * light/dark switch must not reach inside. The palette it needs is the one this
+ * app already ships as its dark theme, so it is declared here as a second
+ * selector on that ramp instead of as a second set of values: a retune of the
+ * dark theme moves the tour with it, and the two can never drift.
+ *
+ * It works from inside `.paper-scope` — which remaps these same tokens to the
+ * cream paper palette — because this rule is UNLAYERED and `.paper-scope` lives
+ * in `@layer utilities`. Unlayered styles beat layered ones whatever their
+ * specificity, so the tour's subtree wins without an `!important` or a longer
+ * selector. That is load-bearing: see the `.tour-scope` block further down.
+ */
+.dark,
+.tour-scope {
   --background: oklch(0 0 0);
   --foreground: oklch(1 0 0);
   --card: oklch(0.14 0 0);
@@ -310,12 +341,10 @@
    * have the font installed locally — everyone else silently fell back to the
    * system sans, which is invisible at 14px body copy and obvious at display
    * sizes on the landing page. */
-  --font-sans: var(--font-geist-sans), Geist, sans-serif;
-  --font-serif: Georgia, serif;
+  --font-sans: var(--font-archivo), Archivo, system-ui, sans-serif;
   /* The landing pages display accent face. Instrument Serif is only ever used
    * ITALIC, as the second half of a two-part heading, so the Georgia fallback
    * keeps that role rather than silently turning the clause upright. */
-  --font-display: var(--font-instrument-serif), Georgia, serif;
   --font-mono: var(--font-geist-mono), Geist Mono, monospace;
   --radius: 0.5rem;
   --shadow-x: 0px;
@@ -394,8 +423,6 @@
   /* Registers `font-condensed` as a utility; the variable itself is set by
    * next/font in layout.tsx. */
   --font-condensed: var(--font-condensed);
-  --font-serif: var(--font-serif);
-  --font-display: var(--font-display);
 
   /*
    * SOURCE OF TRUTH KEYWORDS: bg-paper, text-ink, border-ink, bg-blue,
@@ -779,6 +806,114 @@
     animation-play-state: paused;
   }
 
+  /* SOURCE OF TRUTH KEYWORDS: tour-scope, product tour, ProductTour, always
+     black, theme independent, edge fade, tour-booked, dark mock palette
+
+     WHAT:  What `.tour-scope` does beyond the token ramp it shares with `.dark`
+            (see that rule above) — the pure-black ground, and the one state
+            class the tour's renderer toggles.
+     WHY:   THE GROUND IS #000 AND NOT A TOKEN. Everything else in this block
+            resolves through the dark ramp, so a theme retune carries it; the
+            page ground does not, because the brief asks for black in every
+            theme and `--background` is the one value a future light-mode pass
+            over the public pages would be expected to change.
+
+            The section is black while the bands above and below it are cream,
+            so it fades in and out at its edges rather than cutting — drawn by
+            the component as two gradient strips, which need no CSS of their own.
+
+            `tour-booked` is here rather than inline for the reason the rest of
+            the renderer's writes are not: it is a COLOUR, and a colour written
+            from TypeScript would put a raw value in a .tsx file, which this
+            design system does not allow anywhere. Everything the renderer
+            changes per frame is `transform` or `opacity`; this is the one
+            exception, and it changes at most twice in the whole section.
+     WHERE: src/app/(marketing)/_components/product-tour/*. */
+  .tour-scope {
+    /* NO BACKGROUND. The black is painted by the stage's own sheet, whose
+       opacity follows the hero's dimming curve — during the peek the stage
+       must be TRANSPARENT so the still-bright hero shows through behind the
+       window's title bar. A background here would black the hero out the
+       instant the stage pinned, which is the one frame of this section the
+       visitor sees before they have scrolled at all. */
+    color: var(--foreground);
+
+    /* The paper accent, repointed at the dark ramp's. The captions are set with
+       PaperDisplay, which boxes a word in `--blue` — and `--blue` is #2b36e8,
+       tuned to be read against cream. On black it is nearly invisible. The
+       dark theme already owns a blue chosen for exactly this ground, so the
+       token is remapped rather than the component forked: anything from the
+       paper kit dropped into this section comes out correct without knowing it
+       is on black. */
+    --blue: var(--brand);
+    --blue-foreground: var(--brand-foreground);
+    --ink: var(--foreground);
+    --ink-foreground: var(--background);
+
+    /* SOURCE OF TRUTH KEYWORDS: --mac-window, --mac-raised, --mac-rail,
+       --mac-line, --mac-ink, --mac-dim, --mac-red, --mac-yellow, --mac-green,
+       --mac-font, --mac-radius, macOS window, traffic lights, ProductTourMock
+
+       THE MOCK IS A macOS WINDOW, and this is its palette.
+
+       It is DELIBERATELY NOT the app's dark ramp. Everything else in this
+       section resolves through `--background` / `--card` / `--border` so a theme
+       retune carries it; the window does not, because it is not a picture of
+       THIS product's chrome — it is a picture of a native desktop window that
+       this product happens to be running inside. Those greys are macOS's, the
+       three dot colours are Apple's exact values, and tying either to the brand
+       ramp would mean a future palette change quietly repainting an operating
+       system. Scoped here so nothing outside the tour can reach them.
+
+       The dots in particular are FIXED. #FF5F57 / #FEBC2E / #28C840 are what
+       macOS draws; an approximation reads as a knock-off at the one moment the
+       window is largest on screen, which is the resting peek under the hero. */
+    --mac-window: #0e0e10;
+    --mac-raised: #141417;
+    --mac-rail: #121215;
+    --mac-row: #1c1c20;
+    --mac-line: #26262a;
+    --mac-ink: #f2f2f4;
+    --mac-dim: #8a8a92;
+    --mac-faint: #5e5e66;
+    --mac-red: #ff5f57;
+    --mac-yellow: #febc2e;
+    --mac-green: #28c840;
+
+    /* The system UI stack, so the window's type reads as a native app rather
+       than as this site's branding shrunk down. The captions OUTSIDE the window
+       keep the site's own families — that contrast is the point. */
+    --mac-font:
+      -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui,
+      sans-serif;
+
+    /* `.paper-scope` pins every radius to 0 for the printed design, and the
+       window is the one thing inside it that must be round. Declared as its own
+       token rather than by un-pinning --radius, so nothing else in the subtree
+       becomes round by accident. */
+    --mac-radius: 12px;
+    --mac-radius-row: 7px;
+  }
+
+  /* The window itself. A hairline a shade lighter than the fill is what defines
+     the edge — on pure black the shadow below is almost invisible, and is there
+     for the moment the window overlaps the still-lit hero during the entry. */
+  .tour-scope .mac-window {
+    background-color: var(--mac-window);
+    border: 1px solid var(--mac-line);
+    border-radius: var(--mac-radius);
+    box-shadow:
+      0 40px 90px -30px rgb(0 0 0 / 0.9),
+      0 0 0 0.5px rgb(255 255 255 / 0.04);
+    font-family: var(--mac-font);
+    color: var(--mac-ink);
+  }
+
+  /* The day the post was booked onto, printed over its own filled mark. */
+  .tour-scope [data-tour].tour-booked {
+    color: var(--mac-ink);
+  }
+
   /* The scroll cue under the hero. Nudges rather than bounces: the hero IS a
      scroll mechanic, and the cue only has to say which direction. */
   @keyframes paper-cue-drop {
@@ -880,6 +1015,13 @@
 @layer components {
   .paper-display-type {
     font-family: var(--font-paper-display);
+    /* THE WEIGHT IS EXPLICIT NOW, AND IT HAS TO BE. This used to be Archivo
+       Black — a separate family whose only weight was black, so naming the
+       family was enough. Archivo is variable and defaults to 400, so without
+       this line every display word on the public surfaces would render at
+       book weight and the whole paper system would go quiet. 900 is the
+       darkest Archivo ships and the closest match to Archivo Black. */
+    font-weight: 900;
     text-transform: uppercase;
     line-height: 0.84;
     letter-spacing: -0.05em;

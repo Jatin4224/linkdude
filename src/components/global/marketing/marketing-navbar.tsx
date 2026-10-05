@@ -41,6 +41,7 @@
 import {
   GET_STARTED_HREF,
   GET_STARTED_LABEL,
+  MARKETING_HEADER_ATTR,
   MARKETING_HERO_BEAT_COUNT,
   MARKETING_SECTION_IDS,
 } from "@/lib/config";
@@ -56,6 +57,9 @@ export function MarketingNavbar() {
 
   return (
     <header
+      /* Marked so the pinned product tour can MEASURE this bar rather than
+         assume its height — see MARKETING_HEADER_ATTR. */
+      {...{ [MARKETING_HEADER_ATTR]: "" }}
       className={cn(
         "fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b px-(--gutter) transition-[padding,background-color] duration-200 ease-out",
         isPastHero

@@ -5,7 +5,7 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: StickyHero, BlueStatement, CapabilityTicker,
+ * SOURCE OF TRUTH KEYWORDS: StickyHero, ProductTour, BlueStatement, CapabilityTicker,
  *   FreePlanCaps, ComposerShowcase, HowItWorks, FinalCta, landing sections,
  *   section order
  *
@@ -20,6 +20,7 @@
  */
 
 export { StickyHero } from "./sticky-hero";
+export { ProductTour } from "./product-tour";
 export { BlueStatement } from "./blue-statement";
 export { CapabilityTicker } from "./capability-ticker";
 export { FreePlanCaps } from "./free-plan-caps";

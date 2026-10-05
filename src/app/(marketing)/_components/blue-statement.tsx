@@ -45,7 +45,17 @@ import {
 
 export function BlueStatement() {
   return (
-    <section id={MARKETING_SECTION_IDS.why} className="relative z-5 bg-paper">
+    /* THE GROUND THE WIPE REVEALS AGAINST. PaperReveal's wipe clips this band
+       from the top and grows it up from its bottom edge, so until it finishes
+       the reader sees whatever is behind it — this background. `bg-paper` was
+       right while a cream section came before it; the product tour above is
+       black, and cream here reads as a pale gap between two dark bands.
+       --tour-ground is the token the tour's own stage and spacer use, so the
+       hand-off cannot develop a seam. */
+    <section
+      id={MARKETING_SECTION_IDS.why}
+      className="relative z-5 bg-[var(--tour-ground)]"
+    >
       <PaperReveal
         effect="wipe"
         className="flex min-h-svh flex-col items-center justify-center gap-[26px] bg-blue px-[clamp(16px,3vw,34px)] py-[clamp(72px,12vh,140px)] text-blue-foreground"

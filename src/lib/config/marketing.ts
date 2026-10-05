@@ -59,6 +59,8 @@ import { REGISTRATION_OPEN } from "./registration";
  */
 export const MARKETING_SECTION_IDS = {
   top: "top",
+  /* The scroll-driven product tour, between the hero and the blue statement. */
+  tour: "tour",
   why: "why",
   free: "free",
   composer: "composer",
@@ -68,6 +70,29 @@ export const MARKETING_SECTION_IDS = {
 
 export type MarketingSectionId =
   (typeof MARKETING_SECTION_IDS)[keyof typeof MARKETING_SECTION_IDS];
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_HEADER_ATTR, fixed header, header height,
+ *   measured offset, product tour
+ *
+ * WHAT:  The attribute that marks the public header so its height can be
+ *        measured at runtime.
+ * WHY:   The header is FIXED and drawn OVER the sections below it, which is fine
+ *        for a band that scrolls past and not fine for one that pins: the
+ *        product tour holds a mock still on screen, and anything it centres in
+ *        the viewport is centred under the navigation. It needs the real number.
+ *
+ *        An attribute rather than a `<header>` tag selector, because this page
+ *        has more than one header element and a type selector would happily
+ *        measure the wrong one. An attribute rather than a published CSS
+ *        variable, because the header's height comes from its padding and its
+ *        content — a variable would be a second declaration of a number the
+ *        browser already knows, and would be wrong the first time the CTA's
+ *        label got longer.
+ * WHERE: Set in src/components/global/marketing/marketing-navbar.tsx, read by
+ *        src/app/(marketing)/_components/product-tour/product-tour.tsx.
+ */
+export const MARKETING_HEADER_ATTR = "data-marketing-header";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: GET_STARTED_HREF, GET_STARTED_LABEL
@@ -702,8 +727,17 @@ export const MARKETING_FOOTER_GROUPS: readonly MarketingFooterGroup[] = [
     label: "Product",
     items: [
       { label: "How it works", href: `#${MARKETING_SECTION_IDS.how}` },
-      { label: "The composer", href: `#${MARKETING_SECTION_IDS.composer}` },
-      { label: "What free means", href: `#${MARKETING_SECTION_IDS.free}` },
+      /* "The composer" used to sit here. The section it pointed at no longer
+         ships — the product tour's first stop shows that screen working, so
+         the still panel was the same claim told twice — and a footer link to
+         an anchor the page does not contain is a link that silently does
+         nothing. The id itself stays in MARKETING_SECTION_IDS because the
+         component is still mounted by the `composer-survey` flute scene. */
+      /* "What free means" pointed at the free-caps band, which no longer
+         ships either. Same reasoning as the composer above: a footer link to
+         an anchor the page does not contain silently does nothing. The free
+         plan's real numbers still reach the page through the capability
+         ticker and the closing CTA's reassurance line. */
     ],
   },
   {
