@@ -46,6 +46,7 @@
 import {
   TOUR_DESIGN,
   TOUR_ENTRY,
+  TOUR_EXIT,
   TOUR_FRAMING,
   TOUR_RECTS,
   TOUR_TRACK,
@@ -285,17 +286,26 @@ export function buildTourPoses(
     settled: entryPose(TOUR_ENTRY.settled, true),
     write: tightPose(TOUR_RECTS.write),
     voice: tightPose(TOUR_RECTS.voice),
-    calendar: whole(frame.wideWidth, wideLeftFraction),
-    profile: whole(frame.wideWidth, wideSlidFraction),
-    /* The exit: it keeps travelling in the direction it was already going and
-       fades, so the section lets go of it rather than switching it off. */
-    exit: {
-      ...whole(frame.wideWidth, wideSlidFraction, 0),
-      anchorY: midY - bandH * 0.1,
-      anchorX:
-        whole(frame.wideWidth, wideSlidFraction).anchorX +
-        TOUR_FRAMING.exitDrift * vw,
-    },
+    /* TWO POSES FOR FIVE STOPS. The app pushed right, which frees the left of
+       the screen for a caption, and the app slid left, which frees the right.
+       The five wide stops alternate between them, and what changes underneath
+       is the SCREEN — see TourScreenKey. Giving each wide stop its own pose
+       would mean the camera wandering for the sake of it, and five distinct
+       resting places is more than a reader can hold. */
+    wideLeft: whole(frame.wideWidth, wideLeftFraction),
+    wideRight: whole(frame.wideWidth, wideSlidFraction),
+    /* THE ENDING'S RESTING POSE. Horizontally centred, at the SAME scale the
+       wide stops were already at — the brief asks for the recentre to be a
+       slide, not a zoom, so the only thing that changes is x and the vertical
+       placement. Its top edge sits just under the header; whatever is left
+       below it is the empty band the next section arrives across, which is why
+       the band is measured from this pose rather than fixed. */
+    centred: (() => {
+      const base = whole(frame.wideWidth, null);
+      const appH = TOUR_DESIGN.height * base.scale;
+      const topPx = Math.max(TOUR_EXIT.centredTopVh * vh, top + vh * 0.02);
+      return { ...base, anchorY: topPx + appH / 2 };
+    })(),
   };
 }
 

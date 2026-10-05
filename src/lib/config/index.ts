@@ -164,6 +164,7 @@ export {
   MARKETING_TOUR_RANGE_SVH,
   TOUR_MARKS,
   TOUR_ENTRY,
+  TOUR_EXIT,
 } from "./marketing-tour";
 export {
   getResendClient,

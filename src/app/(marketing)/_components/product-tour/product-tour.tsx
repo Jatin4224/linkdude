@@ -89,6 +89,7 @@ import {
   TOUR_DEMO,
   TOUR_DESIGN,
   TOUR_DRAFT,
+  TOUR_EXIT,
   TOUR_POSE_FOCUS,
   TOUR_RECTS,
   TOUR_STAGE,
@@ -162,12 +163,38 @@ function heroDimAt(u: number): number {
   return table[table.length - 1]?.[1] ?? 0;
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: releaseOpacityAt, TOUR_EXIT.releaseOpacity
+ *
+ * WHAT:  How bright the mock still is, a given fraction of the way through its
+ *        journey off the top of the screen.
+ * WHY:   Same shape as the hero's dim table and for the same reason — the
+ *        brief gives a handful of measured points rather than a curve, and
+ *        linear between them is enough because they are closest together where
+ *        the curve bends hardest.
+ */
+function releaseOpacityAt(journey: number): number {
+  const table = TOUR_EXIT.releaseOpacity;
+  for (let i = 0; i < table.length - 1; i += 1) {
+    const a = table[i];
+    const b = table[i + 1];
+    if (!a || !b) break;
+    if (journey <= b[0]) {
+      const span = b[0] - a[0];
+      return span <= 0 ? b[1] : lerp(a[1], b[1], (journey - a[0]) / span);
+    }
+  }
+  return table[table.length - 1]?.[1] ?? 0;
+}
+
 export function ProductTour({ children }: { children: React.ReactNode }) {
   const track = React.useRef<HTMLDivElement | null>(null);
   const stage = React.useRef<HTMLDivElement | null>(null);
   const camera = React.useRef<HTMLDivElement | null>(null);
   const heroShift = React.useRef<HTMLDivElement | null>(null);
   const heroDim = React.useRef<HTMLDivElement | null>(null);
+  const band = React.useRef<HTMLDivElement | null>(null);
+  const topFade = React.useRef<HTMLDivElement | null>(null);
   const captions = React.useRef<(HTMLDivElement | null)[]>([]);
 
   React.useEffect(() => {
@@ -213,6 +240,12 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
       dayCell: node("dayCell"),
       nextUp: node("nextUp"),
       scheduledCount: node("scheduledCount"),
+      deckPage: node("deckPage"),
+      deckTotal: node("deckTotal"),
+      studioBanner: node("studioBanner"),
+      studioAvatar: node("studioAvatar"),
+      studioName: node("studioName"),
+      planFilled: node("planFilled"),
       scoreValue: node("scoreValue"),
       scoreArc: node("scoreArc"),
       rewrite: node("rewrite"),
@@ -226,6 +259,29 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
     const swapNew = list("swapNew");
     const dots = list("dot");
     const verdicts = list("verdict");
+    const slides = list("slide");
+    const presets = list("preset");
+    const ideas = list("idea");
+    const ideaSlots = list("ideaSlot");
+    const navFills = list("navFill");
+
+    /* The six screens and the nav rows, resolved once and keyed by the names
+       TOUR_STOPS uses — so switching screen is a lookup rather than a branch,
+       and a screen named in config but missing from the mock is a null that
+       shows up immediately rather than a silently dead stop. */
+    const screens = new Map<string, HTMLElement>();
+    for (const el of cameraEl.querySelectorAll<HTMLElement>("[data-tour-screen]")) {
+      const key = el.dataset["tourScreen"];
+      if (key) screens.set(key, el);
+    }
+    const navRows = new Map<string, HTMLElement>();
+    [...cameraEl.querySelectorAll<HTMLElement>("[data-tour-item='navRow']")].forEach(
+      (row, index) => {
+        const key = row.dataset["nav"];
+        const fill = navFills[index];
+        if (key && fill) navRows.set(key, fill);
+      },
+    );
 
     /* Everything a tight stop fades out, paired with whether this stop is the
        one that keeps it. Built once; the renderer only writes the numbers. */
@@ -239,6 +295,9 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
 
     /* ---------- measurement: on mount and on resize, never per frame ------- */
     let poses: Readonly<Record<TourPoseKey, TourPose>> | null = null;
+    /* How far the mock's bottom edge travels between the release starting and
+       the mock having to be gone. Set in `measure`, read by the release. */
+    let releaseSpan = 1;
 
     const measure = () => {
       /* The site header is fixed and drawn over this section, so every pose and
@@ -254,6 +313,28 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
 
       poses = buildTourPoses({ width: vw, height: vh, headerHeight });
       const resolved = poses;
+
+      /* THE EMPTY BAND IS MEASURED FROM THE MOCK, not from the stage. The
+         centred pose's bottom edge lands at a different height on a tall
+         screen than on a short one, and the brief's 40% is a distance from
+         the mock — so the spacer is whatever makes that true here, after the
+         stage has already contributed the gap below the mock. Set once per
+         resize: it is a height, which is layout, and layout never happens per
+         frame. */
+      const centred = resolved.centred;
+      const mockBottom =
+        centred.anchorY + (TOUR_DESIGN.height * centred.scale) / 2;
+      const belowMock = Math.max(vh - mockBottom, 0);
+      releaseSpan = Math.max(mockBottom - TOUR_EXIT.goneAtVh * vh, 1);
+      if (band.current) {
+        band.current.style.height =
+          String(Math.max(Math.round(TOUR_EXIT.bandVh * vh - belowMock), 0)) + "px";
+      }
+      if (topFade.current) {
+        topFade.current.style.top = String(Math.round(headerHeight)) + "px";
+        topFade.current.style.height =
+          String(Math.round(TOUR_EXIT.topFadeVh * vh)) + "px";
+      }
 
       /* THE CAPTION BOXES. On a narrow screen every caption is the same band in
          the bottom half, whatever the stop — there is no room beside anything.
@@ -345,7 +426,43 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
         cameraEl,
         `translate(${view.x.toFixed(2)}px,${view.y.toFixed(2)}px) scale(${view.scale.toFixed(4)})`,
       );
-      write.opacity(cameraEl, view.opacity);
+
+      /* THE RELEASE. Nothing here moves the mock — the stage has run out of
+         track and is scrolling away with the page, carrying it at exactly one
+         pixel per pixel. All this decides is how bright it still is, from how
+         far it has got. `releaseTravel` is the only thing in the whole
+         renderer read from the live DOM rather than from progress, because
+         progress is spent by now and the stage's position is the only honest
+         measure of where the mock actually is. */
+      const releaseTravel = Math.max(-stageEl.getBoundingClientRect().top, 0);
+      const journey = clamp(releaseTravel / releaseSpan);
+      write.opacity(cameraEl, view.opacity * releaseOpacityAt(journey));
+      /* The fade under the header only exists while something is passing
+         behind it. */
+      write.opacity(topFade.current, journey > 0 ? 1 : 0);
+
+      /* --- which screen the app is on, and which row is lit --- */
+      /* THE APP NAVIGATES. Each stop owns a screen and a sidebar row, and both
+         swap exactly ON the stop boundary — which is the start of that stop's
+         camera move, and is already after the previous caption has finished
+         leaving. Swapping even slightly EARLIER was wrong and visibly so: it
+         put the next screen behind a caption still describing the last one.
+         The last stop whose window has begun wins, so a boundary resolves
+         forward rather than flickering between two. */
+      let liveScreen = TOUR_STOPS[0]?.screen ?? "create";
+      let liveNav = TOUR_STOPS[0]?.nav ?? "";
+      for (const stop of TOUR_STOPS) {
+        if (p >= stop.from) {
+          liveScreen = stop.screen;
+          liveNav = stop.nav;
+        }
+      }
+      for (const [key, element] of screens) {
+        write.opacity(element, key === liveScreen ? 1 : 0);
+      }
+      for (const [key, element] of navRows) {
+        write.opacity(element, key === liveNav ? 1 : 0);
+      }
 
       /* --- focus: at a tight stop everything but one panel fades out --- */
       /* THE FADE IS WHAT CLEARS THE SPACE THE CAPTION USES. It is not a
@@ -382,7 +499,8 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
       TOUR_STOPS.forEach((stop, index) => {
         const target = captions.current[index];
         if (!target) return;
-        const fade = TOUR_STAGE.captionFade;
+        /* A fraction of this caption's own window — see TOUR_STAGE.captionFade. */
+        const fade = (stop.captionTo - stop.captionFrom) * TOUR_STAGE.captionFade;
         const arriving = stepRange(stop.captionFrom, stop.captionFrom + fade, p);
         const leaving = stepRange(stop.captionTo - fade, stop.captionTo, p);
         const visible = arriving * (1 - leaving);
@@ -524,7 +642,68 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
       });
       write.text(el.scheduledCount, String(taken));
 
-      /* --- 4 · profile: scored, critiqued, rewritten --- */
+      /* --- 3 · carousels: the deck turns its pages --- */
+      const d5 = TOUR_DEMO.carousels;
+      const q5 = clamp((p - d5.from) / (d5.to - d5.from));
+      /* Each page lights in turn rather than a track sliding: a transform on a
+         row of cards moves the two that are NOT changing, which reads as the
+         whole deck lurching. */
+      slides.forEach((slide, index) => {
+        write.opacity(
+          slide,
+          q5 >= d5.slideFrom + index * d5.slideStep ? 1 : 0.28,
+        );
+      });
+      /* The counter climbs to the deck's REAL length, not to the number of
+         pages drawn — three cards stand in for seven. */
+      write.text(
+        el.deckPage,
+        String(
+          Math.max(
+            1,
+            Math.round(
+              MARKETING_TOUR.carousel.pages *
+                stepRange(...windowOf(d5.countIn), q5),
+            ),
+          ),
+        ).padStart(2, "0"),
+      );
+
+      /* --- 4 · studio: the avatar drops into the banner's hole --- */
+      const d6 = TOUR_DEMO.studio;
+      const q6 = clamp((p - d6.from) / (d6.to - d6.from));
+      presets.forEach((preset, index) => {
+        write.opacity(preset, q6 >= d6.presetFrom + index * d6.presetStep ? 1 : 0.3);
+      });
+      write.opacity(el.studioBanner, stepRange(...windowOf(d6.bannerIn), q6));
+      /* It DROPS the last few pixels into the safe area — the overlap is the
+         reason the surface exists, so the motion has to end in it. */
+      write.rise(el.studioAvatar, stepRange(...windowOf(d6.avatarIn), q6), 16);
+      write.rise(el.studioName, stepRange(...windowOf(d6.nameIn), q6), 6);
+
+      /* --- 6 · ideas: each captured line is given a slot --- */
+      const d7 = TOUR_DEMO.ideas;
+      const q7 = clamp((p - d7.from) / (d7.to - d7.from));
+      ideas.forEach((idea, index) => {
+        const at = d7.ideaFrom + index * d7.ideaStep;
+        write.rise(idea, stepRange(at, at + 0.08, q7), 8);
+        /* The slot lands a beat after the idea: cause, then effect. */
+        write.opacity(
+          ideaSlots[index],
+          stepRange(at + d7.slotLag, at + d7.slotLag + 0.08, q7),
+        );
+      });
+      write.text(
+        el.planFilled,
+        String(
+          Math.round(
+            MARKETING_TOUR.ideas.filledSlots +
+              ideas.length * stepRange(...windowOf(d7.planIn), q7),
+          ),
+        ),
+      );
+
+      /* --- 7 · profile: scored, critiqued, rewritten --- */
       const d4 = TOUR_DEMO.profile;
       const q4 = clamp((p - d4.from) / (d4.to - d4.from));
       const score =
@@ -690,7 +869,7 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
           <div
             ref={heroDim}
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 z-0 bg-black opacity-0"
+            className="pointer-events-none absolute inset-0 z-0 bg-[var(--tour-ground)] opacity-0"
           />
 
           {/* The camera. `origin-top-left` is load-bearing: it is what lets a
@@ -739,13 +918,34 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* The page eases out of the black rather than cutting: the band below is
-          cream, and a hard edge against a pinned stage reads as a seam. On the
-          track rather than in the stage — inside it, it would be pinned to the
-          bottom of the VIEWPORT and so wash the black out for the whole tour. */}
+      {/* THE FADE THE MOCK DISSOLVES INTO. Fixed, so it stays under the
+          header while the stage slides away beneath it — inside the stage it
+          would travel with the mock and never catch it. It is the stage's own
+          ground fading to nothing, so the mock's top edge is never a hard line
+          cut by the header; it simply thins out and goes. Off except during
+          the release, so it cannot wash out the stops. */}
       <div
+        ref={topFade}
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[12svh] bg-[linear-gradient(to_top,var(--paper),transparent)]"
+        className="pointer-events-none fixed inset-x-0 z-20 bg-[linear-gradient(to_bottom,var(--tour-ground),transparent)] opacity-0"
+      />
+
+      {/* THE EMPTY BAND. Spacing between the stage and the next section, which
+          is how the brief asks for it — the next section is not touched, and
+          it simply arrives later. Its height is set in `measure` so the gap is
+          always the specified distance from the MOCK's bottom edge rather than
+          from the stage's.
+
+          IT STAYS BLACK. It used to blend down to the page's cream, which is
+          what the next section's own background is — correct in the abstract,
+          and wrong to look at: it put a pale band between the dark tour and
+          the dark-grounded blue below it. The next section's ground is black
+          now too, so there is nothing to blend TO and the hand-off is one
+          continuous surface from the last stop to the blue. */}
+      <div
+        ref={band}
+        aria-hidden="true"
+        className="w-full bg-[var(--tour-ground)]"
       />
     </div>
   );

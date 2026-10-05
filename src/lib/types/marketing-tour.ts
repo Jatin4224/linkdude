@@ -52,11 +52,43 @@ export type TourPoseKey =
   /* The entry: the title bar peeking above the fold, and the window settled. */
   | "peek"
   | "settled"
+  /* The two TIGHT stops, which share a zoom and differ only in y. */
   | "write"
   | "voice"
+  /* The WIDE stops. There are only two poses for five of them, because the
+     variety at a wide stop comes from the app NAVIGATING underneath the camera
+     rather than from the camera travelling somewhere new — see TourScreenKey. */
+  | "wideLeft"
+  | "wideRight"
+  /* The ending: the whole window, centred, at the scale it was already at.
+     There is no "exit" pose — the mock leaves by the page scrolling, not by
+     the camera moving it anywhere. */
+  | "centred";
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: TourScreenKey, screen, navigate, content area
+ *
+ * WHAT:  Which screen of the app is in the window's content area.
+ * WHY:   THE APP NAVIGATES. Eight surfaces will not fit on one canvas at a size
+ *        the settled pose can show legibly — at 60% of the viewport a canvas
+ *        wide enough to hold them puts body text at about six pixels. So the
+ *        window stays one size and its CONTENT changes: the active row in the
+ *        sidebar moves and the content area crossfades, which is what the
+ *        reference recording does after its entry and what a real product tour
+ *        looks like.
+ *
+ *        `create` carries two stops. The composer and the voice profile sit in
+ *        one column on that screen, which is what lets the tour's opening
+ *        movement be a pan straight down rather than a second zoom — the one
+ *        gesture the choreography is built around.
+ */
+export type TourScreenKey =
+  | "create"
+  | "carousel"
+  | "studio"
   | "calendar"
-  | "profile"
-  | "exit";
+  | "ideas"
+  | "profile";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: TourRect, design coordinates, focus rectangle
@@ -155,7 +187,14 @@ export type TourFraming = "inside-right" | "outside-left" | "outside-right";
  *        at before they read the claim about it — the label is that, and it is
  *        the only part guaranteed short enough to be read at a glance.
  */
-export type TourStopKey = "write" | "voice" | "schedule" | "profile";
+export type TourStopKey =
+  | "write"
+  | "voice"
+  | "carousels"
+  | "studio"
+  | "schedule"
+  | "ideas"
+  | "profile";
 
 export interface TourStop {
   key: TourStopKey;
@@ -173,6 +212,15 @@ export interface TourStop {
   framing: TourFraming;
   /** Which pose this stop frames — and so which pane keeps the floor. */
   pose: TourPoseKey;
+  /** Which screen is in the window's content area while this stop is live. */
+  screen: TourScreenKey;
+  /**
+   * Which sidebar row is lit, as it is spelled in MARKETING_TOUR.sidebar.
+   * Per STOP, not per screen: the Voice stop stays on the composer's screen so
+   * the camera can pan down one column to it, but the row it lights is Voice,
+   * because that is the surface the caption is talking about.
+   */
+  nav: string;
 }
 
 /**
@@ -219,6 +267,15 @@ export type TourNodeKey =
   | "dayCell"
   | "nextUp"
   | "scheduledCount"
+  /* Carousels */
+  | "deckPage"
+  | "deckTotal"
+  /* Studio */
+  | "studioBanner"
+  | "studioAvatar"
+  | "studioName"
+  /* Ideas */
+  | "planFilled"
   /* 4 · Profile */
   | "scoreValue"
   | "scoreArc"
@@ -235,6 +292,13 @@ export type TourNodeKey =
  *        into the single-node union would make every lookup optional-array.
  */
 export type TourListKey =
+  | "slide"
+  | "ideaSlot"
+  | "navRow"
+  | "navFill"
+  | "railRow"
+  | "preset"
+  | "idea"
   | "line"
   | "swapOld"
   | "swapNew"

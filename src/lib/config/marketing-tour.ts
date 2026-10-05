@@ -45,6 +45,7 @@
 import type {
   TourNodeKey,
   TourPoseKey,
+  TourStopKey,
   TourRect,
   TourStop,
   TourTrackStop,
@@ -57,6 +58,7 @@ import {
   MARKETING_FEATURE_PREVIEWS,
   MARKETING_POST_LINES,
   MARKETING_STEPS,
+  type MarketingFeature,
   type MarketingStep,
   type MarketingStepArtifact,
 } from "./marketing";
@@ -112,19 +114,39 @@ export const MARKETING_TOUR_PHASES = {
   entry: 100,
   /** It holds there, whole and still, before the first zoom. */
   hold: 25,
-  /** One per stop: Write, Voice, Schedule, Profile. */
-  stop: 100,
-  /** It drifts and fades as the section lets go. */
-  exit: 60,
+  /**
+   * One per stop, and there are SEVEN of them. Tightened from a full viewport
+   * to seventy: at a hundred apiece the tour ran to nine and a half screens on
+   * top of a 440svh hero, which is most of a page spent before the first band
+   * of copy. Seventy still splits into a camera move and a hold long enough to
+   * read three lines, which is the floor this is allowed to go to.
+   */
+  stop: 70,
+  /*
+   * THE ENDING, IN THREE PARTS. The first two are ordinary keyframes on this
+   * timeline; the third is not a phase at all — it is the pinned stage running
+   * out and scrolling away with the page, which costs no progress because it
+   * happens after this budget is spent. See TOUR_EXIT.
+   */
+  /** 1 · the last caption fades out; the mock does not move. */
+  captionOut: 10,
+  /** 2 · the mock slides back to the centre of the screen. */
+  recentre: 33,
+  /** A beat of stillness at the centred pose before the page takes over. */
+  settle: 7,
 } as const;
 
 /** Total scroll the pinned stage owns, in svh. */
+export const MARKETING_TOUR_STOP_COUNT = 7;
+
 export const MARKETING_TOUR_RANGE_SVH =
   MARKETING_TOUR_PHASES.peek +
   MARKETING_TOUR_PHASES.entry +
   MARKETING_TOUR_PHASES.hold +
-  MARKETING_TOUR_PHASES.stop * 4 +
-  MARKETING_TOUR_PHASES.exit;
+  MARKETING_TOUR_PHASES.stop * MARKETING_TOUR_STOP_COUNT +
+  MARKETING_TOUR_PHASES.captionOut +
+  MARKETING_TOUR_PHASES.recentre +
+  MARKETING_TOUR_PHASES.settle;
 
 /** A phase boundary, in svh from the start of the stage's track, as progress. */
 const at = (svh: number): number =>
@@ -145,15 +167,92 @@ const settleOf = (from: number, to: number) =>
  *        demo sub-timings all read these, so lengthening the entry moves every
  *        later stop with it instead of silently overlapping the one after.
  */
+const START = P.peek + P.entry + P.hold;
+
+/** The nth stop's end, in svh from the start of the stage's track. */
+const stopEnd = (n: number): number => at(START + P.stop * n);
+
 export const TOUR_MARKS = {
   /** The strip holds still until here, then the rise starts. */
   peekEnd: at(P.peek),
   entryEnd: at(P.peek + P.entry),
-  holdEnd: at(P.peek + P.entry + P.hold),
-  writeEnd: at(P.peek + P.entry + P.hold + P.stop),
-  voiceEnd: at(P.peek + P.entry + P.hold + P.stop * 2),
-  scheduleEnd: at(P.peek + P.entry + P.hold + P.stop * 3),
-  profileEnd: at(P.peek + P.entry + P.hold + P.stop * 4),
+  holdEnd: at(START),
+  /** One boundary per stop, in the order TOUR_STOPS declares them. */
+  stopEnds: [1, 2, 3, 4, 5, 6, 7].map(stopEnd) as readonly number[],
+  /** The last caption has gone; the mock has not moved. */
+  captionOutEnd: at(START + P.stop * 7 + P.captionOut),
+  /** The mock has arrived at the centred pose. */
+  recentreEnd: at(START + P.stop * 7 + P.captionOut + P.recentre),
+} as const;
+
+/** The nth stop's window. Index 0 is the first stop after the hold. */
+function stopWindowAt(index: number): { from: number; to: number } {
+  return {
+    from: index === 0 ? TOUR_MARKS.holdEnd : (TOUR_MARKS.stopEnds[index - 1] ?? 0),
+    to: TOUR_MARKS.stopEnds[index] ?? 1,
+  };
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: TOUR_EXIT, release, centred pose, scroll speed,
+ *   release opacity, top fade, empty band, hand-off, ProductTour ending
+ *
+ * WHAT:  The ending's geometry — where the mock sits once recentred, how it
+ *        fades as the page carries it off the top, and how much empty ground
+ *        follows it before the next section arrives.
+ *
+ * WHY:   THE RELEASE IS NOT ANIMATED. It is the pinned stage running out and
+ *        scrolling away like any other block, which is why the mock travels at
+ *        exactly one pixel per pixel of scroll with no easing and no scale
+ *        change — nothing is driving it but the page. The only thing this
+ *        config decides is how it DIMS on the way out, and that curve is
+ *        written against how far it has travelled rather than against scroll
+ *        progress, because progress is already spent by the time it starts.
+ *
+ *        THE OPACITY CURVE IS KEYED ON TRAVEL, NOT ON SCREEN POSITION, and
+ *        that is the one translation from the brief worth explaining. The
+ *        brief gives it as "60% when its bottom edge is at 80% of the
+ *        viewport, 45% at 60%, 30% at 40%", which produces those numbers only
+ *        on a viewport whose aspect leaves the centred mock's bottom near the
+ *        floor. On a 16:10 screen the same mock at the same scale finishes its
+ *        recentre with its bottom nearer 70%, so a table keyed on absolute
+ *        position would start it already half faded. Converting each of the
+ *        brief's points to a fraction of the whole journey keeps the SHAPE of
+ *        the fade exactly while making it independent of aspect: full strength
+ *        the instant the release begins, gone before the header, at every size.
+ */
+export const TOUR_EXIT = {
+  /** The centred pose's top edge, as a fraction of the viewport height. */
+  centredTopVh: 0.12,
+  /**
+   * How the mock dims as the page carries it off, as [journey, opacity] pairs
+   * where journey is 0 when the release begins and 1 when the mock's bottom
+   * edge reaches the height it must already be invisible at.
+   */
+  releaseOpacity: [
+    [0, 1],
+    [0.195, 0.6],
+    [0.439, 0.45],
+    [0.683, 0.3],
+    [0.902, 0.1],
+    [1, 0],
+  ] as readonly (readonly [number, number])[],
+  /**
+   * Where the journey ends, as a fraction of the viewport height: the mock is
+   * fully invisible once its bottom edge is this far down. Kept clear of the
+   * header so it can never be caught passing behind it.
+   */
+  goneAtVh: 0.16,
+  /** The fade under the header that the mock's top edge dissolves into. */
+  topFadeVh: 0.1,
+  /**
+   * The empty ground between the mock's bottom edge and the next section.
+   * MEASURED FROM THE MOCK, not from the stage: the centred mock's bottom sits
+   * at a different height on a tall screen than on a short one, and the brief's
+   * figure is a distance from the mock. The spacer that creates it is sized in
+   * `measure` to whatever makes this true.
+   */
+  bandVh: 0.4,
 } as const;
 
 /**
@@ -271,7 +370,17 @@ export const TOUR_FRAMING = {
   overWidth: 0.6,
   wideWidth: 0.58,
   wideLeft: 0.42,
-  wideSlid: -0.2,
+  /*
+   * HOW FAR THE APP SLIDES LEFT, and the number is tied to the window's chrome
+   * rather than chosen. At -0.2 it was tuned when the profile pane sat against
+   * the canvas's right edge, so pushing the app that far brought the pane INTO
+   * view. Now that each screen fills the whole content area, the same slide
+   * pushes the content OUT of view and leaves a sliver of empty window on
+   * screen. The left part that may disappear is the rail and the nav — about
+   * 200 of 1200 design pixels, which at the wide scale is a tenth of the
+   * viewport — and no more.
+   */
+  wideSlid: -0.1,
   exitDrift: -0.12,
   /** Narrow screens: the mock owns the top half, the caption the bottom. */
   narrow: {
@@ -301,6 +410,134 @@ export const TOUR_FRAMING = {
  *        to free the other half (calendar → profile), and lets it drift away as
  *        the section unpins (profile → exit).
  */
+/*
+ * A caption is readable only during the HOLD — it arrives once the camera has
+ * nearly settled and dims out before it leaves. Derived from the stop's own
+ * window so retiming carries it, and so the gap that keeps two captions from
+ * ever being legible at once cannot be lost to a typo.
+ */
+function captionWindow(from: number, to: number) {
+  const span = to - from;
+  return {
+    /* Opens as soon as the camera move is done — the move takes 52% of the
+       stop — and runs almost to the end, so the fade below has room. */
+    captionFrom: +(from + span * MOVE).toFixed(4),
+    captionTo: +(to - span * 0.02).toFixed(4),
+  };
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: TOUR_STOPS, seven stops, screen, framing, caption
+ *   window, tight stop, wide stop, app navigates
+ *
+ * WHAT:  The seven stops — caption copy, which screen of the app is showing,
+ *        where the caption is drawn and when it is readable.
+ *
+ * WHY:   THE SHAPE IS TWO MOVEMENTS. The first is the one the choreography was
+ *        built around: two TIGHT stops on one screen, joined by a pan straight
+ *        down a single column at a shared zoom. The second is five WIDE stops
+ *        where the window stays put and the APP NAVIGATES underneath it, the
+ *        caption crossing from one side of the screen to the other each time.
+ *        A reader learns the rule in the first movement and can follow the rest
+ *        without hunting for the camera.
+ *
+ *        FIVE WIDE STOPS SHARE TWO POSES. The variety comes from the content,
+ *        not from flying somewhere new — which is both what the reference does
+ *        after its entry and the only way seven features fit in a tour that is
+ *        not ten screens long.
+ *
+ *        EVERY CAPTION IS BORROWED. Three come from MARKETING_STEPS and four
+ *        from MARKETING_FEATURES, so the tour cannot describe a feature
+ *        differently from the bands further down the page. Nothing here is a
+ *        new marketing claim.
+ */
+export const TOUR_STOPS: readonly TourStop[] = [
+  {
+    key: "write",
+    nav: "Create post",
+    label: "Write",
+    heading: toBlackGround(stepFor("draft").headline),
+    body: stepFor("draft").body,
+    pose: "write",
+    screen: "create",
+    framing: "inside-right",
+    ...stopWindowAt(0),
+    ...captionWindow(stopWindowAt(0).from, stopWindowAt(0).to),
+  },
+  {
+    key: "voice",
+    nav: "Voice",
+    label: featureFor("voice").label,
+    heading: toBlackGround(featureFor("voice").title),
+    body: featureFor("voice").body,
+    pose: "voice",
+    screen: "create",
+    framing: "inside-right",
+    ...stopWindowAt(1),
+    ...captionWindow(stopWindowAt(1).from, stopWindowAt(1).to),
+  },
+  {
+    key: "carousels",
+    nav: "Carousels",
+    label: featureFor("carousel").label,
+    heading: toBlackGround(featureFor("carousel").title),
+    body: featureFor("carousel").body,
+    pose: "wideLeft",
+    screen: "carousel",
+    framing: "outside-left",
+    ...stopWindowAt(2),
+    ...captionWindow(stopWindowAt(2).from, stopWindowAt(2).to),
+  },
+  {
+    key: "studio",
+    nav: "Studio",
+    label: featureFor("studio").label,
+    heading: toBlackGround(featureFor("studio").title),
+    body: featureFor("studio").body,
+    pose: "wideRight",
+    screen: "studio",
+    framing: "outside-right",
+    ...stopWindowAt(3),
+    ...captionWindow(stopWindowAt(3).from, stopWindowAt(3).to),
+  },
+  {
+    key: "schedule",
+    nav: "Calendar",
+    label: "Schedule",
+    heading: toBlackGround(stepFor("calendar").headline),
+    body: stepFor("calendar").body,
+    pose: "wideLeft",
+    screen: "calendar",
+    framing: "outside-left",
+    ...stopWindowAt(4),
+    ...captionWindow(stopWindowAt(4).from, stopWindowAt(4).to),
+  },
+  {
+    key: "ideas",
+    nav: "Ideas",
+    label: featureFor("ideas").label,
+    heading: toBlackGround(featureFor("ideas").title),
+    body: featureFor("ideas").body,
+    pose: "wideRight",
+    screen: "ideas",
+    framing: "outside-right",
+    ...stopWindowAt(5),
+    ...captionWindow(stopWindowAt(5).from, stopWindowAt(5).to),
+  },
+  {
+    key: "profile",
+    nav: "Profile",
+    label: "Profile",
+    heading: toBlackGround(stepFor("score").headline),
+    body: stepFor("score").body,
+    pose: "wideLeft",
+    screen: "profile",
+    framing: "outside-left",
+    ...stopWindowAt(6),
+    ...captionWindow(stopWindowAt(6).from, stopWindowAt(6).to),
+  },
+];
+
 export const TOUR_TRACK: readonly TourTrackStop[] = [
   /* The entry. ONE interpolation from the peek to the settled pose — the same
      translate-and-scale the rest of the timeline uses, not a special case. */
@@ -309,20 +546,26 @@ export const TOUR_TRACK: readonly TourTrackStop[] = [
   [TOUR_MARKS.entryEnd, "settled"],
   /* The hold: whole, still, on black. */
   [TOUR_MARKS.holdEnd, "settled"],
-  /* 1 · Write — the tight drop onto the composer. Half the stop is the move. */
-  [TOUR_MARKS.holdEnd + (TOUR_MARKS.writeEnd - TOUR_MARKS.holdEnd) * 0.52, "write"],
-  [TOUR_MARKS.writeEnd, "write"],
-  /* 2 · Voice — a straight pan down the same column, at the same zoom. */
-  [TOUR_MARKS.writeEnd + (TOUR_MARKS.voiceEnd - TOUR_MARKS.writeEnd) * 0.52, "voice"],
-  [TOUR_MARKS.voiceEnd, "voice"],
-  /* 3 · Schedule — pull back; the app takes the right, the caption the left. */
-  [TOUR_MARKS.voiceEnd + (TOUR_MARKS.scheduleEnd - TOUR_MARKS.voiceEnd) * 0.52, "calendar"],
-  [TOUR_MARKS.scheduleEnd, "calendar"],
-  /* 4 · Profile — the app slides left; the caption crosses to the right. */
-  [TOUR_MARKS.scheduleEnd + (TOUR_MARKS.profileEnd - TOUR_MARKS.scheduleEnd) * 0.52, "profile"],
-  [TOUR_MARKS.profileEnd, "profile"],
-  /* Leave: it keeps moving and fades as the section lets go. */
-  [1, "exit"],
+  /* One move-then-hold pair per stop, DERIVED from TOUR_STOPS so a stop added
+     or reordered there carries the camera with it. The move takes the first
+     52% of the stop and the hold the rest, which is the pacing the whole
+     section is tuned to. */
+  ...TOUR_STOPS.flatMap(
+    (stop): readonly TourTrackStop[] => [
+      [settleOf(stop.from, stop.to), stop.pose],
+      [stop.to, stop.pose],
+    ],
+  ),
+  /* 1 · caption out. The camera HOLDS the last stop's pose — two stops naming
+     the same pose is this timeline's idiom for standing still, and standing
+     still is the whole point of the beat: only the caption moves. */
+  [TOUR_MARKS.captionOutEnd, "wideLeft"],
+  /* 2 · recentre. An ordinary camera move on the same easing as every other,
+     to the whole window, centred, at the scale it was already at. */
+  [TOUR_MARKS.recentreEnd, "centred"],
+  /* 3 · release is NOT here. It is the stage running out and scrolling away
+     with the page, which happens after progress reaches 1 — see TOUR_EXIT. */
+  [1, "centred"],
 ];
 
 /**
@@ -350,12 +593,16 @@ function stepFor(artifact: MarketingStepArtifact): MarketingStep {
   return step;
 }
 
-const VOICE_FEATURE = MARKETING_FEATURES.find(
-  (feature) => feature.artifact === "voice",
-);
-
-if (!VOICE_FEATURE) {
-  throw new Error('MARKETING_FEATURES has no feature for artifact "voice"');
+/** The feature-row twin of `stepFor`, for the four stops whose copy lives in
+ *  MARKETING_FEATURES rather than MARKETING_STEPS. Same reasoning: by
+ *  `artifact`, never by index, and it throws at build time rather than
+ *  shipping a caption that silently describes the wrong surface. */
+function featureFor(artifact: MarketingFeature["artifact"]): MarketingFeature {
+  const feature = MARKETING_FEATURES.find((entry) => entry.artifact === artifact);
+  if (!feature) {
+    throw new Error(`MARKETING_FEATURES has no feature for artifact "${artifact}"`);
+  }
+  return feature;
 }
 
 /**
@@ -398,123 +645,66 @@ function toBlackGround(line: PaperDisplayLine): PaperDisplayLine {
  *        outside, on black, and crosses over between them. That crossing is the
  *        second movement's whole gesture.
  */
-/*
- * A caption is readable only during the HOLD — it arrives once the camera has
- * nearly settled and dims out before it leaves. Derived from the stop's own
- * window so retiming a stop carries its caption, and so the gap that keeps two
- * captions from ever being legible at once cannot be lost to a typo.
- */
-function captionWindow(from: number, to: number) {
-  const span = to - from;
-  return {
-    /* The camera move takes the first 52% of the stop; the caption waits for it. */
-    captionFrom: +(from + span * 0.62).toFixed(4),
-    captionTo: +(to - span * 0.06).toFixed(4),
-  };
-}
-
-export const TOUR_STOPS: readonly TourStop[] = [
-  {
-    key: "write",
-    label: "Write",
-    heading: toBlackGround(stepFor("draft").headline),
-    body: stepFor("draft").body,
-    pose: "write",
-    framing: "inside-right",
-    from: TOUR_MARKS.holdEnd,
-    to: TOUR_MARKS.writeEnd,
-    ...captionWindow(TOUR_MARKS.holdEnd, TOUR_MARKS.writeEnd),
-  },
-  {
-    key: "voice",
-    label: VOICE_FEATURE.label,
-    heading: toBlackGround(VOICE_FEATURE.title),
-    body: VOICE_FEATURE.body,
-    pose: "voice",
-    framing: "inside-right",
-    from: TOUR_MARKS.writeEnd,
-    to: TOUR_MARKS.voiceEnd,
-    ...captionWindow(TOUR_MARKS.writeEnd, TOUR_MARKS.voiceEnd),
-  },
-  {
-    key: "schedule",
-    label: "Schedule",
-    heading: toBlackGround(stepFor("calendar").headline),
-    body: stepFor("calendar").body,
-    pose: "calendar",
-    framing: "outside-left",
-    from: TOUR_MARKS.voiceEnd,
-    to: TOUR_MARKS.scheduleEnd,
-    ...captionWindow(TOUR_MARKS.voiceEnd, TOUR_MARKS.scheduleEnd),
-  },
-  {
-    key: "profile",
-    label: "Profile",
-    heading: toBlackGround(stepFor("score").headline),
-    body: stepFor("score").body,
-    pose: "profile",
-    framing: "outside-right",
-    from: TOUR_MARKS.scheduleEnd,
-    to: TOUR_MARKS.profileEnd,
-    ...captionWindow(TOUR_MARKS.scheduleEnd, TOUR_MARKS.profileEnd),
-  },
-];
 
 /**
  * SOURCE OF TRUTH KEYWORDS: TOUR_DEMO, sub-timeline, local progress, demo timing
  *
- * WHAT:  Each demo's own window and the beats inside it, as LOCAL progress
+ * WHAT:  Each stop's own window and the beats inside it, as LOCAL progress
  *        (0 → 1 across that demo).
- * WHY:   NORMALISED, so retiming a stop moves its demo with it. Every beat runs
- *        inside the HOLD rather than across the camera move: a list that fills
- *        while the camera is still flying is a list nobody can read, and the
- *        hold is exactly the half of each stop that exists for the demo to
- *        happen in.
+ * WHY:   NORMALISED, so retiming a stop moves its demo with it — and with seven
+ *        stops sharing one budget, that is the difference between one edit and
+ *        seven. The windows are DERIVED from TOUR_STOPS by key, so a stop
+ *        reordered there cannot leave its demo playing over someone else's
+ *        screen.
+ *
+ *        EVERY BEAT RUNS INSIDE THE HOLD, never across the camera move: a list
+ *        that fills while the camera is still flying is a list nobody can read,
+ *        and the hold is exactly the half of each stop that exists for the demo
+ *        to happen in.
  *
  *        There is no pointer in any of them. The prototype drove its demos with
- *        a drawn cursor that clicked things; this one lets the product do the
- *        small thing by itself, which is both less to disbelieve and one less
- *        element to keep aligned with a layout that scales.
+ *        a drawn cursor that clicked things; here the product does the small
+ *        thing by itself, which is both less to disbelieve and one less element
+ *        to keep aligned with a layout that scales.
  */
+const demoWindow = (key: TourStopKey) => {
+  const stop = TOUR_STOPS.find((entry) => entry.key === key);
+  if (!stop) throw new Error(`TOUR_STOPS has no stop "${key}"`);
+  return { from: settleOf(stop.from, stop.to), to: stop.to };
+};
+
 export const TOUR_DEMO = {
   /* 1 · The topic types itself and a draft comes back. */
   write: {
-    from: settleOf(TOUR_MARKS.holdEnd, TOUR_MARKS.writeEnd),
-    to: TOUR_MARKS.writeEnd,
-    /** The topic finishes typing early — the draft is the payoff, not the typing. */
+    ...demoWindow("write"),
+    /** The topic finishes typing early — the draft is the payoff. */
     typedBy: 0.34,
     /** The button reads "Writing" between these two. */
-    writing: [0.36, 0.52],
-    emptyOut: [0.42, 0.5],
-    headIn: [0.5, 0.58],
+    writing: [0.36, 0.52] as readonly [number, number],
+    emptyOut: [0.42, 0.5] as readonly [number, number],
+    headIn: [0.5, 0.58] as readonly [number, number],
     /** First line's window; each later line is offset by `lineStep`. */
-    lineIn: [0.56, 0.66],
+    lineIn: [0.56, 0.66] as readonly [number, number],
     lineStep: 0.07,
-    footIn: [0.86, 0.94],
+    footIn: [0.86, 0.94] as readonly [number, number],
   },
   /* 2 · Three habits are learned, and each one edits a line of the draft. */
   voice: {
-    from: settleOf(TOUR_MARKS.writeEnd, TOUR_MARKS.voiceEnd),
-    to: TOUR_MARKS.voiceEnd,
-    trainedIn: [0.1, 0.34],
+    ...demoWindow("voice"),
+    trainedIn: [0.1, 0.34] as readonly [number, number],
     /** First trait ticks here; each later one is offset by `traitStep`. */
     traitFrom: 0.28,
     traitStep: 0.11,
-    badgeIn: [0.62, 0.7],
+    badgeIn: [0.62, 0.7] as readonly [number, number],
     /*
      * ONE BEAT PER TRAIT, in the order the traits tick on: the window the edit
      * crossfades across, which line of the draft it changes, and where the
-     * highlight behind that line pulses. Written as one row per trait rather
-     * than three parallel arrays, because three arrays is how the beat, the
-     * line and the highlight end up a frame apart from each other — the only
-     * version of this that reads as a bug rather than as cause and effect.
+     * highlight behind that line pulses. One row per trait rather than three
+     * parallel arrays, because three arrays is how the beat, the line and the
+     * highlight end up a frame apart from each other.
      *
      * `line` indexes TOUR_DRAFT.lines and is NOT the trait's own position:
      * "Short sentences" edits the long second line, "No emoji" the first.
-     *
-     * The draft is off-screen at this stop — the camera is on the voice card —
-     * so these play for the reader who scrolls back up, and so the draft is
-     * already in its finished state when the wide stops bring it back.
      */
     edits: [
       { from: 0.66, to: 0.74, line: 1, highlightAt: 0.7 },
@@ -523,28 +713,56 @@ export const TOUR_DEMO = {
     ],
     highlightWidth: 0.05,
   },
-  /* 3 · The month fills in and the post takes its slot. */
+  /* 3 · The deck turns its pages. */
+  carousels: {
+    ...demoWindow("carousels"),
+    /** First slide lands here; each later one is offset by `slideStep`. */
+    slideFrom: 0.2,
+    slideStep: 0.22,
+    /** The page counter counts up to the deck's real length. */
+    countIn: [0.2, 0.9] as readonly [number, number],
+  },
+  /* 4 · The avatar drops into the banner's safe area. */
+  studio: {
+    ...demoWindow("studio"),
+    /** The preset chips settle, then the canvas draws, then the avatar drops. */
+    presetFrom: 0.14,
+    presetStep: 0.1,
+    bannerIn: [0.3, 0.46] as readonly [number, number],
+    avatarIn: [0.5, 0.68] as readonly [number, number],
+    nameIn: [0.66, 0.8] as readonly [number, number],
+  },
+  /* 5 · The month fills in and the post takes a Tuesday. */
   schedule: {
-    from: settleOf(TOUR_MARKS.voiceEnd, TOUR_MARKS.scheduleEnd),
-    to: TOUR_MARKS.scheduleEnd,
+    ...demoWindow("schedule"),
     /** The button settles and the day is taken at the same instant. */
     bookedAt: 0.62,
-    ringIn: [0.3, 0.42],
-    nextIn: [0.5, 0.62],
+    ringIn: [0.3, 0.42] as readonly [number, number],
+    nextIn: [0.5, 0.62] as readonly [number, number],
     /** First mark's window; each later one is offset by `dotStep`. */
-    dotIn: [0.44, 0.52],
+    dotIn: [0.44, 0.52] as readonly [number, number],
     dotStep: 0.05,
   },
-  /* 4 · The score is measured, the sections critiqued, the headline rewritten. */
+  /* 6 · Captured ideas are each given a slot in the month. */
+  ideas: {
+    ...demoWindow("ideas"),
+    /** First idea arrives here; each later one is offset by `ideaStep`. */
+    ideaFrom: 0.16,
+    ideaStep: 0.14,
+    /** Its slot appears a beat after the idea itself. */
+    slotLag: 0.1,
+    /** The month's filled-slot count climbs as the slots are handed out. */
+    planIn: [0.3, 0.86] as readonly [number, number],
+  },
+  /* 7 · The score is measured, the sections critiqued, the headline rewritten. */
   profile: {
-    from: settleOf(TOUR_MARKS.scheduleEnd, TOUR_MARKS.profileEnd),
-    to: TOUR_MARKS.profileEnd,
-    scoreIn: [0.08, 0.46],
-    verdictIn: [0.36, 0.46],
+    ...demoWindow("profile"),
+    scoreIn: [0.08, 0.46] as readonly [number, number],
+    verdictIn: [0.36, 0.46] as readonly [number, number],
     verdictStep: 0.08,
-    rewriteIn: [0.6, 0.68],
+    rewriteIn: [0.6, 0.68] as readonly [number, number],
     strikeAt: 0.76,
-    rewriteNewIn: [0.78, 0.88],
+    rewriteNewIn: [0.78, 0.88] as readonly [number, number],
   },
 } as const;
 
@@ -579,10 +797,23 @@ export const TOUR_STAGE = {
    * entry and dim the window while it was still rising, which is exactly the
    * bug this derivation prevents.
    */
-  focusIn: [TOUR_MARKS.holdEnd, TOUR_MARKS.holdEnd + 0.05] as readonly [number, number],
-  focusOut: [TOUR_MARKS.voiceEnd - 0.03, TOUR_MARKS.voiceEnd + 0.02] as readonly [number, number],
-  /** How long a caption takes to arrive, and to leave. See TOUR_STOPS. */
-  captionFade: 0.035,
+  focusIn: [TOUR_MARKS.holdEnd, TOUR_MARKS.holdEnd + 0.04] as readonly [number, number],
+  focusOut: [
+    TOUR_DEMO.voice.to - 0.025,
+    TOUR_DEMO.voice.to + 0.015,
+  ] as readonly [number, number],
+  /**
+   * How long a caption takes to arrive and to leave, AS A FRACTION OF ITS OWN
+   * WINDOW rather than as a progress value.
+   *
+   * This was an absolute 0.035 and it broke the moment the stops were tightened
+   * from a viewport each to seventy: the caption window became 0.031 of
+   * progress, SHORTER than the fade, so every caption began leaving before it
+   * had finished arriving and none of them ever reached full strength. A
+   * fraction cannot fail that way — the plateau scales with the stop, so
+   * retuning the budget can never again silently dim the copy.
+   */
+  captionFade: 0.28,
 } as const;
 
 /**
@@ -725,6 +956,27 @@ export const MARKETING_TOUR = {
   draftEmpty: "Your draft shows up here, ready to edit.",
   rewriteOld: "Ops lead | Problem solver | Coffee",
   rewriteNew: "I help small teams cut the busywork",
+
+  /* The three screens the tour gained when it went from four stops to seven.
+   * Every value is read from MARKETING_FEATURE_PREVIEWS, which is what the
+   * feature band already draws — so the tour and that band cannot show the
+   * same surface differently. Only the screen TITLES are new, and they are the
+   * app's own navigation labels. */
+  carousel: {
+    title: "Carousels",
+    ...MARKETING_FEATURE_PREVIEWS.carousel,
+  },
+  studio: {
+    title: "Studio",
+    ...MARKETING_FEATURE_PREVIEWS.studio,
+    /** What the canvas is for, in the app's own words. */
+    safeAreaLabel: "Avatar safe area",
+  },
+  ideas: {
+    title: "Ideas",
+    ...MARKETING_FEATURE_PREVIEWS.ideas,
+    slotsLabel: "slots filled",
+  },
 } as const;
 
 /* Which pane keeps the floor at each pose. Declared beside the poses rather than

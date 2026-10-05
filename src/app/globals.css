@@ -12,6 +12,21 @@
 
 :root {
   /*
+   * SOURCE OF TRUTH KEYWORDS: --tour-ground, product tour, hand-off, black
+   *   band, BlueStatement, wipe backdrop
+   * WHAT:  The black the product tour sits on, and hands off on.
+   * WHY:   TWO SECTIONS HAVE TO AGREE ABOUT IT. The tour's stage paints it, and
+   *        the blue statement band below wipes its colour up OVER it — a wipe
+   *        reveals from the bottom edge, so whatever is behind that band at the
+   *        top of its box is what the reader sees until the wipe finishes. That
+   *        used to be cream, correctly, because a cream section came before it.
+   *        With a black tour above, cream reads as a white gap punched between
+   *        two dark bands. One token so the two can never disagree again.
+   * WHERE: .tour-scope's sheet, and the blue statement's section background.
+   */
+  --tour-ground: #000;
+
+  /*
    * SOURCE OF TRUTH KEYWORDS: light theme, cream, warm white, light neutrals,
    *   --background, --card, --muted, --border, theme toggle
    * WHAT:  The light theme’s neutrals, tinted a warm cream.
