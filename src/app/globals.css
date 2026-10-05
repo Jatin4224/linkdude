@@ -150,12 +150,10 @@
    * have the font installed locally — everyone else silently fell back to the
    * system sans, which is invisible at 14px body copy and obvious at display
    * sizes on the landing page. */
-  --font-sans: var(--font-geist-sans), Geist, sans-serif;
-  --font-serif: Georgia, serif;
+  --font-sans: var(--font-archivo), Archivo, system-ui, sans-serif;
   /* The landing pages display accent face. Instrument Serif is only ever used
    * ITALIC, as the second half of a two-part heading, so the Georgia fallback
    * keeps that role rather than silently turning the clause upright. */
-  --font-display: var(--font-instrument-serif), Georgia, serif;
   --font-mono: var(--font-geist-mono), Geist Mono, monospace;
 
   /*
@@ -181,8 +179,7 @@
    *        `font-paper-display` utility.
    */
   --font-paper-sans: var(--font-archivo), Archivo, system-ui, sans-serif;
-  --font-paper-display:
-    var(--font-archivo-black), Archivo Black, Archivo, system-ui, sans-serif;
+  --font-paper-display: var(--font-archivo), Archivo, system-ui, sans-serif;
 
   /*
    * SOURCE OF TRUTH KEYWORDS: --paper, --ink, --blue, --blue-hover,
@@ -344,12 +341,10 @@
    * have the font installed locally — everyone else silently fell back to the
    * system sans, which is invisible at 14px body copy and obvious at display
    * sizes on the landing page. */
-  --font-sans: var(--font-geist-sans), Geist, sans-serif;
-  --font-serif: Georgia, serif;
+  --font-sans: var(--font-archivo), Archivo, system-ui, sans-serif;
   /* The landing pages display accent face. Instrument Serif is only ever used
    * ITALIC, as the second half of a two-part heading, so the Georgia fallback
    * keeps that role rather than silently turning the clause upright. */
-  --font-display: var(--font-instrument-serif), Georgia, serif;
   --font-mono: var(--font-geist-mono), Geist Mono, monospace;
   --radius: 0.5rem;
   --shadow-x: 0px;
@@ -428,8 +423,6 @@
   /* Registers `font-condensed` as a utility; the variable itself is set by
    * next/font in layout.tsx. */
   --font-condensed: var(--font-condensed);
-  --font-serif: var(--font-serif);
-  --font-display: var(--font-display);
 
   /*
    * SOURCE OF TRUTH KEYWORDS: bg-paper, text-ink, border-ink, bg-blue,
@@ -1022,6 +1015,13 @@
 @layer components {
   .paper-display-type {
     font-family: var(--font-paper-display);
+    /* THE WEIGHT IS EXPLICIT NOW, AND IT HAS TO BE. This used to be Archivo
+       Black — a separate family whose only weight was black, so naming the
+       family was enough. Archivo is variable and defaults to 400, so without
+       this line every display word on the public surfaces would render at
+       book weight and the whole paper system would go quiet. 900 is the
+       darkest Archivo ships and the closest match to Archivo Black. */
+    font-weight: 900;
     text-transform: uppercase;
     line-height: 0.84;
     letter-spacing: -0.05em;

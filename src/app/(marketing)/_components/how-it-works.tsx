@@ -29,7 +29,7 @@
  *        and one in-view trigger. `artifact` is switched on exhaustively
  *        there, so a fourth step cannot ship without someone deciding what it
  *        shows.
- * WHERE: src/app/(marketing)/page.tsx, after ComposerShowcase.
+ * WHERE: src/app/(marketing)/page.tsx, after CapabilityTicker.
  */
 
 import { MARKETING_SECTION_IDS, MARKETING_STEPS } from "@/lib/config";

@@ -722,8 +722,17 @@ export const MARKETING_FOOTER_GROUPS: readonly MarketingFooterGroup[] = [
     label: "Product",
     items: [
       { label: "How it works", href: `#${MARKETING_SECTION_IDS.how}` },
-      { label: "The composer", href: `#${MARKETING_SECTION_IDS.composer}` },
-      { label: "What free means", href: `#${MARKETING_SECTION_IDS.free}` },
+      /* "The composer" used to sit here. The section it pointed at no longer
+         ships — the product tour's first stop shows that screen working, so
+         the still panel was the same claim told twice — and a footer link to
+         an anchor the page does not contain is a link that silently does
+         nothing. The id itself stays in MARKETING_SECTION_IDS because the
+         component is still mounted by the `composer-survey` flute scene. */
+      /* "What free means" pointed at the free-caps band, which no longer
+         ships either. Same reasoning as the composer above: a footer link to
+         an anchor the page does not contain silently does nothing. The free
+         plan's real numbers still reach the page through the capability
+         ticker and the closing CTA's reassurance line. */
     ],
   },
   {
