@@ -61,12 +61,19 @@ import * as React from "react";
 import { ChevronDownIcon } from "lucide-react";
 
 import {
+  GET_STARTED_HREF,
+  GET_STARTED_LABEL,
   MARKETING_HERO_HEADLINE,
   MARKETING_HERO_ORBIT,
+  MARKETING_HERO_SUBHEAD,
   MARKETING_HERO_TRACK_SVH,
+  MARKETING_REASSURANCE,
   MARKETING_SECTION_IDS,
 } from "@/lib/config";
 import {
+  PaperButton,
+  PaperDisplay,
+  PaperLabel,
   PaperMascot,
   PaperMascotEyes,
   PaperOrbit,
@@ -288,41 +295,32 @@ export function StickyHero() {
           because the orbit measures against the same stage and a second literal
           is how the two drift apart.
 
-          IT ANSWERS TO NOTHING BUT THE VIEWPORT NOW. Every earlier version of
-          this line was a negotiation with the copy: stacked, the headline sat
-          above the character and reserved its HEIGHT, so each pixel the figure
-          gained was a pixel the type lost — that competition is what once
-          forced it to 420px and still left the ask 9px inside its head on a
-          1600×560 window. Two columns moved the contest to WIDTH. With the copy
-          gone there is no contest at all, so the four media queries that used to
-          referee it are gone with it and one breakpoint remains, purely to let a
-          wide screen give the character more room than a phone can.
+          THE TWO LAYOUTS RESERVE ON DIFFERENT AXES, which is what lets the
+          figure stay large while the copy comes back. Stacked, the headline sits
+          ABOVE the character and reserves its HEIGHT, so every pixel the figure
+          gains is a pixel the type loses — that competition is what once forced
+          it to 420px and still left the ask 9px inside its head on a 1600×560
+          window. Side by side they compete on WIDTH instead, and width is the
+          axis this page has to spare: at 1440 the copy needs about 650px of a
+          1440px stage, so the figure can take 700 and the vertical budget stops
+          mattering. Hence one column on a phone and two from 900px up.
 
-          The `vw` term is still load-bearing. The artwork is SQUARE, so bounding
-          only its height bounds nothing on a narrow screen — at 390×844 a
-          height-only clamp resolved to a 726px-wide character on a 390px
-          viewport. */}
+          The short-window rules are scoped to the PHONE RANGE for the same
+          reason: it is the stacked layout that runs out of height. Their third
+          term stays at 78vw because that term only ever stops a square drawing
+          overflowing a narrow screen sideways, and they are answering a shortage
+          of HEIGHT — tightened to 20vw as well it once resolved the figure to
+          72px on a 360×740 phone, bound by the wrong axis. */}
       <div
         ref={stage}
-        className="sticky top-0 h-svh overflow-hidden [--hero-mascot:min(62svh,420px,78vw)] min-[900px]:[--hero-mascot:min(76svh,720px,44vw)]"
+        className="sticky top-0 h-svh overflow-hidden [--hero-mascot:min(34svh,300px,62vw)] [@media(max-width:899px)_and_(min-height:481px)_and_(max-height:780px)]:[--hero-mascot:min(24svh,200px,62vw)] [@media(max-width:899px)_and_(max-height:480px)]:[--hero-mascot:min(18svh,140px,62vw)] min-[900px]:[--hero-mascot:min(76svh,720px,44vw)]"
       >
-        {/* THE DOCUMENT'S HEADING, CARRIED BUT NOT DRAWN. The hero is a picture
-            now, and a page whose first screen is a picture still needs an <h1>:
-            without one a crawler has no heading to read and a screen reader
-            lands on a section with no name, which is also what an audit flags.
-            It reads the SAME constant the visible headline used, so the two can
-            never say different things, joined back into a sentence because
-            PaperDisplay's word boxes are a visual device and a screen reader
-            should hear one line, not three fragments. */}
-        <h1 className="sr-only">
-          {MARKETING_HERO_HEADLINE.map((word) => word.text).join(" ")}
-        </h1>
-
-        {/* THE FIGURE, CENTRED ON X AND STANDING ON THE STAGE'S FLOOR. It keeps
-            its own layer at z-1 rather than sitting in flow, because the orbit's
-            marks sort themselves in FRONT of and behind the character by their
-            own depth — anything higher in the stack and nothing could ever pass
-            in front of it.
+        {/* THE FIGURE'S LAYER, measured against the same centred container the
+            copy uses so the two columns share one set of edges. It keeps its own
+            layer at z-1 rather than sitting in the copy's flow, because the
+            orbit's marks sort themselves in FRONT of and behind the character by
+            their own depth — anywhere higher in the stack and nothing could ever
+            pass in front of it.
 
             Bottom-anchored and cropped by the stage: the figure is taller than
             the space it is given, which is what stops it reading as a sticker
@@ -331,14 +329,59 @@ export function StickyHero() {
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-[1]"
         >
+          <div className="relative mx-auto h-full w-full max-w-[1460px] px-[clamp(16px,4vw,72px)]">
           {/* POSITION HERE, TRANSFORM INSIDE. The layout offset and the gsap
               channels used to share one element, which is why an older version
               had to set `xPercent: -50` from JavaScript: gsap writes the whole
               `transform`, so a Tailwind `-translate-x-1/2` on the same element is
-              erased the moment the swell takes it over. With the centring on this
+              erased the moment the swell takes it over. With the offset on this
               wrapper and the tweens on the box inside it, neither can overwrite
-              the other and the centring is plain CSS at every width. */}
-          <div className="absolute bottom-[-4%] left-1/2 h-[var(--hero-mascot)] w-auto -translate-x-1/2">
+              the other — which is also what lets the breakpoint move the figure
+              from centre to right in CSS alone. */}
+          {/* THE DESKTOP OFFSETS ARE DELIBERATE, not leftovers. Flush to the
+              container's right edge and hanging 4% below the stage, the figure
+              sat squarely in the corner and had its own ground shadow clipped by
+              the stage's `overflow-hidden`. Nudging it out past the gutter and
+              up off the floor gives it somewhere to stand and stops the corner
+              reading as a crop.
+
+              THE OFFSET IS BOUNDED BY THE SPACE THAT ACTUALLY EXISTS, which is
+              why it is a `min`/`max` pair rather than a clamp on `vw`. The copy
+              and the figure share a 1460px container; on a screen wider than
+              that, `(100vw - 1460px) / 2` is the dead margin outside it, and the
+              figure can push into that margin without ever leaving the viewport.
+              On a 1440px laptop that term goes NEGATIVE — there is no margin —
+              so the `max` floors it at 8px and the figure stays put.
+
+              THE `* 0.085` TERM IS THE ARTWORK'S OWN TRANSPARENT MARGIN, and it
+              is measured, not guessed: linkdin-dude.png is 1024px square and its
+              rightmost opaque pixel is at x=936, so 8.5% of every rendered width
+              is empty. The BOX may therefore cross the viewport edge by that
+              much before a single drawn pixel is lost, which is why the bound
+              adds it rather than stopping at the container margin. Reading it
+              off the file is the only honest way to spend it — eyeballing where
+              the mug "looks like" it ends is how you clip a handle on one screen
+              size and not another. The `- 90px` is the safety left over, and it is
+              also the dial: raising it walks the figure back toward the copy,
+              lowering it pushes it out toward the gutter.
+
+              A flat `clamp(12px, 4.6vw, 104px)` was the obvious version and it
+              was wrong in the way only measuring catches: vw grows with the
+              screen, but on a 1440 laptop the container already fills the
+              screen, so the offset had nowhere to go and pushed the mug 66px
+              off the right edge. 41px at 900, 46px at 1000, 66px at 1440 — all
+              silently cropped, because the stage is `overflow-hidden` and a
+              crop makes no scrollbar to notice.
+
+              Pushing OUT is otherwise safe: `overflow-hidden` means this can
+              only ever be cropped by the stage, never widen the document. */}
+          {/* Verified at 17 widths: no horizontal scroll anywhere.
+
+              Phone keeps its own centring and its -4%: there the copy is stacked
+              above the figure and the bottom padding reserves exactly
+              `--hero-mascot - 4svh`, so moving it would have to move that
+              expression too. */}
+          <div className="absolute bottom-[-4%] left-1/2 h-[var(--hero-mascot)] w-auto -translate-x-1/2 min-[900px]:bottom-[4%] min-[900px]:left-auto min-[900px]:right-[calc(-1*min(210px,max(8px,(100vw_-_1460px)/2_+_var(--hero-mascot)*0.085_-_90px)))] min-[900px]:translate-x-0">
             {/* `origin-bottom` is load-bearing, not tidiness. The swell scales
                 the figure, and about its centre that pushes the FEET down as
                 much as it lifts the head, so the character would sink into the
@@ -360,6 +403,62 @@ export function StickyHero() {
               <PaperMascotEyes />
             </div>
           </div>
+          </div>
+        </div>
+
+        {/* THE READABLE HERO, and the reason the page can answer "what is this"
+            before a reader scrolls. Centred over the figure on a phone, the LEFT
+            COLUMN beside it from the breakpoint up — same centred container as
+            the figure's layer, so the two share one set of edges.
+
+            The top padding clears the FIXED navbar, which is drawn over this
+            stage rather than above it; its floor drops on a short window because
+            88px is the bar's height plus air, and the air goes first when the
+            whole stage is 560px.
+
+            THE RESERVE SWITCHES AXIS AT THE BREAKPOINT. Stacked, the bottom
+            padding holds the figure's HEIGHT — its own height less the 4% it
+            hangs below the stage, plus a gap, which is why it reads
+            --hero-mascot rather than a number. Side by side, that reserve is
+            released and a right padding holds the figure's WIDTH instead; the
+            artwork is square, so one custom property measures both. */}
+        <div className="absolute inset-0 z-[6] mx-auto flex max-w-[1460px] flex-col items-center justify-center gap-[clamp(16px,2.6vh,30px)] px-[clamp(16px,4vw,72px)] pt-[clamp(88px,14svh,152px)] pb-[calc(var(--hero-mascot)-4svh+20px)] text-center [@media(min-height:481px)_and_(max-height:780px)]:pt-19 [@media(max-height:480px)]:gap-3 [@media(max-height:480px)]:pt-16 min-[900px]:items-start min-[900px]:pr-[calc(var(--hero-mascot)+clamp(16px,3vw,56px))] min-[900px]:pb-0 min-[900px]:text-left">
+          {/* THE PAGE'S ONLY h1, VISIBLE AND UNGATED. It was an `sr-only` line
+              for a while, which satisfied a crawler and told a human nothing —
+              the first screen carried no words at all. The constant is the same
+              either way, so nothing about the claim changed when it came back.
+
+              The clamp FLOOR is the load-bearing number, not the ceiling:
+              "LinkedIn post" is thirteen characters of Archivo Black in one
+              unbreakable box, so the floor must be small enough for it at the
+              narrowest supported screen or the word pushes the page sideways.
+              The `svh` term and the 18ch measure are a PAIR — at 15ch and 8svh
+              this headline wrapped to five lines on a 1440×900 laptop and
+              overran the figure's reserve. */}
+          <PaperDisplay
+            as="h1"
+            words={MARKETING_HERO_HEADLINE}
+            className="max-w-[18ch] justify-center text-[clamp(28px,min(5.6vw,6svh),72px)] leading-[0.9] tracking-[-0.05em] min-[900px]:justify-start"
+          />
+
+          {/* The sentence that does the explaining. Capped in `ch` rather than
+              px so the measure stays readable at every clamp step instead of
+              running to a 90-character line on a wide monitor. */}
+          <p className="m-0 max-w-[46ch] text-[clamp(15px,1.7vw,22px)] leading-normal text-pretty text-grey">
+            {MARKETING_HERO_SUBHEAD}
+          </p>
+
+          {/* The ask. ONE call to action in the hero's DOM, in the first frame.
+              On its own sheet of paper, because at phone size it still lands
+              over the artwork. */}
+          <span className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 border border-ink bg-paper px-[clamp(14px,1.6vw,22px)] py-[clamp(12px,1.4vw,18px)]">
+            <PaperButton href={GET_STARTED_HREF} arrow>
+              {GET_STARTED_LABEL}
+            </PaperButton>
+            <PaperLabel tone="ink" as="span">
+              {MARKETING_REASSURANCE}
+            </PaperLabel>
+          </span>
         </div>
 
         {/* The sphere. Centred on the mascot and spun by the same scroll range

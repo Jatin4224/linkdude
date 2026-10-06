@@ -21,7 +21,7 @@
  *        is this (the hero, which now answers in its h1 rather than after three
  *        viewports of scroll), what does it look like (the product tour), what
  *        are you building (the blue statement), what can it do (the ticker),
- *        how does it work (the dark band), what does it cost (the free caps),
+ *        what does it cost (the free caps), how does it work (the dark band),
  *        and where do I start (the closing CTA).
  *
  *        THE FREE-CAPS BAND IS BACK, AND IT IS THE ONLY PROOF ON THE PAGE.
@@ -30,8 +30,9 @@
  *        homepage — see the capability ticker. What this product CAN show is
  *        a verifiable number, and FreePlanCaps reads the free tier straight
  *        off the resource registry, so the band cannot advertise an allowance
- *        the gate would refuse. It sits immediately before the closing ask,
- *        which is the moment the cost question is actually being asked.
+ *        the gate would refuse. It sits BEFORE the dark band, not after it: the
+ *        cost question arrives early, and at the foot of the page it was landing
+ *        twelve screens down — proof nobody had scrolled to is not proof.
  *
  *        THE COMPOSER SECTION IS STILL GONE FROM HERE. It drew the Create Post
  *        screen as a still panel, which is the same claim the product tour's
@@ -95,8 +96,8 @@ export default function LandingPage() {
       </ProductTour>
       <BlueStatement />
       <CapabilityTicker />
-      <HowItWorks />
       <FreePlanCaps />
+      <HowItWorks />
       <FinalCta />
     </>
   );

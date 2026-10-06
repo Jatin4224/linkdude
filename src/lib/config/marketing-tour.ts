@@ -54,9 +54,9 @@ import type { PaperDisplayLine } from "@/lib/types/paper";
 import {
   MARKETING_CALENDAR,
   MARKETING_COMPOSER,
-  MARKETING_FEATURES,
   MARKETING_FEATURE_PREVIEWS,
   MARKETING_HERO_TRACK_SVH,
+  MARKETING_FEATURES,
   MARKETING_POST_LINES,
   MARKETING_STEPS,
   type MarketingFeature,
@@ -123,6 +123,13 @@ export const MARKETING_TOUR_PHASES = {
    * top of a 440svh hero, which is most of a page spent before the first band
    * of copy. Seventy still splits into a camera move and a hold long enough to
    * read three lines, which is the floor this is allowed to go to.
+   *
+   * SHORTENING THIS IS NOT THE WAY TO MAKE THE PAGE SHORTER — the floor above
+   * is a reading-speed limit, not a taste. The tour costs 705svh because it has
+   * seven stops, so the only real lever is FEWER STOPS, and that is a refactor
+   * rather than a number: TOUR_DEMO carries a choreography block per stop,
+   * TOUR_STAGE.focusOut is derived from the voice stop specifically, and
+   * product-tour-mock.tsx draws a screen for each one.
    */
   stop: 70,
   /*
@@ -181,11 +188,15 @@ export const TOUR_MARKS = {
   entryEnd: at(P.peek + P.entry),
   holdEnd: at(START),
   /** One boundary per stop, in the order TOUR_STOPS declares them. */
-  stopEnds: [1, 2, 3, 4, 5, 6, 7].map(stopEnd) as readonly number[],
+  stopEnds: Array.from({ length: MARKETING_TOUR_STOP_COUNT }, (_, i) =>
+    stopEnd(i + 1),
+  ) as readonly number[],
   /** The last caption has gone; the mock has not moved. */
-  captionOutEnd: at(START + P.stop * 7 + P.captionOut),
+  captionOutEnd: at(START + P.stop * MARKETING_TOUR_STOP_COUNT + P.captionOut),
   /** The mock has arrived at the centred pose. */
-  recentreEnd: at(START + P.stop * 7 + P.captionOut + P.recentre),
+  recentreEnd: at(
+    START + P.stop * MARKETING_TOUR_STOP_COUNT + P.captionOut + P.recentre,
+  ),
 } as const;
 
 /** The nth stop's window. Index 0 is the first stop after the hold. */
@@ -430,27 +441,31 @@ function captionWindow(from: number, to: number) {
 }
 
 /**
- * SOURCE OF TRUTH KEYWORDS: TOUR_STOPS, seven stops, screen, framing, caption
+ * SOURCE OF TRUTH KEYWORDS: TOUR_STOPS, three stops, screen, framing, caption
  *   window, tight stop, wide stop, app navigates
  *
- * WHAT:  The seven stops — caption copy, which screen of the app is showing,
+ * WHAT:  The three stops — caption copy, which screen of the app is showing,
  *        where the caption is drawn and when it is readable.
  *
- * WHY:   THE SHAPE IS TWO MOVEMENTS. The first is the one the choreography was
- *        built around: two TIGHT stops on one screen, joined by a pan straight
- *        down a single column at a shared zoom. The second is five WIDE stops
- *        where the window stays put and the APP NAVIGATES underneath it, the
- *        caption crossing from one side of the screen to the other each time.
- *        A reader learns the rule in the first movement and can follow the rest
- *        without hunting for the camera.
+ * WHY:   THEY ARE THE JOURNEY, NOT THE FEATURE LIST. Write the post, queue it,
+ *        fix the profile it lands on — the same three MARKETING_STEPS the dark
+ *        band opens with, shown working. There were seven stops here, one per
+ *        feature, and the other four were the page saying each capability twice:
+ *        once as a moving screen and once as a still panel further down. The
+ *        still panels stayed, so nothing was lost from the page and 322svh of
+ *        scroll went away.
  *
- *        FIVE WIDE STOPS SHARE TWO POSES. The variety comes from the content,
- *        not from flying somewhere new — which is both what the reference does
- *        after its entry and the only way seven features fit in a tour that is
- *        not ten screens long.
+ *        THE SHAPE IS ONE TIGHT STOP THEN TWO WIDE ONES. The first zooms into a
+ *        single column of the composer; the two after it hold the window still
+ *        and let the APP NAVIGATE underneath, the caption crossing from one side
+ *        to the other. A reader learns the rule once and can follow the rest.
  *
- *        EVERY CAPTION IS BORROWED. Three come from MARKETING_STEPS and four
- *        from MARKETING_FEATURES, so the tour cannot describe a feature
+ *        THE TWO WIDE STOPS TAKE OPPOSITE POSES, so the pair reads as a
+ *        deliberate left-then-right rather than a drift.
+ *
+ *        EVERY CAPTION IS BORROWED, all three from MARKETING_STEPS, so the tour
+ *        cannot describe a step differently from the band further down. Nothing
+ *        here is a new marketing claim.
  *        differently from the bands further down the page. Nothing here is a
  *        new marketing claim.
  */
@@ -595,18 +610,8 @@ function stepFor(artifact: MarketingStepArtifact): MarketingStep {
   }
   return step;
 }
+/** The feature-row twin of `stepFor`, for the four stops whose copy lives in *  MARKETING_FEATURES rather than MARKETING_STEPS. Same reasoning: by *  `artifact`, never by index, and it throws at build time rather than *  shipping a caption that silently describes the wrong surface. */function featureFor(artifact: MarketingFeature["artifact"]): MarketingFeature {  const feature = MARKETING_FEATURES.find((entry) => entry.artifact === artifact);  if (!feature) {    throw new Error(`MARKETING_FEATURES has no feature for artifact "${artifact}"`);  }  return feature;}
 
-/** The feature-row twin of `stepFor`, for the four stops whose copy lives in
- *  MARKETING_FEATURES rather than MARKETING_STEPS. Same reasoning: by
- *  `artifact`, never by index, and it throws at build time rather than
- *  shipping a caption that silently describes the wrong surface. */
-function featureFor(artifact: MarketingFeature["artifact"]): MarketingFeature {
-  const feature = MARKETING_FEATURES.find((entry) => entry.artifact === artifact);
-  if (!feature) {
-    throw new Error(`MARKETING_FEATURES has no feature for artifact "${artifact}"`);
-  }
-  return feature;
-}
 
 /**
  * SOURCE OF TRUTH KEYWORDS: toBlackGround, PaperWordVariant, paper variant,

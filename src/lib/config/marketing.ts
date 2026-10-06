@@ -38,7 +38,7 @@
  *        src/components/global/marketing/*. Re-exported from @/lib/config.
  */
 
-import type { LimitResourceKey } from "@/lib/resources";
+import type { LimitResourceKey, ResourceKey } from "@/lib/resources";
 import type {
   PaperDisplayLine,
   PaperOrbitMark,
@@ -156,6 +156,25 @@ export const MARKETING_HERO_HEADLINE: PaperDisplayLine = [
   { text: "LinkedIn post", variant: "ink" },
   { text: "worth reading", variant: "blue" },
 ];
+
+/** The reassurance that rides under the hero's ask. Makes no numeric promise,
+ *  so there is nothing here for a plan change to contradict — the real figures
+ *  live in the free-caps band, which reads them off the resource registry. */
+export const MARKETING_REASSURANCE = "Free forever · no card";
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_SUBHEAD, hero subhead, supporting
+ *   line, what is this, why should I care, first paint
+ *
+ * WHAT:  The sentence under the headline.
+ * WHY:   The headline names the CATEGORY and the outcome; it has no room left
+ *        for the two things that actually separate this product from a text
+ *        box — that it schedules, and that it fixes the profile the post sends
+ *        people to. One sentence, in the first frame, because the next place
+ *        either is mentioned is eight screens down.
+ */
+export const MARKETING_HERO_SUBHEAD =
+  "Schedule it straight to LinkedIn, and fix the profile it lands on.";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_TRACK_SVH, hero height, hero track,
@@ -276,6 +295,37 @@ export const MARKETING_FREE_CAPS = {
     "profileAnalysis",
   ] as const satisfies readonly LimitResourceKey[],
 } as const;
+
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_CAPABILITIES, capability ticker, band,
+ *   LimitResourceKey, FlagResourceKey, curated list, say less
+ *
+ * WHAT:  The capabilities the scrolling band names, as resource keys.
+ * WHY:   IT IS A CHOSEN LIST NOW, NOT A DERIVED ONE. The band used to render
+ *        every resource carrying a limit or a flag, which was elegant and wrong:
+ *        it put "Team Members", "Audit Logs", "Profile Lookups", "AI Image Edit"
+ *        and "Deep Profile Insights" on the homepage — fifteen names, several of
+ *        them billing vocabulary a visitor has no use for, and any new gated
+ *        resource silently joined them on the day it shipped. These seven are
+ *        the ones a reader is choosing between.
+ *
+ *        THEY ARE STILL KEYS, NOT STRINGS, so the band prints each resource's
+ *        own `name` from the registry and cannot drift from what the app calls
+ *        the feature. Renaming a resource renames it here; DELETING one is a
+ *        compile error rather than a blank in the band, which is the half of the
+ *        old derivation worth keeping.
+ * WHERE: src/app/(marketing)/_components/capability-ticker.tsx.
+ */
+export const MARKETING_CAPABILITIES = [
+  "linkedinPosts",
+  "aiGeneration",
+  "voiceProfile",
+  "carousels",
+  "studio",
+  "contentPlan",
+  "profileAnalysis",
+] as const satisfies readonly ResourceKey[];
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_COMPOSER, MARKETING_COMPOSER_TONES,

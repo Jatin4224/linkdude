@@ -31,21 +31,21 @@
  * WHERE: src/app/(marketing)/page.tsx, directly under BlueStatement.
  */
 
-import { RESOURCE_ENTRIES } from "@/lib/resources";
+import { MARKETING_CAPABILITIES } from "@/lib/config";
+import { getResourceDefinition } from "@/lib/resources";
 import { PaperLabel } from "@/components/global/paper";
 
-/* Only plan-gated surfaces: a resource with neither a quota nor a flag is
- * internal plumbing, not something to advertise.
+/* The band's words, resolved from the curated key list — see
+ * MARKETING_CAPABILITIES for why this is chosen rather than derived. Each key
+ * still reads its display name out of the registry, so the band cannot call a
+ * feature something the app does not.
  *
- * Deduped by NAME, not by key: `carousels` and `carousel` are two resources —
- * the monthly allowance and the document it renders — but they are one
- * capability to a reader, and the registry gives both the same display name, so
- * without this the band printed "CAROUSELS CAROUSELS" back to back. */
+ * Deduped by NAME because `carousels` and `carousel` are two resources with one
+ * display name; if both ever appear in the list the band would otherwise print
+ * "CAROUSELS CAROUSELS" back to back. */
 const CAPABILITIES = [
   ...new Set(
-    RESOURCE_ENTRIES.filter(([, def]) => def.limit ?? def.flag).map(
-      ([, def]) => def.name,
-    ),
+    MARKETING_CAPABILITIES.map((key) => getResourceDefinition(key).name),
   ),
 ];
 
