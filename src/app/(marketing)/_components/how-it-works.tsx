@@ -112,10 +112,20 @@ export function HowItWorks() {
           </div>
         ))}
 
-        {/* The rest of the kit, on the SAME ground. It used to be a cream
-            section directly below this one, which made the reader cross a hard
-            colour boundary in the middle of a single answer — the steps and
-            these rows together are what the product is made of. */}
+        {/* THE REST OF THE KIT, ON THE SAME GROUND, numbered straight on from
+            the steps — FeatureRows reads MARKETING_STEPS.length to start at
+            [4], so the band reads as one list of seven rather than three plus
+            four. It used to be a cream section directly below this one, which
+            made the reader cross a hard colour boundary in the middle of a
+            single answer; the steps and these rows together are what the
+            product is made of.
+
+            These four ARE also the product tour's stops 2, 3, 4 and 6, and the
+            captions there are borrowed from the same MARKETING_FEATURES
+            entries. That duplication is deliberate and was asked for: the tour
+            shows the screens moving, and this band is where a reader who wants
+            the figures — export sizes, formats, what the voice profile trains
+            on — can stop and read them. */}
         <FeatureRows />
       </PaperReveal>
     </section>

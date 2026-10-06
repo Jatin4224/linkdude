@@ -6,7 +6,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: LandingPage, metadata, APP_NAME, StickyHero,
- *   ProductTour, BlueStatement, CapabilityTicker,
+ *   ProductTour, BlueStatement, CapabilityTicker, FreePlanCaps,
  *   HowItWorks, FinalCta, section order, paper design
  *
  * WHAT:  The public landing page at "/" — the running order of the pitch.
@@ -17,18 +17,27 @@
  *        live here was an auth probe, and signed-in users now reach the
  *        dashboard directly from the auth form's callback instead.
  *
- *        Seven bands, in the order a sceptical reader asks their questions: what
- *        is this about (the sticky hero's two beats), what are you building
- *        (the blue statement), what can it do (the ticker), what does it cost to
- *        how does it work (the dark band), and where do I start (the closing
- *        CTA).
+ *        SIX BANDS, in the order a sceptical reader asks their questions: what
+ *        is this (the hero, which now answers in its h1 rather than after three
+ *        viewports of scroll), what does it look like (the product tour), what
+ *        are you building (the blue statement), what can it do (the ticker),
+ *        how does it work (the dark band), what does it cost (the free caps),
+ *        and where do I start (the closing CTA).
  *
- *        THE COMPOSER SECTION IS GONE FROM HERE. It drew the Create Post screen
- *        as a still panel, which is the same claim the product tour's first
- *        stop now makes with the screen actually working — the page was
- *        showing the composer twice, once live and once as a photograph. The
- *        component still exists and is still exported, because the flute scene
- *        `composer-survey` mounts it; it simply no longer ships on this page.
+ *        THE FREE-CAPS BAND IS BACK, AND IT IS THE ONLY PROOF ON THE PAGE.
+ *        There are no logos and no testimonials here, because there are no
+ *        customers to name and inventing them would be a lie printed on the
+ *        homepage — see the capability ticker. What this product CAN show is
+ *        a verifiable number, and FreePlanCaps reads the free tier straight
+ *        off the resource registry, so the band cannot advertise an allowance
+ *        the gate would refuse. It sits immediately before the closing ask,
+ *        which is the moment the cost question is actually being asked.
+ *
+ *        THE COMPOSER SECTION IS STILL GONE FROM HERE. It drew the Create Post
+ *        screen as a still panel, which is the same claim the product tour's
+ *        first stop makes with the screen actually working. The component
+ *        still exists and is still exported, because the flute scene
+ *        `composer-survey` mounts it; it simply does not ship on this page.
  * WHERE: Rendered inside src/app/(marketing)/layout.tsx.
  */
 
@@ -39,6 +48,7 @@ import {
   BlueStatement,
   CapabilityTicker,
   FinalCta,
+  FreePlanCaps,
   HowItWorks,
   ProductTour,
   StickyHero,
@@ -86,6 +96,7 @@ export default function LandingPage() {
       <BlueStatement />
       <CapabilityTicker />
       <HowItWorks />
+      <FreePlanCaps />
       <FinalCta />
     </>
   );

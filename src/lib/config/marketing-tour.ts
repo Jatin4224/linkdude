@@ -56,6 +56,7 @@ import {
   MARKETING_COMPOSER,
   MARKETING_FEATURES,
   MARKETING_FEATURE_PREVIEWS,
+  MARKETING_HERO_TRACK_SVH,
   MARKETING_POST_LINES,
   MARKETING_STEPS,
   type MarketingFeature,
@@ -96,13 +97,15 @@ export const TOUR_DESIGN = { width: 1200, height: 740 } as const;
  *
  *        `heroTrack` is NOT a dial — it is the hero's own height, and it is here
  *        only so the arithmetic below can be read in one place. The hero is a
- *        440svh scroll sequence of its own; the transition begins where that
- *        sequence ends, which is 100svh before the hero's section does (its last
- *        viewport is the sticky stage's final frame). See ProductTour.
+ *        scroll sequence of its own (MARKETING_HERO_TRACK_SVH); the transition
+ *        begins where that sequence ends, 100svh before the hero's section
+ *        does (its last viewport is the sticky stage's final frame). It is
+ *        IMPORTED, never retyped — this file held a literal 440 that went stale
+ *        the moment the hero was shortened. See ProductTour.
  */
 export const MARKETING_TOUR_PHASES = {
   /** The hero's own track, from StickyHero. Read, never set, by the tour. */
-  heroTrack: 440,
+  heroTrack: MARKETING_HERO_TRACK_SVH,
   /**
    * The window's title bar sits above the bottom edge, doing nothing, while the
    * hero is still being read. This phase is what makes the strip a PEEK rather

@@ -42,7 +42,6 @@ import {
   GET_STARTED_HREF,
   GET_STARTED_LABEL,
   MARKETING_HEADER_ATTR,
-  MARKETING_HERO_BEAT_COUNT,
   MARKETING_SECTION_IDS,
 } from "@/lib/config";
 import { PaperButton, PaperLockup } from "@/components/global/paper";
@@ -50,10 +49,7 @@ import { useHeroScroll } from "@/hooks/use-hero-scroll";
 import { cn } from "@/lib/utils";
 
 export function MarketingNavbar() {
-  const { isPastHero } = useHeroScroll(
-    MARKETING_SECTION_IDS.top,
-    MARKETING_HERO_BEAT_COUNT,
-  );
+  const isPastHero = useHeroScroll(MARKETING_SECTION_IDS.top);
 
   return (
     <header

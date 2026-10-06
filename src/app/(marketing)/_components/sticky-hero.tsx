@@ -7,68 +7,66 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: StickyHero, MARKETING_HERO_INTRO,
- *   MARKETING_HERO_SIGNOFF, MARKETING_HERO_BEAT_COUNT, useHeroScroll, gsap,
- *   ScrollTrigger, SCRUB, quickTo, MASCOT_LEAN, pointer lean, PaperOrbit,
- *   PaperMascot, PaperMascotEyes, sticky stage, call and
- *   response, accumulate
+ * SOURCE OF TRUTH KEYWORDS: StickyHero, MARKETING_HERO_HEADLINE,
+ *   MARKETING_HERO_TRACK_SVH, gsap, ScrollTrigger, SCRUB, quickTo, MASCOT_LEAN,
+ *   pointer lean, PaperOrbit, PaperMascot, PaperMascotEyes, sticky stage,
+ *   sr-only h1, mascot only, first paint, above the fold
  *
- * WHAT:  The first screen — a sticky stage where the product introduces itself
- *        as three call-and-response pairs assembling around the mascot, closed
- *        by its own name.
+ * WHAT:  The first screen — the mascot, centred, standing on the stage's floor,
+ *        with the decorative sphere turning around it. Nothing else is drawn.
  *
- * WHY:   THE PAIRS ACCUMULATE. Each beat adds a line to each side and dims what
- *        came before rather than replacing it, so by the last beat the whole
- *        promise is on screen and the sign-off lands on top of everything it
- *        summarises. Swapping one pair for the next — which is how this hero
- *        used to work — leaves the closing line standing alone, with the claims
- *        it refers to already gone.
+ * WHY:   IT IS A PICTURE, BY REQUEST. Every piece of copy this hero used to
+ *        carry — the headline, the line explaining it, the ask and its
+ *        reassurance — was removed deliberately. What that costs is worth
+ *        writing down, because the cost is not obvious from the markup: the
+ *        first screen no longer says what the product is, and the first time a
+ *        reader is told lands about eleven screens down, in the blue statement.
+ *        The navbar's button is the only call to action above the fold.
  *
- *        THE SPLIT IS THE ARGUMENT. Calls sit left of the character, responses
- *        right of it: what the reader already does on one side, what the product
- *        adds on the other, with the thing being introduced standing between
- *        them. A centred stack would say the same words and none of that.
+ *        THE <h1> SURVIVES THE REMOVAL, as `sr-only`. A page whose opening
+ *        screen is an image still owes a crawler and a screen reader a document
+ *        heading; without one an audit reports no h1 and the <title> becomes the
+ *        only description of the product anywhere in the markup. It renders the
+ *        same MARKETING_HERO_HEADLINE the visible headline used, so restoring
+ *        the visible version later cannot put two different claims on one page.
  *
- *        The middle column is EMPTY and reserved. The mascot is positioned
- *        independently, so keeping a column for it is what guarantees no line
- *        can reach it at any width without a breakpoint per line.
+ *        THE SIZING RULES COLLAPSED WITH THE COPY. Four media queries used to
+ *        referee the figure against the type — a stacked layout competing on
+ *        HEIGHT, a two-column one competing on WIDTH, and two more for short and
+ *        sideways phones. With nothing left to collide with, one breakpoint
+ *        remains and it exists only to let a wide screen be generous.
  *
- *        Three decisions carry over from the version before this one:
+ *        THE TRACK IS SHORT ON PURPOSE, AND ITS LENGTH IS LOAD-BEARING
+ *        ELSEWHERE. See MARKETING_HERO_TRACK_SVH: the product tour derives its
+ *        own entry from this section's height, so this hero's 180svh is what
+ *        pulls the first frame of the actual product up to roughly a third of a
+ *        screen in. At the old 440svh it arrived three viewports down.
+ *
+ *        Two decisions carry over from the versions before this one:
  *
  *        1. The stage stays `position: sticky` and is NOT ScrollTrigger-pinned.
  *           Pinning injects a spacer and takes over the layout; sticky already
  *           does the job, works with JS switched off, and leaves ScrollTrigger
  *           one job — reading progress.
  *
- *        2. The reveal is CSS transitions on a data attribute, not a tween per
- *           beat. A reader scrubbing back and forth crosses beats faster than a
- *           tween resolves, and transitions simply retarget; they also mean the
- *           resting state is what the server renders.
- *
- *        3. Reduced motion gets every line at once. The pairs are the content,
- *           so hiding them until a scroll that never animates would leave the
- *           hero empty rather than calm.
- * WHERE: src/app/(marketing)/page.tsx, first. Its id is the element
- *        src/components/global/marketing/marketing-navbar.tsx watches.
+ *        2. Reduced motion needs no special case. Nothing here is revealed by
+ *           scrolling, so a reader who asks for less motion loses the swell, the
+ *           lean and the orbit and loses no content at all.
+ * WHERE: src/app/(marketing)/page.tsx, first, wrapped by ProductTour. Its id is
+ *        the element src/components/global/marketing/marketing-navbar.tsx
+ *        watches and the one product-tour.tsx measures its entry against.
  */
 
 import * as React from "react";
 import { ChevronDownIcon } from "lucide-react";
 
 import {
-  GET_STARTED_HREF,
-  GET_STARTED_LABEL,
-  MARKETING_HERO_BEAT_COUNT,
-  MARKETING_HERO_INTRO,
+  MARKETING_HERO_HEADLINE,
   MARKETING_HERO_ORBIT,
-  MARKETING_HERO_SIGNOFF,
-  MARKETING_REASSURANCE,
+  MARKETING_HERO_TRACK_SVH,
   MARKETING_SECTION_IDS,
 } from "@/lib/config";
 import {
-  PaperLabel,
-  PaperButton,
-  PaperDisplay,
   PaperMascot,
   PaperMascotEyes,
   PaperOrbit,
@@ -76,34 +74,6 @@ import {
   PAPER_MASCOT_PUPILS,
 } from "@/components/global/paper";
 import { PAPER_EASE, SCRUB, gsap, useGSAP } from "@/lib/gsap";
-import { useHeroScroll } from "@/hooks/use-hero-scroll";
-import { cn } from "@/lib/utils";
-
-/* What a line looks like before it has arrived, once it is the live one, and
- * after the next pair has taken over. Written as one lookup so the three states
- * cannot drift apart across the four places they are applied. */
-const LINE_STATE = {
-  waiting: "translate-y-3 opacity-0",
-  /* The delay is the phone's, and it is what keeps a REPLACEMENT from
-     reading as a pile: the outgoing pair is stacked in the same place, so
-     without it both sit at half strength on top of each other for a quarter
-     of a second. It leaves first, then this arrives. */
-  live: "translate-y-0 opacity-100 max-[899px]:delay-[120ms]",
-  /* Still readable, clearly finished — and MEASURED, not guessed. At 0.4 the
-     past calls came out at 2.58:1 against the cream and the white text inside
-     their ink boxes at 1.61:1, both under the 3:1 that WCAG AA asks of large
-     text. On the closing beat six of the seven lines on screen are in this
-     state, so that was most of the hero failing contrast. 0.62 clears it while
-     still letting the live pair win the eye.
-
-     ON A PHONE A PAST PAIR GOES AWAY ENTIRELY. There is one column there, so
-     accumulating pairs have nowhere to accumulate INTO: they stacked down the
-     screen until the third pair, the sign-off and the ask were all lying across
-     the character. Below the breakpoint the stage shows exactly one pair at a
-     time, in a fixed band above the mascot — see the band's own note. */
-  past:
-    "translate-y-0 opacity-[0.62] max-[899px]:opacity-0 max-[899px]:delay-0 max-[899px]:duration-200",
-} as const;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MASCOT_LEAN, pointer lean, cursor tracking, quickTo,
@@ -112,11 +82,10 @@ const LINE_STATE = {
  * WHAT:  How far the mascot leans toward the pointer, and how long it takes to
  *        get there.
  * WHY:   SMALL ENOUGH TO BE FELT RATHER THAN WATCHED. The figure is the fixed
- *        point the whole hero assembles around — the swell above already moves
- *        it less than anything else on the stage for that reason — so the lean
- *        has to stay under the threshold where it becomes the thing you are
- *        looking at. A 1.2° sway pivoting at the feet moves the head about
- *        12px at hero size, which reads as attention rather than animation.
+ *        point the composition stands on, so the lean has to stay under the
+ *        threshold where it becomes the thing you are looking at. A 1.2° sway
+ *        pivoting at the feet moves the head about 12px at hero size, which
+ *        reads as attention rather than animation.
  *
  *        The duration is the damping. Tracking the pointer with no lag makes
  *        the character feel welded to the cursor; six tenths of a second on
@@ -145,56 +114,11 @@ function clampUnit(value: number): number {
   return Math.min(1, Math.max(-1, value));
 }
 
-function lineState(index: number, beat: number): string {
-  if (beat < index) return LINE_STATE.waiting;
-  return beat === index ? LINE_STATE.live : LINE_STATE.past;
-}
-
-/**
- * SOURCE OF TRUTH KEYWORDS: usePrefersReducedMotion, prefers-reduced-motion
- *
- * WHAT:  Whether this reader has asked for less motion.
- * WHY:   The rest of the stage hands the question to `gsap.matchMedia`, which
- *        cannot help here: the pairs are revealed by React state, not by a
- *        tween, so without asking directly a reduced-motion reader would still
- *        have three quarters of the hero's copy hidden behind a scroll that
- *        never animates. False on the server and on first paint, which is the
- *        honest default — the query cannot be answered until the client runs.
- */
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = React.useState(false);
-
-  React.useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => setReduced(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
-
-  return reduced;
-}
-
 export function StickyHero() {
-  const { beat } = useHeroScroll(
-    MARKETING_SECTION_IDS.top,
-    MARKETING_HERO_BEAT_COUNT,
-  );
-
   const stage = React.useRef<HTMLDivElement | null>(null);
   /* The WRAPPER, not the image: it is the box gsap transforms, the box the
    * orbit centres on, and the box the eye overlay fills. */
   const mascot = React.useRef<HTMLDivElement | null>(null);
-
-  /* Reduced motion reads the hero as ONE composition: every pair present, the
-   * sign-off with them, nothing waiting on a scroll position. */
-  const reducedMotion = usePrefersReducedMotion();
-  const revealed = reducedMotion ? MARKETING_HERO_BEAT_COUNT : beat;
-
-  /* The sign-off is the beat after the last pair. Derived rather than a flag,
-   * so adding a fourth pair moves it without touching this file. */
-  const signoffBeat = MARKETING_HERO_INTRO.length;
-  const isSignoff = revealed >= signoffBeat;
 
   useGSAP(
     () => {
@@ -211,8 +135,8 @@ export function StickyHero() {
         if (!mascotEl) return;
 
         /* The mascot swells slightly through the section. It is the fixed point
-           the lines assemble around, so it moves least — a subject that moves as
-           much as the copy flattens the whole stage.
+           the copy stands on, so it moves least — a subject that moves as much
+           as the type flattens the whole stage.
 
            WRITTEN AS GSAP PROPERTIES, NOT A `transform` STRING. It used to
            tween `transform: "translateX(-50%) scale(…)"`, which hands gsap one
@@ -221,15 +145,13 @@ export function StickyHero() {
            separate channels in gsap's transform cache, the swell and the lean
            can share the element without either erasing the other.
 
-           The centring is SET, not tweened. In a fromTo, a property given a
-           start but no end tweens back to whatever the element currently has,
-           so an `xPercent: -50` in the from-vars alone would have walked the
-           figure off centre as the section scrolled. It is `xPercent` here and
-           `-translate-x-1/2` in the markup: the class centres the server HTML,
-           and gsap zeroes the CSS translate when it takes the element over on
-           mount. */
-        gsap.set(mascotEl, { xPercent: -50 });
-
+           NO CENTRING IS SET FROM HERE ANY MORE. It used to need an
+           `xPercent: -50`, because the layout offset and these tweens shared one
+           element and gsap's `transform` erases a Tailwind translate on the same
+           box. The figure now sits inside a positioning wrapper that owns the
+           offset — see the markup — so this element is free to carry nothing but
+           the swell and the lean, and the breakpoint can move the character from
+           centre to right without JavaScript knowing about it. */
         gsap.fromTo(
           mascotEl,
           { scale: 1 },
@@ -300,7 +222,8 @@ export function StickyHero() {
             (pointer.x - (rect.left + rect.width / 2)) / (window.innerWidth / 2),
           );
           const fromCentreY = clampUnit(
-            (pointer.y - (rect.top + rect.height / 2)) / (window.innerHeight / 2),
+            (pointer.y - (rect.top + rect.height / 2)) /
+              (window.innerHeight / 2),
           );
           leanX(fromCentreX * MASCOT_LEAN.shift);
           leanY(fromCentreY * MASCOT_LEAN.rise);
@@ -352,222 +275,90 @@ export function StickyHero() {
   );
 
   return (
-    /* Taller than the two-beat version it replaced: four beats need room to
-       land one at a time, and at 280svh two of them changed in the same flick
-       of a trackpad. */
-    <section id={MARKETING_SECTION_IDS.top} className="relative h-[440svh]">
-      {/* The mascot's size is declared HERE, not on the mascot, because two
-          things need it: the figure itself and the copy layer that has to
-          reserve the space under it on a phone. Written twice it drifts, and
-          the drift is invisible until some viewport puts type back on the
-          character's face. */}
+    <section
+      id={MARKETING_SECTION_IDS.top}
+      className="relative"
+      /* Inline, and from the config constant, because the TOUR reads the same
+         number to place its entry — see MARKETING_HERO_TRACK_SVH. As a Tailwind
+         arbitrary value it would be a second literal, which is exactly how the
+         tour's own copy of this height ended up stale at 440. */
+      style={{ height: `${String(MARKETING_HERO_TRACK_SVH)}svh` }}
+    >
+      {/* The figure's size, declared on the STAGE rather than on the figure,
+          because the orbit measures against the same stage and a second literal
+          is how the two drift apart.
+
+          IT ANSWERS TO NOTHING BUT THE VIEWPORT NOW. Every earlier version of
+          this line was a negotiation with the copy: stacked, the headline sat
+          above the character and reserved its HEIGHT, so each pixel the figure
+          gained was a pixel the type lost — that competition is what once
+          forced it to 420px and still left the ask 9px inside its head on a
+          1600×560 window. Two columns moved the contest to WIDTH. With the copy
+          gone there is no contest at all, so the four media queries that used to
+          referee it are gone with it and one breakpoint remains, purely to let a
+          wide screen give the character more room than a phone can.
+
+          The `vw` term is still load-bearing. The artwork is SQUARE, so bounding
+          only its height bounds nothing on a narrow screen — at 390×844 a
+          height-only clamp resolved to a 726px-wide character on a 390px
+          viewport. */}
       <div
         ref={stage}
-        className="sticky top-0 h-svh overflow-hidden [--hero-mascot:min(58svh,520px,84vw)] min-[900px]:[--hero-mascot:min(52svh,480px,38vw)]"
+        className="sticky top-0 h-svh overflow-hidden [--hero-mascot:min(62svh,420px,78vw)] min-[900px]:[--hero-mascot:min(76svh,720px,44vw)]"
       >
-        {/* Bottom-anchored and cropped by the stage: the mascot is taller than
+        {/* THE DOCUMENT'S HEADING, CARRIED BUT NOT DRAWN. The hero is a picture
+            now, and a page whose first screen is a picture still needs an <h1>:
+            without one a crawler has no heading to read and a screen reader
+            lands on a section with no name, which is also what an audit flags.
+            It reads the SAME constant the visible headline used, so the two can
+            never say different things, joined back into a sentence because
+            PaperDisplay's word boxes are a visual device and a screen reader
+            should hear one line, not three fragments. */}
+        <h1 className="sr-only">
+          {MARKETING_HERO_HEADLINE.map((word) => word.text).join(" ")}
+        </h1>
+
+        {/* THE FIGURE, CENTRED ON X AND STANDING ON THE STAGE'S FLOOR. It keeps
+            its own layer at z-1 rather than sitting in flow, because the orbit's
+            marks sort themselves in FRONT of and behind the character by their
+            own depth — anything higher in the stack and nothing could ever pass
+            in front of it.
+
+            Bottom-anchored and cropped by the stage: the figure is taller than
             the space it is given, which is what stops it reading as a sticker
-            dropped onto the page.
-
-            The `vw` term in the height is the phone fix. The artwork is square,
-            so bounding only its HEIGHT bounds nothing on a narrow screen — at
-            390×844 a height-only clamp resolved to a 726px-wide character on a
-            390px viewport. A viewport-WIDTH term makes the narrow case bind on
-            width and the wide case still bind on height. */}
-        {/* A WRAPPER, not the bare image. It carries every class the image
-            used to and is the element gsap transforms, so the eye overlay —
-            which fills this box — travels with the figure through the swell
-            and the lean instead of sliding off its face. The image is the only
-            thing in it, so the box is still exactly the artwork's. */}
+            dropped onto the page. */}
         <div
-          ref={mascot}
-          /* Lifted off the floor from the breakpoint up, and standing on the
-              closing block rather than behind it. Anchored at -5% the character
-              was cropped by the stage AND had the sign-off and the ask laid
-              across its chest — the three things that close the hero were all
-              in the same 200px. On a phone it stays low: there is one column
-              there, so the copy runs over it whatever the offset. */
-          /* `origin-bottom` is load-bearing, not tidiness. The swell below
-              scales the figure, and about its centre that pushes the FEET down
-              as much as it lifts the head — which ate the clearance to the
-              sign-off and put the two back in contact at the last beat, the
-              exact moment the swell is largest. Anchored at the feet the bottom
-              edge is wherever this offset says it is, at every scroll position.
-              It is also what lets the figure grow without moving: raising it off
-              the floor cost it most of its presence, and with the feet pinned
-              the extra height goes up into empty stage rather than back down
-              onto the sign-off.
-
-              The `vw` term caps the WIDTH against the middle column. The figure
-              is square, so a height clamp alone lets it spill sideways into the
-              copy on a wide, short screen — exactly the collision the reserved
-              column exists to prevent. */
-          className="absolute bottom-[-5%] left-1/2 z-[1] h-[var(--hero-mascot)] w-auto -translate-x-1/2 origin-bottom min-[900px]:bottom-[clamp(200px,33svh,330px)]"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-[1]"
         >
-          <PaperMascot
-            width={780}
-            height={780}
-            priority
-            className="h-full w-auto"
-          />
-          <PaperMascotEyes />
-        </div>
+          {/* POSITION HERE, TRANSFORM INSIDE. The layout offset and the gsap
+              channels used to share one element, which is why an older version
+              had to set `xPercent: -50` from JavaScript: gsap writes the whole
+              `transform`, so a Tailwind `-translate-x-1/2` on the same element is
+              erased the moment the swell takes it over. With the centring on this
+              wrapper and the tweens on the box inside it, neither can overwrite
+              the other and the centring is plain CSS at every width. */}
+          <div className="absolute bottom-[-4%] left-1/2 h-[var(--hero-mascot)] w-auto -translate-x-1/2">
+            {/* `origin-bottom` is load-bearing, not tidiness. The swell scales
+                the figure, and about its centre that pushes the FEET down as
+                much as it lifts the head, so the character would sink into the
+                stage's floor at the exact moment it is largest. Anchored at the
+                feet the bottom edge stays where the offset above puts it at
+                every scroll position, and the extra height goes up into empty
+                stage.
 
-        {/* The pairs. Above the decorative marks, which sort themselves to
-            z-index 3 when their sphere brings them to the front — at the same
-            level a mark lands an arrow across a line of type. */}
-        {/* The bottom padding clears the ask, which is drawn on its own sheet
-            of paper further down the stage. Too little and the sign-off — the
-            last thing the hero says — ends up behind that sheet on a short
-            screen, which is where it was. */}
-        {/* The top padding clears the FIXED navbar, which is drawn over this
-            stage rather than above it — at less than its height the first pair
-            arrives already cut in half. */}
-        {/* On a phone the bottom padding reserves the mascot's box — its
-            height less the 5% it hangs below the stage — and the column centres
-            what is left, so the live pair sits in the middle of the free space
-            rather than tight under the navbar with a hole beneath it. Above the
-            breakpoint the character is off to one side of a three-column grid
-            and none of this applies. */}
-        <div className="absolute inset-0 z-[6] flex flex-col px-[clamp(16px,4vw,72px)] pt-[clamp(88px,14svh,152px)] pb-[clamp(44px,7svh,78px)] max-[899px]:justify-center max-[899px]:pb-[calc(var(--hero-mascot)-5svh+12px)]">
-          {/* Spread down the stage rather than stacked at the top. Bunched
-              under the navbar with a fixed gap, the three pairs left a large
-              hole between the last call and the sign-off — a composition that
-              was top-heavy on the left and bottom-heavy on the right.
-              `justify-evenly` distributes whatever height is left after the
-              closing block takes its share, so the rhythm holds on a laptop and
-              on a tall monitor without a breakpoint. */}
-          {/* PHONE: A FIXED BAND THAT HOLDS ONE PAIR. The pairs are stacked
-              on top of each other and centred in it, so a beat REPLACES its
-              predecessor instead of pushing the stage taller — and the band
-              collapses on the closing beat so the sign-off and the ask take
-              the same space rather than a second slot below it. The mascot
-              owns everything under this band and is never drawn on.
-
-              Above the breakpoint none of it applies: three columns have room
-              for the pairs to accumulate, which is the whole idea. */}
-          <div
-            className={cn(
-              "flex flex-1 flex-col justify-evenly gap-[clamp(14px,2vh,26px)]",
-              "max-[899px]:relative max-[899px]:block max-[899px]:flex-none max-[899px]:overflow-hidden max-[899px]:transition-[height] max-[899px]:duration-500 max-[899px]:ease-out",
-              isSignoff
-                ? "max-[899px]:h-0"
-                : "max-[899px]:h-[clamp(132px,25svh,210px)]",
-            )}
-          >
-          {MARKETING_HERO_INTRO.map((pair, index) => (
-            <div
-              key={pair.call}
-              /* The middle column is the mascot's, and stays empty. Below the
-                 breakpoint there is no left and right, so the pair becomes two
-                 stacked lines with the response indented and set to the right —
-                 the call and the answer still read as two voices. */
-              /* The middle track is WIDER than it looks like it needs to be,
-                 and the lines are capped on top of that. The mascot is sized in
-                 svh and vw and is drawn independently of this grid, so at
-                 1440×900 it spanned 648px while the reserved column was 401 —
-                 the third pair, which wraps to two lines, ran straight across
-                 its head. Reserving more than the character can occupy is what
-                 makes the clearance hold at every viewport instead of at the
-                 one that was tested. */
-              className="grid grid-cols-1 items-baseline gap-x-[clamp(16px,3vw,48px)] gap-y-1 max-[899px]:absolute max-[899px]:inset-x-0 max-[899px]:top-1/2 max-[899px]:-translate-y-1/2 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)]"
-            >
-              {/* The leader. At 1900px a call ends around x=540 and its answer
-                  starts around x=1350, with the character between them — far
-                  enough apart that the eye reads two lists rather than three
-                  pairs. A rule reaching out of each half toward the other is
-                  the page's own way of saying these belong together, and it
-                  stops SHORT on both sides rather than crossing the middle: the
-                  copy layer sits above the mascot, so a rule spanning the gap
-                  would be drawn over the character's chest. */}
-              <div
-                className={cn(
-                  "flex items-start justify-end gap-[clamp(10px,1.4vw,22px)] transition-[opacity,transform] duration-[520ms] ease-out",
-                  lineState(index, revealed),
-                )}
-              >
-                <p
-                  data-state={beat === index ? "live" : undefined}
-                  className="paper-display-type m-0 max-w-[20ch] text-[clamp(19px,min(2.5vw,3.7svh),38px)] leading-[0.95] tracking-[-0.04em] min-[900px]:text-right"
-                >
-                  {pair.call}
-                </p>
-                <span
-                  aria-hidden="true"
-                  className="mt-[0.55em] hidden h-px w-[clamp(18px,3vw,70px)] shrink-0 bg-ink/30 min-[900px]:block"
-                />
-              </div>
-
-              {/* On one column the two voices need telling apart some other way
-                  than by side, so the response answers from the right —
-                  restored to the left of its own column, behind its own leader,
-                  once there is a left and a right to use. */}
-              <div
-                className={cn(
-                  "flex items-start justify-end gap-[clamp(10px,1.4vw,22px)] transition-[opacity,transform] duration-[520ms] ease-out min-[900px]:col-start-3 min-[900px]:justify-start",
-                  lineState(index, revealed),
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className="mt-[0.55em] hidden h-px w-[clamp(18px,3vw,70px)] shrink-0 bg-ink/30 min-[900px]:block"
-                />
-                <PaperDisplay
-                  words={pair.response}
-                  className="max-w-[24ch] justify-end text-right text-[clamp(19px,min(2.5vw,3.7svh),38px)] leading-[0.95] tracking-[-0.04em] min-[900px]:justify-start min-[900px]:text-left"
-                />
-              </div>
+                `relative` is what the eye overlay fills — it is absolutely
+                positioned and needs a positioned ancestor that is exactly the
+                artwork's box, or the pupils land somewhere else entirely. */}
+            <div ref={mascot} className="relative h-full w-auto origin-bottom">
+              <PaperMascot
+                width={780}
+                height={780}
+                priority
+                className="h-full w-auto"
+              />
+              <PaperMascotEyes />
             </div>
-          ))}
-          </div>
-
-          {/* The closing block: the name, then the ask. ONE element at the foot
-              of the stage, because as two absolutely-positioned things they were
-              measured against different edges and overlapped each other and the
-              mascot at any height nobody had checked. Stacked in flow they
-              cannot collide, and the mascot's bottom offset is set to clear
-              them. */}
-          {/* `mt-auto` pins this to the foot of the stage, which on a phone is
-              the mascot's chest — so below the breakpoint it sits directly under
-              the band instead, and is the only thing occupying it on the closing
-              beat. Collapsed rather than merely transparent the rest of the
-              time: an invisible 200px block still takes 200px out of the space
-              above the character. */}
-          <div
-            className={cn(
-              "mt-auto flex flex-col items-center gap-[clamp(14px,2.4vh,30px)]",
-              "max-[899px]:mt-0 max-[899px]:overflow-hidden max-[899px]:transition-[max-height] max-[899px]:duration-500 max-[899px]:ease-out",
-              isSignoff ? "max-[899px]:max-h-[70svh]" : "max-[899px]:max-h-0",
-            )}
-          >
-            <PaperDisplay
-              as="h1"
-              words={MARKETING_HERO_SIGNOFF}
-              className={cn(
-                "justify-center text-center text-[clamp(28px,min(5.2vw,7svh),72px)] leading-[0.9] tracking-[-0.05em] transition-[opacity,transform] duration-[560ms] ease-out",
-                isSignoff ? LINE_STATE.live : LINE_STATE.waiting,
-              )}
-            />
-
-            {/* The ask, on the closing beat only — so there is exactly ONE call
-                to action in the hero's DOM, and it arrives once the
-                introduction has paid off. On its own sheet of paper, because on
-                a phone it still lands on the artwork. */}
-            <span
-              className={cn(
-                "flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 border border-ink bg-paper px-[clamp(14px,1.6vw,22px)] py-[clamp(12px,1.4vw,18px)] transition-[opacity,transform] duration-[420ms] ease-out",
-                isSignoff
-                  ? "pointer-events-auto opacity-100"
-                  : "pointer-events-none translate-y-2.5 opacity-0",
-              )}
-            >
-              <PaperButton href={GET_STARTED_HREF} arrow>
-                {GET_STARTED_LABEL}
-              </PaperButton>
-              <PaperLabel tone="ink" as="span">
-                {MARKETING_REASSURANCE}
-              </PaperLabel>
-            </span>
           </div>
         </div>
 
@@ -580,21 +371,13 @@ export function StickyHero() {
           triggerId={MARKETING_SECTION_IDS.top}
         />
 
-        {/* Progress dots + the scroll cue. The dots are the only thing telling a
-            reader that the tall section is a sequence and not a stall. */}
+        {/* The scroll cue. The progress dots that used to sit beside it are
+            gone with the beats — they told the reader a tall section was a
+            sequence and not a stall, and there is no sequence left to track. */}
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 z-[6] flex items-center justify-center gap-3.5 p-3.5"
+          className="absolute inset-x-0 bottom-0 z-[6] flex items-center justify-center p-3.5"
         >
-          {Array.from({ length: MARKETING_HERO_BEAT_COUNT }, (_, index) => (
-            <span
-              key={index}
-              className={cn(
-                "h-2 rounded-full transition-[width,background-color] duration-300 ease-out",
-                index === beat ? "w-[26px] bg-blue" : "w-2 bg-ink/20",
-              )}
-            />
-          ))}
           <ChevronDownIcon className="animate-paper-cue size-3.5 text-grey" />
         </div>
       </div>

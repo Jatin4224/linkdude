@@ -7,33 +7,32 @@
 "use client";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: useHeroScroll, HeroScrollState, sticky hero,
- *   scroll beat, beat index, isPastHero, requestAnimationFrame, passive
- *   listener, MARKETING_SECTION_IDS, landing hero, header blend
+ * SOURCE OF TRUTH KEYWORDS: useHeroScroll, isPastHero, sticky hero, hero track,
+ *   requestAnimationFrame, passive listener, MARKETING_SECTION_IDS, landing
+ *   hero, header blend, mix-blend-difference, navbar solid
  *
- * WHAT:  Maps scroll progress through the tall hero track onto a beat index and
- *        a "the hero is behind us" flag.
- * WHY:   The sticky hero is the page's one real mechanic: a 280svh section
- *        containing a 100svh sticky stage, where how far you are THROUGH the
- *        section — not how far down the page — decides which beat shows. That is
- *        `-rect.top / (rect.height - innerHeight)`, and getting it from the
- *        element's own rect rather than from window.scrollY is what makes it
- *        correct regardless of what is rendered above the hero.
+ * WHAT:  Whether the reader has scrolled past the landing hero's track.
+ * WHY:   The navbar is drawn OVER the hero in `mix-blend-difference` and has to
+ *        become a solid bar the moment the hero is behind it. That is the only
+ *        question left in this file. It used to answer a second one — which of
+ *        the hero's four scroll beats was live — and that mechanic is gone: the
+ *        hero now states its claim on first paint rather than assembling it
+ *        across three viewports, so there is no beat to report and no caller
+ *        left that asked for one. Returning a bare boolean rather than an
+ *        object is what keeps a `beat` nobody reads from growing back.
  *
- *        It is a hook rather than state inside the hero because TWO components
- *        need the same reading and they are in different trees: the hero (which
- *        beat) and the header in the layout (has the hero been passed, so should
- *        the difference-blend give way to a solid bar). Looking the track up by
- *        ID rather than passing a ref is what lets the header watch an element
- *        the layout never renders — and a page with no such element resolves to
- *        "past the hero", so the header is simply solid there instead of
- *        blending against nothing.
+ *        Progress is read from the track's OWN rect — `-rect.top / (height -
+ *        innerHeight)` — not from window.scrollY, which is what makes it
+ *        correct regardless of what is rendered above the hero. Looking the
+ *        track up by ID rather than taking a ref is what lets the header watch
+ *        an element the layout never renders; a page with no such element
+ *        resolves to "past the hero", so the header is simply solid there
+ *        instead of blending against nothing.
  *
- *        Reads are rAF-throttled and the listener is passive, so scrolling never
- *        waits on this; setState is guarded on an actual change, so a scroll
- *        within one beat costs one rect read and no render.
- * WHERE: src/app/(marketing)/_components/sticky-hero.tsx and
- *        src/components/global/marketing/marketing-navbar.tsx.
+ *        Reads are rAF-throttled and the listener is passive, so scrolling
+ *        never waits on this, and setState is guarded on an actual change — a
+ *        whole scroll through the hero costs one render, at the boundary.
+ * WHERE: src/components/global/marketing/marketing-navbar.tsx.
  */
 
 import * as React from "react";
@@ -43,21 +42,8 @@ import * as React from "react";
  * the next section slides under it rather than changing while it is visible. */
 const PAST_HERO_SLACK_PX = 60;
 
-export interface HeroScrollState {
-  /** Index into the beats array — always in range, even mid-resize. */
-  beat: number;
-  /** The sticky stage has been scrolled through, or there is no hero here. */
-  isPastHero: boolean;
-}
-
-export function useHeroScroll(
-  trackId: string,
-  beatCount: number,
-): HeroScrollState {
-  const [state, setState] = React.useState<HeroScrollState>({
-    beat: 0,
-    isPastHero: false,
-  });
+export function useHeroScroll(trackId: string): boolean {
+  const [isPastHero, setIsPastHero] = React.useState(false);
 
   React.useEffect(() => {
     let queued = false;
@@ -67,9 +53,7 @@ export function useHeroScroll(
       const track = document.getElementById(trackId);
       /* No hero on this page: nothing to blend over, so report it as passed. */
       if (!track) {
-        setState((prev) =>
-          prev.isPastHero ? prev : { beat: 0, isPastHero: true },
-        );
+        setIsPastHero(true);
         return;
       }
 
@@ -79,18 +63,7 @@ export function useHeroScroll(
          while fonts/images settle, and dividing by it would be Infinity. */
       if (span <= 0) return;
 
-      const progress = Math.min(Math.max(-rect.top / span, 0), 0.999);
-      const beat = Math.min(
-        Math.floor(progress * beatCount),
-        Math.max(beatCount - 1, 0),
-      );
-      const isPastHero = -rect.top > span - PAST_HERO_SLACK_PX;
-
-      setState((prev) =>
-        prev.beat === beat && prev.isPastHero === isPastHero
-          ? prev
-          : { beat, isPastHero },
-      );
+      setIsPastHero(-rect.top > span - PAST_HERO_SLACK_PX);
     };
 
     const onScroll = () => {
@@ -101,17 +74,17 @@ export function useHeroScroll(
 
     window.addEventListener("scroll", onScroll, { passive: true });
     /* Resize matters as much as scroll here: the track is sized in svh, so a
-       viewport change moves every beat boundary under the reader's feet. */
+       viewport change moves the boundary under the reader's feet. */
     window.addEventListener("resize", onScroll, { passive: true });
-    /* Read once on mount — a reload part-way down the page must land on the
-       right beat rather than on beat zero until the first scroll event. */
+    /* Read once on mount — a reload part-way down the page must land solid
+       rather than blended until the first scroll event. */
     read();
 
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [trackId, beatCount]);
+  }, [trackId]);
 
-  return state;
+  return isPastHero;
 }
