@@ -152,9 +152,10 @@ export const MARKETING_DISCLAIMER = "Not affiliated with LinkedIn Corporation.";
  *        paint, with no scroll dependency of any kind.
  */
 export const MARKETING_HERO_HEADLINE: PaperDisplayLine = [
-  { text: "Turn what you know into a", variant: "plain" },
-  { text: "LinkedIn post", variant: "ink" },
-  { text: "worth reading", variant: "blue" },
+  { text: "The LinkedIn", variant: "plain" },
+  { text: "AI agent", variant: "ink" },
+  { text: "that builds your", variant: "plain" },
+  { text: "personal brand", variant: "blue" },
 ];
 
 /** The reassurance that rides under the hero's ask. Makes no numeric promise,
@@ -174,7 +175,8 @@ export const MARKETING_REASSURANCE = "Free forever · no card";
  *        either is mentioned is eight screens down.
  */
 export const MARKETING_HERO_SUBHEAD =
-  "Schedule it straight to LinkedIn, and fix the profile it lands on.";
+  "Stop blending in. AI agents write your content and fix your profile, so recruiters and clients keep seeing you — without the daily grind.";
+
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_TRACK_SVH, hero height, hero track,
@@ -326,7 +328,11 @@ export const MARKETING_CAPABILITIES = [
   "linkedinPosts",
   "aiGeneration",
   "voiceProfile",
-  "carousels",
+  /* `carousel`, not the old `carousels` — the same rename MARKETING_FREE_CAPS
+   * records. The limit-only `carousels` entry was folded into the real resource
+   * when the carousel feature shipped; both carry the name "Carousels", so the
+   * band reads identically and only the key moved. */
+  "carousel",
   "studio",
   "contentPlan",
   "profileAnalysis",
