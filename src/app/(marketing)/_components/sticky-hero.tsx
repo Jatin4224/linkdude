@@ -303,7 +303,15 @@ export function StickyHero() {
           window. Side by side they compete on WIDTH instead, and width is the
           axis this page has to spare: at 1440 the copy needs about 650px of a
           1440px stage, so the figure can take 700 and the vertical budget stops
-          mattering. Hence one column on a phone and two from 900px up.
+          mattering. Hence one column below 1100px and two above it.
+
+          THE BREAKPOINT IS 1100px, NOT 900, AND THE HEADLINE SET IT. At 900 the
+          copy column resolves to about 440px, which is wide enough for a short
+          headline and not for this one: "personal brand" wrapped INSIDE its own
+          blue box, turning one accent word into a two-line slab, and the figure
+          crowded what was left. The old copy fit there, so this is a limit the
+          words moved rather than one the layout always had — re-measure it if
+          the headline is ever rewritten shorter.
 
           The short-window rules are scoped to the PHONE RANGE for the same
           reason: it is the stacked layout that runs out of height. Their third
@@ -313,7 +321,7 @@ export function StickyHero() {
           72px on a 360×740 phone, bound by the wrong axis. */}
       <div
         ref={stage}
-        className="sticky top-0 h-svh overflow-hidden [--hero-mascot:min(34svh,300px,62vw)] [@media(max-width:899px)_and_(min-height:481px)_and_(max-height:780px)]:[--hero-mascot:min(24svh,200px,62vw)] [@media(max-width:899px)_and_(max-height:480px)]:[--hero-mascot:min(18svh,140px,62vw)] min-[900px]:[--hero-mascot:min(76svh,720px,44vw)]"
+        className="sticky top-0 h-svh overflow-hidden [--hero-mascot:min(34svh,300px,62vw)] [@media(max-width:1099px)_and_(min-height:481px)_and_(max-height:780px)]:[--hero-mascot:min(24svh,200px,62vw)] [@media(max-width:1099px)_and_(max-height:480px)]:[--hero-mascot:min(12svh,100px,62vw)] min-[1100px]:[--hero-mascot:min(76svh,720px,44vw)]"
       >
         {/* THE FIGURE'S LAYER, measured against the same centred container the
             copy uses so the two columns share one set of edges. It keeps its own
@@ -381,7 +389,7 @@ export function StickyHero() {
               above the figure and the bottom padding reserves exactly
               `--hero-mascot - 4svh`, so moving it would have to move that
               expression too. */}
-          <div className="absolute bottom-[-4%] left-1/2 h-[var(--hero-mascot)] w-auto -translate-x-1/2 min-[900px]:bottom-[4%] min-[900px]:left-auto min-[900px]:right-[calc(-1*min(210px,max(8px,(100vw_-_1460px)/2_+_var(--hero-mascot)*0.085_-_90px)))] min-[900px]:translate-x-0">
+          <div className="absolute bottom-[-4%] left-1/2 h-[var(--hero-mascot)] w-auto -translate-x-1/2 min-[1100px]:bottom-[4%] min-[1100px]:left-auto min-[1100px]:right-[calc(-1*min(210px,max(8px,(100vw_-_1460px)/2_+_var(--hero-mascot)*0.085_-_90px)))] min-[1100px]:translate-x-0">
             {/* `origin-bottom` is load-bearing, not tidiness. The swell scales
                 the figure, and about its centre that pushes the FEET down as
                 much as it lifts the head, so the character would sink into the
@@ -422,7 +430,7 @@ export function StickyHero() {
             --hero-mascot rather than a number. Side by side, that reserve is
             released and a right padding holds the figure's WIDTH instead; the
             artwork is square, so one custom property measures both. */}
-        <div className="absolute inset-0 z-[6] mx-auto flex max-w-[1460px] flex-col items-center justify-center gap-[clamp(16px,2.6vh,30px)] px-[clamp(16px,4vw,72px)] pt-[clamp(88px,14svh,152px)] pb-[calc(var(--hero-mascot)-4svh+20px)] text-center [@media(min-height:481px)_and_(max-height:780px)]:pt-19 [@media(max-height:480px)]:gap-3 [@media(max-height:480px)]:pt-16 min-[900px]:items-start min-[900px]:pr-[calc(var(--hero-mascot)+clamp(16px,3vw,56px))] min-[900px]:pb-0 min-[900px]:text-left">
+        <div className="absolute inset-0 z-[6] mx-auto flex max-w-[1460px] flex-col items-center justify-center gap-[clamp(16px,2.6vh,30px)] px-[clamp(16px,4vw,72px)] pt-[clamp(88px,14svh,152px)] pb-[calc(var(--hero-mascot)-4svh+20px)] text-center [@media(min-height:481px)_and_(max-height:780px)]:pt-19 [@media(max-height:480px)]:gap-2 [@media(max-height:480px)]:pt-14 [@media(max-height:480px)]:pb-[calc(var(--hero-mascot)-4svh+4px)] min-[1100px]:items-start min-[1100px]:pr-[calc(var(--hero-mascot)+clamp(16px,3vw,56px))] min-[1100px]:pb-0 min-[1100px]:text-left">
           {/* THE PAGE'S ONLY h1, VISIBLE AND UNGATED. It was an `sr-only` line
               for a while, which satisfied a crawler and told a human nothing —
               the first screen carried no words at all. The constant is the same
@@ -438,7 +446,7 @@ export function StickyHero() {
           <PaperDisplay
             as="h1"
             words={MARKETING_HERO_HEADLINE}
-            className="max-w-[18ch] justify-center text-[clamp(28px,min(5.6vw,6svh),72px)] leading-[0.9] tracking-[-0.05em] min-[900px]:justify-start"
+            className="max-w-[18ch] justify-center text-[clamp(28px,min(5.6vw,6svh),72px)] leading-[0.9] tracking-[-0.05em] [@media(max-height:480px)]:text-[22px] min-[1100px]:justify-start min-[1100px]:[&>[data-paper-word=plain]]:-ml-[0.13em]"
           />
 
           {/* The sentence that does the explaining. Capped in `ch` rather than
