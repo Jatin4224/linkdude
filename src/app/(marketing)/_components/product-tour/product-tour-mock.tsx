@@ -112,8 +112,21 @@ const COL = RAIL + NAV; // 200
 const CONTENT_W = TOUR_DESIGN.width - COL;
 const CONTENT_H = TOUR_DESIGN.height - BAR;
 
-/** The screen shell: all six occupy the same box and are crossfaded. */
-const SCREEN = "absolute flex flex-col";
+/**
+ * The screen shell: all six occupy the same box and are crossfaded.
+ *
+ * ONE SCENE IS VISIBLE BY DEFAULT, AND THAT IS ENFORCED HERE rather than left
+ * to the renderer. Every screen is stacked in the same box, so "all of them at
+ * opacity 1" is a legible, badly-broken picture — the composer, the calendar,
+ * the score ring and the deck drawn through each other. That is precisely what
+ * the page showed before hydration, when nothing had written an opacity yet.
+ * Defaulting them to hidden means the worst case is a missing screen rather
+ * than six overlapping ones, at first paint and if the renderer ever fails.
+ */
+const SCREEN = "absolute flex flex-col opacity-0";
+
+/** The one screen that may be visible before JS has decided — the first stop's. */
+const SCREEN_FIRST = "absolute flex flex-col";
 
 /* The body of a screen that is not the composer. CENTRED in whatever the
  * header leaves, because these five each draw one artifact rather than filling
@@ -306,7 +319,7 @@ export function ProductTourMock() {
           on purpose: the tour's opening movement is a pan straight down from
           one to the other at a single zoom, which only works if they are the
           same width in the same place. TOUR_RECTS is measured against them. */}
-      <div data-tour-screen="create" className={SCREEN} style={SCREEN_BOX}>
+      <div data-tour-screen="create" className={SCREEN_FIRST} style={SCREEN_BOX}>
         <section
           data-tour="paneCompose"
           className="absolute top-0 left-0 h-[286px] w-[380px]"
