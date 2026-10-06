@@ -6,7 +6,7 @@
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_SECTION_IDS, MarketingSectionId,
- *   MARKETING_HERO_BEATS, MarketingHeroBeat, MARKETING_HERO_ORBIT,
+ *   MARKETING_HERO_HEADLINE, MARKETING_HERO_ORBIT,
  *   MARKETING_STATEMENT, MARKETING_FREE_CAPS, MARKETING_COMPOSER,
  *   MARKETING_COMPOSER_TONES, MARKETING_POST_LINES, MARKETING_COMPOSER_QUEUE,
  *   MarketingComposerRecentItem, MARKETING_STEPS, MarketingStep,
@@ -38,7 +38,7 @@
  *        src/components/global/marketing/*. Re-exported from @/lib/config.
  */
 
-import type { LimitResourceKey } from "@/lib/resources";
+import type { LimitResourceKey, ResourceKey } from "@/lib/resources";
 import type {
   PaperDisplayLine,
   PaperOrbitMark,
@@ -114,92 +114,94 @@ export const GET_STARTED_LABEL: string = REGISTRATION_OPEN
   ? "Get started free"
   : "Sign in";
 
-/** The reassurance that rides under every CTA. Makes no numeric promise, so
- *  there is nothing here for a plan change to contradict. */
-export const MARKETING_REASSURANCE = "Free forever · no card";
 
 /** The one line the product is legally required to be clear about. Repeated on
  *  the landing footer and the sign-in form column. */
 export const MARKETING_DISCLAIMER = "Not affiliated with LinkedIn Corporation.";
 
 /**
- * SOURCE OF TRUTH KEYWORDS: MarketingHeroIntroBeat, MARKETING_HERO_INTRO,
- *   MARKETING_HERO_SIGNOFF, MARKETING_HERO_BEAT_COUNT, hero beats, sticky hero,
- *   scroll beat, call and response
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_HEADLINE,
+ *   hero headline, h1, landing claim, sticky hero, first paint, category,
+ *   PaperDisplayLine, above the fold
  *
- * WHAT:  The hero's introduction, as three call-and-response pairs and the line
- *        that closes them. Scroll progress through the sticky stage maps to an
- *        index here; each beat ADDS a pair rather than replacing the last.
- * WHY:   A CALL AND A RESPONSE, which is why the shape is a pair rather than a
- *        sentence. The reader's half states what they already do; the product's
- *        half is what it adds. Split across the stage — calls left of the
- *        character, responses right of it — the layout carries the argument
- *        before a word is read.
+ * WHAT:  The hero's headline and the line under it — the page's <h1> and the
+ *        sentence that says what the product actually is.
+ * WHY:   IT IS A CLAIM, NOT A NAME, AND IT IS NEVER GATED. The hero used to
+ *        build to "This is <app>" across four scroll beats, which made the only
+ *        <h1> on the page a brand name that did not enter the DOM until the
+ *        reader had scrolled three viewports. A visitor who never scrolled was
+ *        told nothing: the words LinkedIn, post and schedule all appeared
+ *        further down the page than the first product screenshot did.
  *
- *        THEY ACCUMULATE. Each pair stays on screen, receding as the next
- *        arrives, so the sign-off lands on top of everything it has just
- *        claimed. Swapping them one at a time was the other option and it leaves
- *        the last line standing alone, with the promise it summarises already
- *        gone from the screen.
+ *        So the headline names the CATEGORY in its first six words and the
+ *        outcome in its last three, and the subhead spends its one sentence on
+ *        the two things the headline has no room for — scheduling, and the
+ *        profile the post lands on. Between them they answer "what is this" and
+ *        "why should I care" before anything moves.
  *
- *        ONE BLUE, AND IT IS THE NAME. Every response boxes its last word in
- *        INK, because accumulation puts all three on screen at once and three
- *        blue boxes would break rule 4 outright. The accent is spent on the
- *        sign-off, so the one saturated thing in the hero is the product's name,
- *        arriving last.
+ *        It is close to this page's own `description` on purpose. That string
+ *        was already the clearest sentence anyone had written about the
+ *        product, and it was being shipped to search engines and link previews
+ *        while the page itself opened with "You build." to the reader's face.
  *
- *        This replaced a two-beat problem story ("Before an idea becomes a
- *        post" / "It died in your notes app"). That framing did not disappear —
- *        MARKETING_STATEMENT's body still tells it, one section down.
- * WHERE: src/app/(marketing)/_components/sticky-hero.tsx, and the beat count is
- *        read by the navbar to know when the hero has been passed.
+ *        ONE BLUE, AND IT IS THE PAYOFF. Rule 4 allows a single blue box per
+ *        screen; "worth reading" gets it, because that is the claim the reader
+ *        is being asked to believe. "LinkedIn post" takes INK, so the category
+ *        still reads as boxed and deliberate without spending the accent.
+ * WHERE: src/app/(marketing)/_components/sticky-hero.tsx renders both on first
+ *        paint, with no scroll dependency of any kind.
  */
-export interface MarketingHeroIntroBeat {
-  /** The reader's half, left of the mascot. */
-  call: string;
-  /** The product's half, right of it. */
-  response: PaperDisplayLine;
-}
-
-export const MARKETING_HERO_INTRO: readonly MarketingHeroIntroBeat[] = [
-  {
-    call: "You build.",
-    response: [
-      { text: "We'll help you", variant: "plain" },
-      { text: "get seen", variant: "ink" },
-    ],
-  },
-  {
-    call: "You create.",
-    /* Split after "you", like the other two, rather than after "stay". The
-     * side column is about 370px wide, and "WE'LL HELP YOU STAY" set in
-     * Archivo Black needs roughly 450 — so that grouping wrapped to three lines
-     * and left STAY orphaned on its own. Boxing the whole verb phrase fixes the
-     * wrap AND makes all three responses the same shape: a plain opener and one
-     * boxed promise. */
-    response: [
-      { text: "We'll help you", variant: "plain" },
-      { text: "stay consistent", variant: "ink" },
-    ],
-  },
-  {
-    call: "You want opportunities.",
-    response: [
-      { text: "We'll help you", variant: "plain" },
-      { text: "get there", variant: "ink" },
-    ],
-  },
+export const MARKETING_HERO_HEADLINE: PaperDisplayLine = [
+  { text: "Turn what you know into a", variant: "plain" },
+  { text: "LinkedIn post", variant: "ink" },
+  { text: "worth reading", variant: "blue" },
 ];
 
-/* The last beat, and the hero's only blue. */
-export const MARKETING_HERO_SIGNOFF: PaperDisplayLine = [
-  { text: "This is", variant: "plain" },
-  { text: APP_NAME, variant: "blue" },
-];
+/** The reassurance that rides under the hero's ask. Makes no numeric promise,
+ *  so there is nothing here for a plan change to contradict — the real figures
+ *  live in the free-caps band, which reads them off the resource registry. */
+export const MARKETING_REASSURANCE = "Free forever · no card";
 
-/* The pairs plus the sign-off. Derived rather than written down, because the
- * hero and the navbar both need it and a second literal is how they drift. */
-export const MARKETING_HERO_BEAT_COUNT = MARKETING_HERO_INTRO.length + 1;
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_SUBHEAD, hero subhead, supporting
+ *   line, what is this, why should I care, first paint
+ *
+ * WHAT:  The sentence under the headline.
+ * WHY:   The headline names the CATEGORY and the outcome; it has no room left
+ *        for the two things that actually separate this product from a text
+ *        box — that it schedules, and that it fixes the profile the post sends
+ *        people to. One sentence, in the first frame, because the next place
+ *        either is mentioned is eight screens down.
+ */
+export const MARKETING_HERO_SUBHEAD =
+  "Schedule it straight to LinkedIn, and fix the profile it lands on.";
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_TRACK_SVH, hero height, hero track,
+ *   tour entry, peek, product visible early, sticky bottom, scroll budget
+ *
+ * WHAT:  How tall the hero's scroll track is, in svh. The single source.
+ * WHY:   THIS NUMBER DECIDES WHEN THE PRODUCT APPEARS, and TWO files need it,
+ *        which is the whole reason it lives here rather than in either of them.
+ *        StickyHero sets the section's height from it; MARKETING_TOUR_PHASES
+ *        reads it to place the tour's entry, because the hero is pinned by its
+ *        BOTTOM edge — a track of H svh pins at H-100, and the tour's stage,
+ *        pulled up by a viewport plus its peek, pins at H-100-peek. The tour
+ *        kept its own literal copy of this number, and when the hero was
+ *        shortened that copy silently stayed at 440. Hence one constant.
+ *
+ *        At 180 the product window's title bar is on screen at 40svh and the
+ *        whole window is settled at 180svh. The previous 440 put the first
+ *        frame of the actual product three viewports down, behind a hero that
+ *        had not yet said what the product was.
+ *
+ *        It cannot go much below this: the span the hero's swell and orbit
+ *        scrub across is H-100, and below 100 the track is shorter than the
+ *        viewport, which is the degenerate case use-hero-scroll.ts bails on.
+ * WHERE: src/app/(marketing)/_components/sticky-hero.tsx sets the height from
+ *        it; src/lib/config/marketing-tour.ts reads it as the `heroTrack` phase.
+ */
+export const MARKETING_HERO_TRACK_SVH = 180;
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_HERO_ORBIT, PaperOrbitMark, sphere,
@@ -298,6 +300,37 @@ export const MARKETING_FREE_CAPS = {
     "profileAnalysis",
   ] as const satisfies readonly LimitResourceKey[],
 } as const;
+
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: MARKETING_CAPABILITIES, capability ticker, band,
+ *   LimitResourceKey, FlagResourceKey, curated list, say less
+ *
+ * WHAT:  The capabilities the scrolling band names, as resource keys.
+ * WHY:   IT IS A CHOSEN LIST NOW, NOT A DERIVED ONE. The band used to render
+ *        every resource carrying a limit or a flag, which was elegant and wrong:
+ *        it put "Team Members", "Audit Logs", "Profile Lookups", "AI Image Edit"
+ *        and "Deep Profile Insights" on the homepage — fifteen names, several of
+ *        them billing vocabulary a visitor has no use for, and any new gated
+ *        resource silently joined them on the day it shipped. These seven are
+ *        the ones a reader is choosing between.
+ *
+ *        THEY ARE STILL KEYS, NOT STRINGS, so the band prints each resource's
+ *        own `name` from the registry and cannot drift from what the app calls
+ *        the feature. Renaming a resource renames it here; DELETING one is a
+ *        compile error rather than a blank in the band, which is the half of the
+ *        old derivation worth keeping.
+ * WHERE: src/app/(marketing)/_components/capability-ticker.tsx.
+ */
+export const MARKETING_CAPABILITIES = [
+  "linkedinPosts",
+  "aiGeneration",
+  "voiceProfile",
+  "carousels",
+  "studio",
+  "contentPlan",
+  "profileAnalysis",
+] as const satisfies readonly ResourceKey[];
 
 /**
  * SOURCE OF TRUTH KEYWORDS: MARKETING_COMPOSER, MARKETING_COMPOSER_TONES,
@@ -733,11 +766,11 @@ export const MARKETING_FOOTER_GROUPS: readonly MarketingFooterGroup[] = [
          an anchor the page does not contain is a link that silently does
          nothing. The id itself stays in MARKETING_SECTION_IDS because the
          component is still mounted by the `composer-survey` flute scene. */
-      /* "What free means" pointed at the free-caps band, which no longer
-         ships either. Same reasoning as the composer above: a footer link to
-         an anchor the page does not contain silently does nothing. The free
-         plan's real numbers still reach the page through the capability
-         ticker and the closing CTA's reassurance line. */
+      /* Back, because the free-caps band ships again. It is the only link in
+         this footer that answers a question about PRICE, and the band it
+         points at reads its numbers off the resource registry — so this is a
+         pricing link that cannot go stale. */
+      { label: "What free means", href: `#${MARKETING_SECTION_IDS.free}` },
     ],
   },
   {

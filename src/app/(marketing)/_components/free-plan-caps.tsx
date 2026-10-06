@@ -24,7 +24,7 @@
  *        read as one measured statement rather than four floating numbers. The
  *        grid is `auto-fit` so the cells reflow to two-up on a phone without the
  *        rules ever ending up on the wrong edges.
- * WHERE: src/app/(marketing)/page.tsx, between the ticker and the composer.
+ * WHERE: src/app/(marketing)/page.tsx, between the ticker and the dark band.
  */
 
 import { MARKETING_FREE_CAPS, MARKETING_SECTION_IDS } from "@/lib/config";

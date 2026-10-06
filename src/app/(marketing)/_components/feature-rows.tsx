@@ -104,31 +104,17 @@ export function FeatureRows() {
               {feature.body}
             </p>
 
-            {/* Label over value, in mono — the dashboard's metadata pair. These
-                are here to be CHECKED rather than admired, which is why every
-                value is a real figure from the app rather than a rounded claim.
-                They sit under the copy they qualify instead of being pinned to
-                the foot of the row: the row's height is set by a panel now, and
-                pinning would hang them in whatever space the panel left over. */}
-            <dl className="m-0 mt-1 flex flex-wrap gap-x-[clamp(20px,3vw,40px)] gap-y-3 border-t border-ink-foreground/12 pt-4">
-              {feature.meta.map((item) => (
-                <div key={item.label} className="flex flex-col gap-1">
-                  <dt>
-                    <PaperLabel
-                      as="span"
-                      size="micro"
-                      tone="inverted"
-                      className="text-ink-foreground/55"
-                    >
-                      {item.label}
-                    </PaperLabel>
-                  </dt>
-                  <dd className="m-0 font-mono text-[13px] tracking-[0.01em] text-ink-foreground tabular-nums">
-                    {item.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            {/* NO METADATA ROW. A `<dl>` of label-over-value pairs used to sit
+                here — "Banner / 1584 × 396", "Export / PNG" and the three other
+                features' equivalents. It was removed on request: the pairs read
+                as spec-sheet chrome under copy that is already making the
+                point, and the four rows are quieter without them.
+
+                MARKETING_FEATURES still carries `meta`, and it is NOT dead —
+                product-tour-mock.tsx draws the carousel screen's "Page 1080 ×
+                1350 · Output PDF" readout from the same entries, where the
+                numbers are the simulated app's own UI rather than a claim made
+                to the reader. Deleting the field would blank that readout. */}
           </div>
 
           <div className="w-[min(100%,400px)] min-w-0 justify-self-end">
