@@ -87,8 +87,18 @@ export function PaperDisplay({
       )}
     >
       {words.map((word, index) => (
+        /* `data-paper-word` carries the variant into the DOM so a CALLER can
+         * reach the boxed and unboxed fragments separately. It changes nothing
+         * on its own and exists for one real problem: every word carries
+         * `px-[0.13em]`, so on a LEFT-ALIGNED line a boxed fragment shows its
+         * box at the column edge while a plain one shows its glyph 0.13em
+         * further in, and a stack of alternating lines reads as ragged. The fix
+         * is the caller's because it depends on alignment — centred lines are
+         * already optically even and must not be touched — so the hook lives
+         * here and the compensation lives in sticky-hero.tsx. */
         <span
           key={`${word.text}-${index}`}
+          data-paper-word={word.variant}
           className={cn(
             "inline-block px-[0.13em] pt-[0.07em] pb-[0.11em]",
             WORD_VARIANTS[word.variant],

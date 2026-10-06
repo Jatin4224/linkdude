@@ -876,9 +876,20 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
               frame be written as a plain translate+scale of the window's
               top-left corner. Any other origin makes the anchor maths depend on
               the scale, and the fit in buildTourPoses stops being true. */}
+          {/* OPACITY 0 UNTIL THE RENDERER HAS WRITTEN A FRAME, and that is a
+              correctness fix rather than a flourish. Where the window sits and
+              which of its six screens is showing are both decided by JS; the
+              server paints the markup before any of that runs, so for the
+              ~180ms until hydration the mock was drawn at natural scale in the
+              stage's top-left with EVERY screen and every text variant stacked
+              on top of each other. `render()` writes a real opacity on its
+              first pass and on every frame after, so this only ever hides the
+              un-placed state. A useLayoutEffect would not have helped: the
+              server's paint happens before any client code at all, so the
+              markup itself has to be safe. */}
           <div
             ref={camera}
-            className="absolute top-0 left-0 z-1 origin-top-left will-change-transform"
+            className="absolute top-0 left-0 z-1 origin-top-left opacity-0 will-change-transform"
           >
             <ProductTourMock />
           </div>

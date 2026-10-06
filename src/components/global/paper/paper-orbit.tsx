@@ -140,6 +140,11 @@ export function PaperOrbit({
           node.style.transform = `translate3d(${cx + x - mark.size / 2}px, ${
             cy + y - mark.size / 2
           }px, 0) scale(${scale})`;
+          /* This is also what REVEALS the mark. The markup ships it at
+             `opacity-0` so a pile of doodles cannot sit in the page's corner
+             before this function has placed them, and an inline opacity beats
+             that class — so the depth cue below doubles as the reveal and no
+             separate "show it" line is needed. */
           node.style.opacity = String(OPACITY_BACK + depth * OPACITY_RANGE);
           node.style.zIndex = String(
             depth < OCCLUSION_DEPTH ? Z_BEHIND : Z_IN_FRONT,
@@ -211,7 +216,14 @@ export function PaperOrbit({
                so a frame never touches layout. `will-change` is set because
                these elements move on every scroll frame — the one case it is
                not a premature optimisation. */
-            className="absolute top-0 left-0 will-change-transform"
+            /* HIDDEN UNTIL IT HAS BEEN PLACED. Every mark's position lives in
+               a transform this component writes from JS, so between the server
+               paint and the first projection they are all sitting at 0,0 — a
+               pile of doodles in the page's top-left corner, over the logo.
+               `project()` clears this the moment it has a real position, and
+               it runs on mount, on resize and on every ScrollTrigger refresh,
+               so a mark is never left invisible once it has one. */
+            className="absolute top-0 left-0 opacity-0 will-change-transform"
             style={{ width: mark.size, height: mark.size }}
           >
             <Icon className="block size-full text-blue" />
