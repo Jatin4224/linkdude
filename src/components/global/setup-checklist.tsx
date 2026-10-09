@@ -31,6 +31,7 @@ import {
   KeyRoundIcon,
   PlayCircleIcon,
   ShieldCheckIcon,
+  SparklesIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -48,6 +49,7 @@ const SETUP_ICONS: Record<string, LucideIcon> = {
   CreditCard: CreditCardIcon,
   Image: ImageIcon,
   Clock: ClockIcon,
+  Sparkles: SparklesIcon,
 };
 
 function iconFor(name: string): LucideIcon {

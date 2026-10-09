@@ -25,6 +25,7 @@
  */
 
 import { PLAN_ORDER, PLANS, isPaidPlan } from "./plans";
+import { AI_PROVIDERS, AI_PROVIDER, AI_IMAGE_PROVIDER } from "./ai";
 
 export interface RequiredEnvVar {
   /** The process.env key that must be set. */
@@ -159,9 +160,43 @@ const STRIPE_PRICE_KEYS: OptionalEnvKey[] = PLAN_ORDER.filter(
   })),
 );
 
+/* The AI keys this deployment actually needs, DERIVED from the two provider
+ * selectors exactly as STRIPE_PRICE_KEYS is derived from PLAN_ORDER. A flat list
+ * would be wrong for everyone: it would show a Google key as missing on an
+ * Anthropic install and vice versa. The text key gates the badge; the image key
+ * does not, because images are the fail-soft extra — and on a text vendor that
+ * has no image model there is no second key to ask for at all. */
+const AI_KEYS: OptionalEnvKey[] = (() => {
+  const text = AI_PROVIDERS[AI_PROVIDER];
+  const image = AI_PROVIDERS[AI_IMAGE_PROVIDER];
+  const keys: OptionalEnvKey[] = [
+    { key: text.apiKeyEnvVar, label: `${text.label} key (text)` },
+  ];
+  if (image.createImageModel && image.apiKeyEnvVar !== text.apiKeyEnvVar) {
+    keys.push({
+      key: image.apiKeyEnvVar,
+      label: `${image.label} key (images)`,
+      optional: true,
+    });
+  }
+  return keys;
+})();
+
 /* Fail-soft integrations. Adding one here surfaces it on the setup checklist as
  * an informational row; it NEVER affects hasMissingRequiredEnv (never blocks). */
 export const OPTIONAL_ENV: readonly OptionalEnvVar[] = [
+  {
+    id: "ai",
+    label: "AI generation",
+    purpose: `Optional. Without a key every AI feature — post generation, profile analysis, content plans, carousels, voice profiles — is refused up front with an actionable message rather than failing mid-request, and no quota is spent. Text currently runs on ${AI_PROVIDERS[AI_PROVIDER].label}; images on ${AI_PROVIDERS[AI_IMAGE_PROVIDER].label}${AI_PROVIDERS[AI_IMAGE_PROVIDER].createImageModel ? "" : " — which has no image model, so AI image edits and studio backdrops are hidden"}.`,
+    help: `Set AI_PROVIDER to pick the TEXT vendor (${Object.keys(AI_PROVIDERS).join(" or ")}) and add that vendor's key below. AI_IMAGE_PROVIDER picks the IMAGE vendor separately and defaults to AI_PROVIDER — set it when your text vendor has no image model, so image features keep working. Both selectors fall back to a working default if misspelled.`,
+    icon: "Sparkles",
+    link: {
+      label: `Get a ${AI_PROVIDERS[AI_PROVIDER].label} key`,
+      url: AI_PROVIDERS[AI_PROVIDER].consoleUrl,
+    },
+    keys: AI_KEYS,
+  },
   {
     id: "google-auth",
     label: "Google sign-in",

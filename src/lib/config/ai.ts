@@ -8,7 +8,8 @@
  * SOURCE OF TRUTH KEYWORDS: AI_PROVIDERS, AI_PROVIDER, getAiProvider,
  *   getAiModel, isAiConfigured, AI_MODEL, AI_MAX_TOKENS, AiProvider,
  *   AiProviderDefinition, GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY,
- *   getAiImageModel, isAiImageConfigured, GOOGLE_IMAGE_MODEL_ID
+ *   getAiImageModel, isAiImageConfigured, GOOGLE_IMAGE_MODEL_ID,
+ *   AI_IMAGE_PROVIDER, getAiImageProvider
  *
  * WHAT:  The registry of AI vendors the app can run on, plus the accessors that
  *        resolve the active one. Built on the Vercel AI SDK, so every vendor is
@@ -43,7 +44,11 @@ import {
  * Google release, but a pin that is regularly unavailable is worse. Revisit and
  * pin a specific id once this runs on a paid tier with reserved capacity. */
 const GOOGLE_MODEL_ID = "gemini-flash-latest";
-const ANTHROPIC_MODEL_ID = "claude-opus-5";
+/* Pinned, and newer than it looks: `claude-opus-5-5` supersedes `claude-opus-5`
+ * at a LOWER price ($4/$20 per MTok against $5/$25), so there is no tier being
+ * traded away here. Its default effort is `medium`, which is already what
+ * providerOptions below asks for. Anthropic model ids carry no date suffix. */
+const ANTHROPIC_MODEL_ID = "claude-opus-5-5";
 
 /* Pinned, unlike GOOGLE_MODEL_ID above: the image aliases Google ships are all
  * `-preview` today, and a preview id that shifts under us changes what users'
@@ -134,6 +139,24 @@ export const AI_PROVIDER: AiProvider = aiProviderSchema
   .parse(process.env["AI_PROVIDER"]);
 
 /**
+ * SOURCE OF TRUTH KEYWORDS: AI_IMAGE_PROVIDER
+ *
+ * WHAT:  The vendor that serves IMAGE work, independent of the text vendor.
+ * WHY:   Text and images are not the same capability and do not have the same
+ *        vendor list — Claude has no image model at all. Tying them to one env
+ *        var meant moving text off Google (for rate limits, or quality) silently
+ *        took AI image edits and studio backdrops down with it. Splitting them
+ *        lets a deployment run text on one vendor and keep images on another,
+ *        which is the only way to have both without a second account on the
+ *        vendor that lacks the capability.
+ *        Defaults to AI_PROVIDER, so a deployment that never sets this behaves
+ *        exactly as it did before — the split costs nothing to ignore.
+ */
+export const AI_IMAGE_PROVIDER: AiProvider = aiProviderSchema
+  .catch(AI_PROVIDER)
+  .parse(process.env["AI_IMAGE_PROVIDER"]);
+
+/**
  * SOURCE OF TRUTH KEYWORDS: getAiProvider
  *
  * WHAT:  The active vendor's definition.
@@ -142,6 +165,19 @@ export const AI_PROVIDER: AiProvider = aiProviderSchema
  */
 export function getAiProvider(): AiProviderDefinition {
   return AI_PROVIDERS[AI_PROVIDER];
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: getAiImageProvider
+ *
+ * WHAT:  The vendor definition behind image work.
+ * WHY:   Every image path resolves its vendor through here rather than
+ *        getAiProvider(), which is what keeps the text/image split honest — a
+ *        caller cannot accidentally reach the text vendor for an image.
+ * WHERE: isAiImageConfigured() and getAiImageModel() below.
+ */
+export function getAiImageProvider(): AiProviderDefinition {
+  return AI_PROVIDERS[AI_IMAGE_PROVIDER];
 }
 
 /**
@@ -194,7 +230,7 @@ export function getAiModel(): LanguageModel {
  *        composer renders the AI edit control at all.
  */
 export function isAiImageConfigured(): boolean {
-  const provider = getAiProvider();
+  const provider = getAiImageProvider();
   return Boolean(
     provider.createImageModel && process.env[provider.apiKeyEnvVar],
   );
@@ -210,10 +246,10 @@ export function isAiImageConfigured(): boolean {
  * WHERE: Called by src/services/ai.service.ts.
  */
 export function getAiImageModel(): ImageModel {
-  const provider = getAiProvider();
+  const provider = getAiImageProvider();
   if (!provider.createImageModel) {
     throw new Error(
-      `[ai] ${provider.label} has no image model. Set AI_PROVIDER to a vendor that supports image generation to enable AI image edits.`,
+      `[ai] ${provider.label} has no image model. Set AI_IMAGE_PROVIDER to a vendor that supports image generation to enable AI image edits — it is independent of AI_PROVIDER, so the text vendor can stay as it is.`,
     );
   }
   if (!process.env[provider.apiKeyEnvVar]) {
