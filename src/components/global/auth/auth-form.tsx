@@ -10,7 +10,8 @@
  * SOURCE OF TRUTH KEYWORDS: AuthForm, AuthFormProps, GoogleOnlyForm,
  *   EMAIL_AUTH_ENABLED, GOOGLE_AUTH_ENABLED, authClient, signInSchema,
  *   signUpSchema, GoogleGlyph, PaperButton, PaperLabel, MARKETING_AUTH_COPY,
- *   MARKETING_AUTH_ASSURANCES, AuthAssurances, AuthError, paper design
+ *   MARKETING_AUTH_ASSURANCES, AuthAssurances, AuthError, paper design,
+ *   useAuthEffects, AuthEffectsOptions, requestSignUp
  *
  * WHAT:  Reusable email+password+Google auth surface. `AuthForm` is a thin
  *        dispatcher that mounts a concrete RHF form per mode (sign-in or
@@ -121,7 +122,9 @@ function SignInForm({ callbackURL }: { callbackURL: string }) {
     defaultValues: { email: "", password: "" },
     mode: "onTouched",
   });
-  const { error, setError, google } = useAuthEffects();
+  /* Sign-in only: a visitor with no account is sent to /sign-up rather than
+   * having one created for them behind the Google button. */
+  const { error, setError, google } = useAuthEffects({ requestSignUp: false });
   const isSubmitting = form.formState.isSubmitting;
   const isBusy = isSubmitting || google.isPending;
 
@@ -235,7 +238,8 @@ function SignUpForm({ callbackURL }: { callbackURL: string }) {
     defaultValues: { name: "", email: "", password: "" },
     mode: "onTouched",
   });
-  const { error, setError, google } = useAuthEffects();
+  /* The sign-up surface: Google here must be allowed to create the account. */
+  const { error, setError, google } = useAuthEffects({ requestSignUp: true });
   const notifyDevEmail = useDevEmailToast();
   const router = useRouter();
   const isSubmitting = form.formState.isSubmitting;
@@ -419,7 +423,11 @@ function SignUpForm({ callbackURL }: { callbackURL: string }) {
  * WHERE: Returned by AuthForm when EMAIL_AUTH_ENABLED is false.
  */
 function GoogleOnlyForm({ callbackURL }: { callbackURL: string }) {
-  const { error, setError, google } = useAuthEffects();
+  /* One button both creates and signs in (see WHY above), so it opts into
+   * sign-up. Moot while this surface renders — EMAIL_AUTH_ENABLED is false
+   * here, so the server-side guard is off — but it keeps the button honest if
+   * disableImplicitSignUp is ever decoupled from that flag. */
+  const { error, setError, google } = useAuthEffects({ requestSignUp: true });
 
   /* No `mode`: with the copy gone there is nothing left for it to switch, and
    * sign-in and sign-up now render byte-identical surfaces. */
@@ -616,8 +624,28 @@ function AuthFooter({
   );
 }
 
-/* Shared error state + Google handler. */
-function useAuthEffects() {
+/**
+ * SOURCE OF TRUTH KEYWORDS: useAuthEffects, requestSignUp,
+ *   disableImplicitSignUp, google sign-up, AuthEffectsOptions
+ *
+ * WHAT:  Shared error state + Google handler. `requestSignUp` declares whether
+ *        the calling surface may CREATE an account, not just sign one in.
+ * WHY:   auth.ts sets `disableImplicitSignUp: EMAIL_AUTH_ENABLED`, and Better
+ *        Auth resolves the callback as `disableImplicitSignUp && !requestSignUp`
+ *        — so with email auth on, a social sign-in that does not opt in is
+ *        REJECTED for anyone who has no account yet. The guard is deliberate
+ *        (it blocks the pre-registered-email account-linking takeover described
+ *        in auth.ts), so the sign-up surface opts in explicitly rather than the
+ *        guard being loosened. Sign-in stays opted out: a stranger on /sign-in
+ *        should be told to sign up, not silently given an account.
+ * WHERE: Called by SignInForm (false), SignUpForm (true) and GoogleOnlyForm
+ *        (true — one button both creates and signs in by design).
+ */
+interface AuthEffectsOptions {
+  requestSignUp: boolean;
+}
+
+function useAuthEffects({ requestSignUp }: AuthEffectsOptions) {
   const [error, setError] = React.useState<string | null>(null);
   const [isPending, setIsPending] = React.useState(false);
 
@@ -629,6 +657,7 @@ function useAuthEffects() {
       const { error: authError } = await authClient.signIn.social({
         provider: "google",
         callbackURL,
+        requestSignUp,
       });
       if (authError)
         setErr(authError.message ?? "Google sign-in failed. Try again.");

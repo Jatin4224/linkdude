@@ -5,24 +5,30 @@
  */
 
 /**
- * SOURCE OF TRUTH KEYWORDS: SignUpPage
+ * SOURCE OF TRUTH KEYWORDS: SignUpPage, redirectIfAuthenticated
  *
- * WHAT:  /sign-up route — renders AuthShell + AuthForm in sign-up mode.
- *        Hidden behind the proxy.ts redirect when REGISTRATION_OPEN=false,
- *        so reaching this file implies registration is open.
+ * WHAT:  /sign-up route — renders AuthShell + AuthForm in sign-up mode, unless
+ *        the visitor already has a session, in which case they go straight to
+ *        the dashboard. Hidden behind the proxy.ts redirect when
+ *        REGISTRATION_OPEN=false, so reaching this file implies registration
+ *        is open.
  * WHY:   Mirrors sign-in/page.tsx; keeps every page in (auth) cookie-cutter.
  * WHERE: Bounced to /sign-in by src/proxy.ts when REGISTRATION_OPEN=false.
+ *        Guard lives in src/lib/better-auth/session-guards.ts.
  */
 
 import type { Metadata } from "next";
 
 import { AuthForm, AuthShell } from "@/components/global/auth";
+import { redirectIfAuthenticated } from "@/lib/better-auth/session-guards";
 
 export const metadata: Metadata = {
   title: "Create account",
 };
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  await redirectIfAuthenticated();
+
   return (
     <AuthShell variant="action">
       <AuthForm mode="sign-up" />

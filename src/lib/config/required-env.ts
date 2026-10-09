@@ -214,6 +214,22 @@ export const OPTIONAL_ENV: readonly OptionalEnvVar[] = [
     ],
   },
   {
+    id: "resend",
+    label: "Transactional email (Resend)",
+    purpose:
+      "Optional. Without an API key no email is ever sent: verification, password-reset and team-invitation messages are skipped, and in local development the action link is surfaced in the UI instead (and email verification stops being enforced, so sign-up doesn't dead-end). An invitation can still be shared by copying its link by hand. Both keys matter — with a key but no from-address, sends fall back to Resend's sandbox sender, which only delivers to your own Resend account email and rejects everyone else.",
+    help: 'Create a Resend account, add and verify your sending domain (follow the DNS records it gives you), then create an API key. Set RESEND_FROM_EMAIL to a bare address on that verified domain — e.g. "hello@yourdomain.com", with no display name, since the app prepends the app name itself.',
+    icon: "Mail",
+    link: {
+      label: "Create a Resend account",
+      url: "https://resend.com/signup",
+    },
+    keys: [
+      { key: "RESEND_API_KEY", label: "API key" },
+      { key: "RESEND_FROM_EMAIL", label: "From address (verified domain)" },
+    ],
+  },
+  {
     id: "stripe",
     label: "Payments (Stripe)",
     purpose:

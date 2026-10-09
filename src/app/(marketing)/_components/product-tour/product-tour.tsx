@@ -193,6 +193,9 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
   const camera = React.useRef<HTMLDivElement | null>(null);
   const heroShift = React.useRef<HTMLDivElement | null>(null);
   const heroDim = React.useRef<HTMLDivElement | null>(null);
+  /* The tour's outer box — the one pulled up over the hero, and so the one
+     whose pointer-events decide whether the hero underneath can be clicked. */
+  const tourBox = React.useRef<HTMLDivElement | null>(null);
   const band = React.useRef<HTMLDivElement | null>(null);
   const topFade = React.useRef<HTMLDivElement | null>(null);
   const captions = React.useRef<(HTMLDivElement | null)[]>([]);
@@ -419,6 +422,26 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
          half dark — a button nobody can read is still a button that steals a
          click, and the mock is drawn over it by then. */
       write.inert(heroShift.current, heroOpacity < TOUR_ENTRY.heroInertAt);
+      /* AND THE STAGE STOPS SWALLOWING CLICKS WHILE THE HERO IS STILL THE
+         SCREEN — the other half of the same rule, off the same threshold so the
+         two can never disagree.
+         This stage is pulled up a whole viewport plus the peek, so its box
+         covers the hero's lower half from the FIRST PAINT, about 40svh down on
+         a 180svh hero. It is transparent there and paints nothing, but a
+         transparent box is still a hit target, and it outranks the hero: the
+         hero sits in a `z-0` wrapper and this is `z-1`, so the hero's own z-6
+         copy layer cannot climb out of its stacking context to beat it. The
+         hero's call to action was therefore visible and dead — a click landed
+         here and was silently discarded, with nothing in the console.
+         Letting pointer events through is safe in exactly the window `inert`
+         leaves open: past the halfway mark the hero is unreachable anyway, so
+         the stage takes the clicks back and nothing can reach a button that is
+         by then behind an opaque black sheet. */
+      write.toggle(
+        tourBox.current,
+        "pointer-events-none",
+        heroOpacity >= TOUR_ENTRY.heroInertAt,
+      );
 
       /* --- the camera --- */
       const view = frameAt(p, poses, reduced);
@@ -841,9 +864,20 @@ export function ProductTour({ children }: { children: React.ReactNode }) {
           the hero does — any later and the mock would have to appear from
           nowhere, any earlier and it would cover a hero still mid-sequence. */}
       <div
+        ref={tourBox}
         /* `tour-scope` lives HERE, not on the wrapper above: only the stage
            and its captions are dark, and the hero keeps the page's palette. */
-        className="tour-scope relative z-1"
+        /* STARTS PASSING CLICKS THROUGH, and the renderer owns it from the
+           first frame on — see `write.toggle` in render(). THIS box, not the
+           sticky stage inside it, is the one that has to carry it: it is the
+           outermost thing pulled up over the hero, so a stage that lets clicks
+           through still leaves this box catching them one level up.
+           It has to be the MARKUP's state rather than something JS sets on
+           mount, because the server paints this box over the hero's call to
+           action and a reader can reach it before hydration; shipped
+           interactive, that is a dead button for as long as the bundle takes
+           to arrive. */
+        className="tour-scope pointer-events-none relative z-1"
         style={{
           height: `calc(100svh + ${String(MARKETING_TOUR_RANGE_SVH)}svh)`,
           /* Pulled up by a viewport PLUS the peek, so the stage pins while the
