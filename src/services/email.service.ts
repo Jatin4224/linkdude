@@ -8,10 +8,12 @@ import "server-only";
 
 /**
  * SOURCE OF TRUTH KEYWORDS: sendVerificationEmail, sendPasswordResetEmail,
- *   sendOrganizationInvitationEmail, EmailSendResult, renderAndSend
+ *   sendOrganizationInvitationEmail, EmailSendResult, renderAndSend,
+ *   toPlainText, plaintext alternative, multipart email, deliverability
  *
  * WHAT:  The single transactional-email abstraction — renders a React Email
- *        template to HTML and sends it through Resend.
+ *        template to HTML plus a plaintext alternative and sends both through
+ *        Resend as one multipart message.
  * WHY:   Services only do one job; this one owns "turn a template + props into
  *        a delivered email". It fail-soft no-ops when Resend isn't configured
  *        (warns + returns a skipped result) so local dev runs without a key —
@@ -23,7 +25,7 @@ import "server-only";
  */
 
 import * as React from "react";
-import { render } from "@react-email/render";
+import { render, toPlainText } from "@react-email/render";
 import {
   getResendClient,
   RESEND_DEFAULT_FROM,
@@ -54,7 +56,7 @@ export interface EmailSendResult {
 
 const SKIPPED: EmailSendResult = { success: false, skipped: true };
 
-/* Renders the template to HTML and sends via Resend. No-ops (warns) when the
+/* Renders the template to HTML + plaintext and sends via Resend. No-ops (warns) when the
  * API key is unset so the surrounding flow (sign-up, invite) still succeeds —
  * and records the action link to the dev outbox so the UI can surface it. */
 async function renderAndSend(args: {
@@ -84,11 +86,18 @@ async function renderAndSend(args: {
 
   try {
     const html = await render(args.template);
+    /* Every send carries a plaintext alternative beside the HTML: an HTML-only
+     * transactional message is a well-known spam-filter heuristic, and clients
+     * that refuse HTML would otherwise show an empty body. Derived from the
+     * already-rendered HTML (toPlainText applies the same selectors
+     * render(..., { plainText: true }) would) so the template renders once. */
+    const text = toPlainText(html);
     const { data, error } = await client.emails.send({
       from: RESEND_DEFAULT_FROM,
       to: args.to,
       subject: args.subject,
       html,
+      text,
     });
     if (error) {
       console.error("[email] Resend send failed:", error);

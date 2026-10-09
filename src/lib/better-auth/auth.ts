@@ -31,7 +31,7 @@ import { headers } from "next/headers";
 
 import { prisma } from "@/lib/config";
 import { ac, roles } from "@/lib/better-auth/permissions";
-import { APP_URL, APP_NAME, APP_DOMAIN } from "@/lib/config/branding";
+import { APP_URL, APP_NAME } from "@/lib/config/branding";
 import { REGISTRATION_OPEN } from "@/lib/config/registration";
 import { EMAIL_AUTH_ENABLED } from "@/lib/config/auth-methods";
 import { isDevEmailFallbackActive } from "@/lib/config/resend";
@@ -107,15 +107,34 @@ function resolveGoogleProvider():
   return {};
 }
 
-const APP_DOMAIN_CONFIGURED =
-  typeof process.env["NEXT_PUBLIC_APP_DOMAIN"] === "string" &&
-  process.env["NEXT_PUBLIC_APP_DOMAIN"].length > 0;
+/**
+ * SOURCE OF TRUTH KEYWORDS: COOKIE_DOMAIN, NEXT_PUBLIC_APP_DOMAIN,
+ *   crossSubDomainCookies, cookie scope, apex domain, trustedOrigins
+ *
+ * WHAT:  The bare apex this deployment scopes auth cookies to, taken from
+ *        NEXT_PUBLIC_APP_DOMAIN. Empty string ⇒ cross-subdomain mode is off
+ *        and cookies stay host-only.
+ * WHY:   This used to read branding's APP_DOMAIN, which is the HOSTNAME OF
+ *        NEXT_PUBLIC_APP_URL — so NEXT_PUBLIC_APP_DOMAIN acted as a boolean
+ *        switch while its value was discarded. On a www-canonical deploy
+ *        (APP_URL = https://www.example.com) that produced the cookie domain
+ *        ".www.example.com", which does NOT cover the apex — the exact
+ *        cross-host case the setting exists to fix. The env var's value is now
+ *        the source of truth; a leading dot is stripped so both "example.com"
+ *        and ".example.com" resolve to the same scope instead of the second
+ *        silently yielding "..example.com".
+ * WHERE: Drives advanced.crossSubDomainCookies and the trustedOrigins wildcard
+ *        below — both gated together, since advertising cross-subdomain trust
+ *        without the env to back it up is a footgun.
+ */
+const COOKIE_DOMAIN = (process.env["NEXT_PUBLIC_APP_DOMAIN"] ?? "")
+  .trim()
+  .replace(/^\.+/, "");
 
-/* Cross-subdomain mode + the matching trustedOrigins wildcard are both
- * gated on NEXT_PUBLIC_APP_DOMAIN — advertising cross-subdomain trust without
- * the env to back it up is a footgun. */
+const APP_DOMAIN_CONFIGURED = COOKIE_DOMAIN.length > 0;
+
 const crossSubDomainCookies = APP_DOMAIN_CONFIGURED
-  ? { enabled: true as const, domain: `.${APP_DOMAIN}` }
+  ? { enabled: true as const, domain: `.${COOKIE_DOMAIN}` }
   : { enabled: false as const };
 
 /**
@@ -229,7 +248,17 @@ export const auth = betterAuth({
     process.env.NODE_ENV === "development"
       ? ["*"]
       : APP_DOMAIN_CONFIGURED
-        ? [APP_URL, `https://*.${APP_DOMAIN}`]
+        ? /* The apex is listed alongside the wildcard: `*.example.com` matches
+           * subdomains only, so without it an apex-served request would be
+           * refused even though its cookies are scoped to reach here. Deduped
+           * because APP_URL is often one of the two. */
+          [
+            ...new Set([
+              APP_URL,
+              `https://${COOKIE_DOMAIN}`,
+              `https://*.${COOKIE_DOMAIN}`,
+            ]),
+          ]
         : [APP_URL],
 });
 

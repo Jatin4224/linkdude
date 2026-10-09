@@ -29,6 +29,7 @@ import {
   ExternalLinkIcon,
   ImageIcon,
   KeyRoundIcon,
+  MailIcon,
   PlayCircleIcon,
   ShieldCheckIcon,
   SparklesIcon,
@@ -50,6 +51,7 @@ const SETUP_ICONS: Record<string, LucideIcon> = {
   Image: ImageIcon,
   Clock: ClockIcon,
   Sparkles: SparklesIcon,
+  Mail: MailIcon,
 };
 
 function iconFor(name: string): LucideIcon {
