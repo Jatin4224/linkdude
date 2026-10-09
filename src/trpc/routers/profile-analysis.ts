@@ -68,8 +68,12 @@ export const profileAnalysisRouter = createTRPCRouter({
     requirePermission: permissions.PROFILE_ANALYSIS_CREATE,
     /* The model call runs inside the factory's mutation tx, so the tx stays open
      * for the full round trip and the 10s default would expire mid-analysis.
-     * Structured output over a whole profile is slower than drafting a post. */
-    txTimeout: 60_000,
+     * Structured output over a whole profile is slower than drafting a post.
+     * Must exceed PROFILE_ANALYSIS_TIMEOUT_MS (90s) in ai.service.ts, or the
+     * transaction dies before the SDK's own abort fires and a clean "generation
+     * timed out" turns into an opaque Prisma error — the same relationship
+     * contentPlan.create keeps with CONTENT_PLAN_TIMEOUT_MS. */
+    txTimeout: 110_000,
   })
     .input(
       analyzeProfileSchema.and(z.object({ organizationId: z.string().min(1) })),

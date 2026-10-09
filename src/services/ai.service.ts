@@ -925,6 +925,33 @@ export interface AnalyzeProfileOptions {
   deepInsights: boolean;
 }
 
+/**
+ * SOURCE OF TRUTH KEYWORDS: PROFILE_ANALYSIS_MAX_TOKENS,
+ *   PROFILE_ANALYSIS_TIMEOUT_MS, AI_OUTPUT_UNUSABLE, truncated JSON
+ *
+ * WHAT:  The output budget and time ceiling for one profile analysis.
+ * WHY:   This task ran on the global AI_MAX_TOKENS (4096) and truncated. That
+ *        global is sized for a LinkedIn post's 3000 characters, and this schema
+ *        is far larger: `improvements` alone admits 14 entries of up to 900
+ *        characters, the About rewrite up to 2600, and with deep insights up to
+ *        4 sections each carrying 5 rewrites of up to 2000. The budget ran out
+ *        mid-object, the half-written JSON failed schema validation, and the
+ *        user saw "the AI returned an analysis we couldn't read" — a message
+ *        that names the symptom and hides the cause. Raising it per-task rather
+ *        than globally keeps every other call's worst case where it is.
+ *
+ *        Both branches use the same ceiling even though the locked branch omits
+ *        sectionInsights: that branch's remaining maxima still clear 4096 on
+ *        their own, so it was failing too. Overshooting costs nothing — output
+ *        is billed on tokens produced, not on the ceiling — and on Gemini, whose
+ *        default thinking budget draws from this same allowance, the headroom
+ *        has to cover the reasoning as well as the answer.
+ * WHERE: analyzeLinkedInProfile. Paired with txTimeout on
+ *        profileAnalysis.create, which must exceed PROFILE_ANALYSIS_TIMEOUT_MS.
+ */
+const PROFILE_ANALYSIS_MAX_TOKENS = 16_000;
+const PROFILE_ANALYSIS_TIMEOUT_MS = 90_000;
+
 export async function analyzeLinkedInProfile(
   input: AnalyzeProfileValues,
   options: AnalyzeProfileOptions,
@@ -942,6 +969,8 @@ export async function analyzeLinkedInProfile(
     const base = await generateStructured({
       system: PROFILE_ANALYSIS_SYSTEM_PROMPT,
       prompt,
+      maxOutputTokens: PROFILE_ANALYSIS_MAX_TOKENS,
+      timeoutMs: PROFILE_ANALYSIS_TIMEOUT_MS,
       schema: profileAnalysisSchema.omit({ sectionInsights: true }),
     });
     return profileAnalysisSchema.parse(base);
@@ -959,6 +988,8 @@ export async function analyzeLinkedInProfile(
   const result = await generateStructured({
     system: PROFILE_ANALYSIS_SYSTEM_PROMPT,
     prompt: `${prompt}\n\nAlso critique ${sectionNames}. For each, return one verdict and a rewritten version of the entries worth rewriting — set "target" to the exact title of the entry you are replacing, copied from the list above. Only cover ${sectionNames}; leave every other section out.`,
+    maxOutputTokens: PROFILE_ANALYSIS_MAX_TOKENS,
+    timeoutMs: PROFILE_ANALYSIS_TIMEOUT_MS,
     schema: profileAnalysisSchema.extend({
       sectionInsights: sectionInsightSchema
         .array()
